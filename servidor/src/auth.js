@@ -46,4 +46,13 @@ export const auth = betterAuth({
     window: 60,
     max: 20,
   },
+
+  advanced: {
+    ipAddress: {
+      // Detrás del proxy de Render, la conexión siempre viene de la misma IP
+      // interna. Sin esto el límite de intentos cae en un balde único y
+      // compartido: un solo atacante dejaría afuera a todos los demás.
+      ipAddressHeaders: ['x-forwarded-for'],
+    },
+  },
 });

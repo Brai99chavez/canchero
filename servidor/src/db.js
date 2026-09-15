@@ -14,8 +14,11 @@ if (!url) {
 
 export const pool = new pg.Pool({
   connectionString: url,
-  // Neon siempre pide TLS. Sin esto la conexión se rechaza.
-  ssl: { rejectUnauthorized: false },
+  // Neon siempre pide TLS y su certificado lo firma una autoridad de verdad,
+  // así que se verifica entero. Apagar la verificación es lo que suele
+  // ponerse para que "ande", y deja la conexión abierta a que alguien se meta
+  // en el medio.
+  ssl: { rejectUnauthorized: true },
   // El plan gratis de Neon corta las conexiones ociosas; mejor pocas y que se
   // cierren solas antes de que las cierre el otro lado.
   max: 5,

@@ -6,7 +6,8 @@
   "description": "API de CANCHERO: cuentas y respaldo de planteles.",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "prueba": "node prueba.mjs"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.5",
