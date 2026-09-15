@@ -87,6 +87,30 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+/** Flecha hacia abajo sobre una base: guardar en el teléfono. */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M12 3v11" />
+      <Path d="M7.5 9.8l4.5 4.4 4.5-4.4" />
+      <Path d="M4 20h16" />
+    </Trazo>
+  );
+}
+
+/** Tres nodos unidos: compartir. */
+export function ShareIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Circle cx="18" cy="5.5" r="2.5" />
+      <Circle cx="6" cy="12" r="2.5" />
+      <Circle cx="18" cy="18.5" r="2.5" />
+      <Path d="M8.3 10.8l7.4-4" />
+      <Path d="M8.3 13.2l7.4 4" />
+    </Trazo>
+  );
+}
+
 /** Flecha que entra a una bandeja: importar. */
 export function ImportIcon(props: IconProps) {
   return (
@@ -143,6 +167,28 @@ export function CheckListIcon(props: IconProps) {
       <Path d="M3 12h8" />
       <Path d="M3 17h6" />
       <Path d="M14 16.8l2.2 2.2L21 14" />
+    </Trazo>
+  );
+}
+
+/** Un ojo: mostrar la contraseña. */
+export function EyeIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <Circle cx="12" cy="12" r="3" />
+    </Trazo>
+  );
+}
+
+/** El mismo ojo tachado: ocultarla. */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M10.7 6.1A8.6 8.6 0 0112 6c6 0 9.5 6 9.5 6a17 17 0 01-3 3.6" />
+      <Path d="M6.8 7.9A17 17 0 002.5 12S6 18 12 18a8.9 8.9 0 003.5-.7" />
+      <Path d="M9.9 9.9a3 3 0 004.2 4.2" />
+      <Path d="M3.5 3.5l17 17" />
     </Trazo>
   );
 }

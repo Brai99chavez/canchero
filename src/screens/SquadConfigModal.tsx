@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -15,11 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderModal from '../components/HeaderModal';
-import { exportar } from '../backup';
 import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
 import { Squad } from '../types';
+import ExportarModal from './ExportarModal';
 
 export interface CambiosPlantel {
   nombre: string;
@@ -46,7 +45,7 @@ export default function SquadConfigModal({
   // Todo se edita en borrador y recién se aplica con Guardar.
   const [nombre, setNombre] = useState('');
   const [predeterminado, setPredeterminado] = useState(false);
-  const [trabajando, setTrabajando] = useState(false);
+  const [exportarVisible, setExportarVisible] = useState(false);
 
   useEffect(() => {
     if (!visible || !plantel) return;
@@ -80,26 +79,13 @@ export default function SquadConfigModal({
     ]);
   }
 
-  async function handleExportar() {
+  function handleExportar() {
     if (!plantel) return;
     if (plantel.jugadores.length === 0) {
       Alert.alert('Nada para exportar', 'Este plantel no tiene jugadores.');
       return;
     }
-    setTrabajando(true);
-    try {
-      const compartido = await exportar([plantel]);
-      if (!compartido) {
-        Alert.alert(
-          'No se puede compartir',
-          'Este dispositivo no tiene con qué compartir archivos.'
-        );
-      }
-    } catch (error) {
-      Alert.alert('No se pudo exportar', String(error));
-    } finally {
-      setTrabajando(false);
-    }
+    setExportarVisible(true);
   }
 
   function handleBorrar() {
@@ -175,12 +161,7 @@ export default function SquadConfigModal({
               {plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'}. Guarda
               nombre, posición y stats; las fotos quedan en el teléfono.
             </Text>
-            <Button
-              title="Exportar este plantel"
-              onPress={handleExportar}
-              disabled={trabajando}
-            />
-            {trabajando ? <ActivityIndicator color={colors.primary} /> : null}
+            <Button title="Exportar este plantel" onPress={handleExportar} />
 
             <Seccion>Zona peligrosa</Seccion>
             <Button
@@ -191,6 +172,12 @@ export default function SquadConfigModal({
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <ExportarModal
+        visible={exportarVisible}
+        plantel={plantel}
+        onClose={() => setExportarVisible(false)}
+      />
     </Modal>
   );
 }

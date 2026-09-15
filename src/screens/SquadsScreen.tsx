@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -8,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { importar } from '../backup';
 import {
   GearIcon,
   ImportIcon,
@@ -26,6 +24,7 @@ import { Aparecer, Presionable } from '../components/motion';
 import { EmptyState } from '../components/ui';
 import { angulo, colors, degradados, radius, spacing } from '../theme';
 import { Squad } from '../types';
+import ImportarModal from './ImportarModal';
 
 interface Props {
   planteles: Squad[];
@@ -63,7 +62,7 @@ export default function SquadsScreen({
   onImportar,
   onReiniciar,
 }: Props) {
-  const [trabajando, setTrabajando] = useState(false);
+  const [importarVisible, setImportarVisible] = useState(false);
 
   const totalJugadores = planteles.reduce(
     (acc, p) => acc + p.jugadores.length,
@@ -95,30 +94,6 @@ export default function SquadsScreen({
         },
       ]
     );
-  }
-
-  async function handleImportar() {
-    setTrabajando(true);
-    try {
-      const resultado = await importar();
-      if (!resultado) return;
-      onImportar(resultado.planteles);
-      Alert.alert(
-        'Listo',
-        `Se agregaron ${resultado.planteles.length} ${
-          resultado.planteles.length === 1 ? 'plantel' : 'planteles'
-        } con ${resultado.jugadores} jugadores` +
-          (resultado.partidos > 0
-            ? ` y ${resultado.partidos} ${
-                resultado.partidos === 1 ? 'partido' : 'partidos'
-              } de historial.`
-            : '.')
-      );
-    } catch (error) {
-      Alert.alert('No se pudo importar', String(error));
-    } finally {
-      setTrabajando(false);
-    }
   }
 
   return (
@@ -154,8 +129,7 @@ export default function SquadsScreen({
             </Presionable>
           ) : null}
           <Presionable
-            onPress={handleImportar}
-            disabled={trabajando}
+            onPress={() => setImportarVisible(true)}
             style={styles.iconoBoton}
             accessibilityLabel="Importar planteles"
           >
@@ -171,10 +145,6 @@ export default function SquadsScreen({
           </Objetivo>
         </View>
       </View>
-
-      {trabajando ? (
-        <ActivityIndicator color={colors.primary} style={styles.cargando} />
-      ) : null}
 
       <FlatList
         data={planteles}
@@ -246,6 +216,12 @@ export default function SquadsScreen({
           );
         }}
       />
+
+      <ImportarModal
+        visible={importarVisible}
+        onClose={() => setImportarVisible(false)}
+        onImportar={onImportar}
+      />
     </View>
   );
 }
@@ -301,7 +277,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  cargando: { marginBottom: spacing.sm },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,

@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Seccion } from '../components/Banner';
 import HeaderModal from '../components/HeaderModal';
+import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { Button } from '../components/ui';
 import { entrar, registrarse, salir, Sesion } from '../nube/cuenta';
 import { colors, fuentes, radius, spacing } from '../theme';
@@ -43,11 +45,13 @@ export default function CuentaModal({
   const [email, setEmail] = useState('');
   const [clave, setClave] = useState('');
   const [trabajando, setTrabajando] = useState(false);
+  const [verClave, setVerClave] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setClave('');
       setTrabajando(false);
+      setVerClave(false);
     }
   }, [visible]);
 
@@ -175,20 +179,36 @@ export default function CuentaModal({
                   keyboardType="email-address"
                   inputMode="email"
                 />
-                <TextInput
-                  value={clave}
-                  onChangeText={setClave}
-                  placeholder="Contraseña (mínimo 8)"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  onSubmitEditing={
-                    modo === 'entrar' ? handleEntrar : handleRegistro
-                  }
-                  returnKeyType="done"
-                />
+                <View style={styles.campoClave}>
+                  <TextInput
+                    value={clave}
+                    onChangeText={setClave}
+                    placeholder="Contraseña (mínimo 8)"
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.input, styles.inputClave]}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!verClave}
+                    onSubmitEditing={
+                      modo === 'entrar' ? handleEntrar : handleRegistro
+                    }
+                    returnKeyType="done"
+                  />
+                  <Pressable
+                    onPress={() => setVerClave((v) => !v)}
+                    hitSlop={10}
+                    style={styles.ojo}
+                    accessibilityLabel={
+                      verClave ? 'Ocultar contraseña' : 'Ver contraseña'
+                    }
+                  >
+                    {verClave ? (
+                      <EyeOffIcon color={colors.textMuted} size={20} />
+                    ) : (
+                      <EyeIcon color={colors.textMuted} size={20} />
+                    )}
+                  </Pressable>
+                </View>
 
                 <Button
                   title={modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
@@ -223,6 +243,10 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   seccion: { marginTop: spacing.xl },
   mail: { color: colors.text, fontSize: 16, fontFamily: fuentes.bold },
+  campoClave: { justifyContent: 'center' },
+  // Sitio para el ojo, que va encima y no empuja el texto.
+  inputClave: { paddingRight: 46 },
+  ojo: { position: 'absolute', right: 0, paddingHorizontal: spacing.md },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,

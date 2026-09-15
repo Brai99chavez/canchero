@@ -64,9 +64,18 @@ Para Android con emulador: `npm run android`.
 
 ## Respaldo: exportar e importar
 
-Se exporta a un archivo JSON, que sale por el menú de compartir del teléfono
-(WhatsApp, Drive, mail, lo que tengas), desde la tuerca de cada plantel.
-Importar está en la lista. Sirve para no perder los datos si desinstalás la app y para pasarle el
+Se exporta **un plantel por vez**, desde su tuerca. El botón abre una hoja con
+dos caminos: **guardar en el teléfono**, que abre el selector de carpetas del
+sistema para dejarlo en Descargas o donde quieras, o **compartir**, que abre el
+menú del teléfono (WhatsApp, Drive, mail).
+
+Va por el selector y no directo a la carpeta de descargas porque una app no
+puede escribir ahí por su cuenta: Android no se lo permite desde hace varias
+versiones. El selector además deja elegir, que termina siendo mejor que decidir
+por el otro.
+
+Importar está en la lista de planteles, y también abre una hoja que explica qué
+va a pasar antes de mandar a buscar el archivo. Sirve para no perder los datos si desinstalás la app y para pasarle el
 plantel a otra persona.
 
 El archivo guarda nombre, posición y stats de cada jugador, **y el historial de

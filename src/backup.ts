@@ -72,8 +72,8 @@ function nombreArchivo(planteles: Squad[]): string {
   return `canchero-${base || 'plantel'}-${fecha}.json`;
 }
 
-/** Escribe el JSON en un archivo temporal y abre el menú de compartir. */
-export async function exportar(planteles: Squad[]): Promise<boolean> {
+/** Deja el JSON escrito en la carpeta temporal y devuelve el archivo. */
+function aTemporal(planteles: Squad[]): File {
   const carpeta = new Directory(Paths.cache, 'export');
   if (!carpeta.exists) carpeta.create({ intermediates: true, idempotent: true });
 
@@ -81,13 +81,49 @@ export async function exportar(planteles: Squad[]): Promise<boolean> {
   if (archivo.exists) archivo.delete();
   archivo.create();
   archivo.write(JSON.stringify(aArchivo(planteles), null, 2));
+  return archivo;
+}
 
+/** Abre el menú de compartir del teléfono: WhatsApp, Drive, mail, lo que haya. */
+export async function compartir(planteles: Squad[]): Promise<boolean> {
+  const archivo = aTemporal(planteles);
   if (!(await Sharing.isAvailableAsync())) return false;
   await Sharing.shareAsync(archivo.uri, {
     mimeType: 'application/json',
     dialogTitle: 'Compartir plantel',
   });
   return true;
+}
+
+/**
+ * Guarda el JSON donde la persona elija: Descargas, Drive, una carpeta suya.
+ *
+ * Va por el selector del sistema y no directo a la carpeta de descargas
+ * porque una app no puede escribir ahí por su cuenta —Android no se lo
+ * permite desde hace varias versiones—. El selector además deja elegir, que
+ * termina siendo mejor que decidir por el otro.
+ *
+ * Devuelve el nombre de la carpeta elegida, o `null` si se arrepintió.
+ */
+export async function descargar(planteles: Squad[]): Promise<string | null> {
+  let carpeta: Directory;
+  try {
+    carpeta = await Directory.pickDirectoryAsync();
+  } catch (error) {
+    // Cerrar el selector llega como error. No es una falla: no hay nada que
+    // avisar cuando alguien decide no guardar.
+    const mensaje = String(error).toLowerCase();
+    if (mensaje.includes('cancel') || mensaje.includes('dismiss')) return null;
+    throw error;
+  }
+  if (!carpeta) return null;
+
+  const archivo = carpeta.createFile(
+    nombreArchivo(planteles),
+    'application/json'
+  );
+  archivo.write(JSON.stringify(aArchivo(planteles), null, 2));
+  return carpeta.name || 'la carpeta elegida';
 }
 
 function numero(valor: any, minimo = 0): number {
