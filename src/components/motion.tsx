@@ -5,6 +5,7 @@ import {
   Pressable,
   PressableProps,
   StyleProp,
+  StyleSheet,
   ViewStyle,
 } from 'react-native';
 import { tiempos } from '../theme';
@@ -32,6 +33,20 @@ export function Presionable({
 }) {
   const anim = useRef(new Animated.Value(1)).current;
 
+  /**
+   * El `transform` que venga en el estilo se conserva y la escala se suma
+   * atrás.
+   *
+   * Poniendo `{ transform: [{ scale }] }` a secas, el del estilo desaparece:
+   * es la misma propiedad y gana el último. Media app inclina sus botones con
+   * `skewX` ahí, y esa inclinación se perdía — en las pastillas del plantel
+   * saltaba a la vista, porque el texto va contra-inclinado y sin su padre
+   * quedaba torcido al revés.
+   */
+  const aplanado = (StyleSheet.flatten(style) ?? {}) as ViewStyle;
+  const { transform: propio, ...resto } = aplanado;
+  const transformaciones = Array.isArray(propio) ? propio : [];
+
   const animar = (hacia: number) =>
     Animated.spring(anim, {
       toValue: hacia,
@@ -51,7 +66,15 @@ export function Presionable({
         animar(1);
         props.onPressOut?.(e);
       }}
-      style={[style, { transform: [{ scale: anim }] }]}
+      style={[
+        resto,
+        {
+          // El cast es por los tipos de Animated: no saben describir una lista
+          // que mezcla valores fijos con uno animado, aunque en tiempo de
+          // ejecución es exactamente lo que espera.
+          transform: [...transformaciones, { scale: anim }] as ViewStyle['transform'],
+        },
+      ]}
     >
       {children}
     </PressableAnimado>

@@ -96,6 +96,10 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            // Sin esto se estira y se queda con el alto que le sobra a la
+            // lista: un ScrollView adentro de una columna crece hasta llenar
+            // lo que haya, y la lista quedaba flotando en el medio.
+            style={styles.filtrosCaja}
             contentContainerStyle={styles.filtros}
             keyboardShouldPersistTaps="handled"
           >
@@ -130,6 +134,7 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        style={styles.lista}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
@@ -235,6 +240,7 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
+  filtrosCaja: { flexGrow: 0, flexShrink: 0 },
   filtros: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,6 +314,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: colors.text,
   },
+  lista: { flex: 1 },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
