@@ -31,12 +31,18 @@ function Columna({
         <Text style={[styles.equipo, { color }]}>{nombre}</Text>
         <Text style={styles.media}>{teamOverall(players)}</Text>
       </View>
+      {/*
+        Sin el puntaje de cada uno. La imagen va al grupo entero, y ver que a
+        uno le pusieron 62 al lado de un 88 no le suma nada al partido. La
+        media del equipo sí queda: sirve para ver que el reparto fue parejo,
+        que es lo que la imagen tiene que comunicar.
+      */}
       {players.map((p) => (
         <View key={p.id} style={styles.fila}>
           <Text style={styles.nombre} numberOfLines={1}>
             {p.nombre}
           </Text>
-          <Text style={styles.puntaje}>{overall(p)}</Text>
+          <Text style={styles.posicion}>{p.posicion}</Text>
         </View>
       ))}
     </View>
@@ -127,11 +133,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   nombre: { color: colors.text, fontSize: 13, fontFamily: 'Barlow_400Regular', flexShrink: 1 },
-  puntaje: {
+  posicion: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontFamily: 'Barlow_800ExtraBold',
-    marginLeft: 6,
+    fontSize: 12,
+    fontFamily: 'Barlow_700Bold',
+    letterSpacing: 0.5,
   },
   banco: {
     color: colors.textMuted,

@@ -34,6 +34,8 @@ interface Props {
   split: TeamSplit | null;
   format: Format;
   plantel: string;
+  /** La media corregida por resultados, por jugador. */
+  medias: Record<string, number>;
   guardado: boolean;
   onClose: () => void;
   onReshuffle: () => void;
@@ -44,13 +46,28 @@ interface Props {
 
 type Vista = 'lista' | 'cancha';
 
+/** El promedio del equipo con las medias ya corregidas por resultados. */
+function mediaDeEquipo(
+  players: Player[],
+  medias: Record<string, number>
+): number {
+  if (players.length === 0) return 0;
+  const total = players.reduce(
+    (a, p) => a + (medias[p.id] ?? overall(p)),
+    0
+  );
+  return Math.round(total / players.length);
+}
+
 /** Fila de jugador que se puede tocar para permutarlo con otro. */
 function Fila({
   player,
+  media,
   elegido,
   onPress,
 }: {
   player: Player;
+  media: number;
   elegido: boolean;
   onPress: () => void;
 }) {
@@ -63,7 +80,7 @@ function Fila({
         {player.nombre}
       </Text>
       <PositionPill position={player.posicion} />
-      <Text style={styles.playerOvr}>{overall(player)}</Text>
+      <Text style={styles.playerOvr}>{media}</Text>
     </Pressable>
   );
 }
@@ -72,12 +89,14 @@ function TeamCard({
   name,
   color,
   players,
+  medias,
   elegidoId,
   onTocar,
 }: {
   name: string;
   color: string;
   players: Player[];
+  medias: Record<string, number>;
   elegidoId: string | null;
   onTocar: (id: string) => void;
 }) {
@@ -93,13 +112,14 @@ function TeamCard({
           <View style={[styles.teamDot, { backgroundColor: color }]} />
           <Text style={styles.teamName}>{name.toUpperCase()}</Text>
         </View>
-        <RatingBadge value={teamOverall(players)} size={44} />
+        <RatingBadge value={mediaDeEquipo(players, medias)} size={44} />
       </View>
 
       {players.map((p) => (
         <Fila
           key={p.id}
           player={p}
+          media={medias[p.id] ?? overall(p)}
           elegido={p.id === elegidoId}
           onPress={() => onTocar(p.id)}
         />
@@ -122,12 +142,14 @@ function TeamPitch({
   name,
   color,
   players,
+  medias,
   elegidoId,
   onTocar,
 }: {
   name: string;
   color: string;
   players: Player[];
+  medias: Record<string, number>;
   elegidoId: string | null;
   onTocar: (id: string) => void;
 }) {
@@ -143,10 +165,11 @@ function TeamPitch({
           <View style={[styles.teamDot, { backgroundColor: color }]} />
           <Text style={styles.teamName}>{name.toUpperCase()}</Text>
         </View>
-        <RatingBadge value={teamOverall(players)} size={44} />
+        <RatingBadge value={mediaDeEquipo(players, medias)} size={44} />
       </View>
       <Pitch
         players={players}
+        medias={medias}
         color={color}
         elegidoId={elegidoId}
         onTocar={onTocar}
@@ -156,7 +179,8 @@ function TeamPitch({
 }
 
 function buildShareText(split: TeamSplit, format: Format): string {
-  const line = (p: Player) => `• ${p.nombre} (${p.posicion}) ${overall(p)}`;
+  // Sin el puntaje de cada uno, por lo mismo que la imagen: esto va al grupo.
+  const line = (p: Player) => `• ${p.nombre} (${p.posicion})`;
   const parts = [
     `Fútbol ${format} — equipos armados`,
     '',
@@ -177,6 +201,7 @@ export default function TeamsModal({
   split,
   format,
   plantel,
+  medias,
   guardado,
   onClose,
   onReshuffle,
@@ -290,6 +315,7 @@ export default function TeamsModal({
                 name="Equipo A"
                 color={colors.teamA}
                 players={split.teamA}
+                medias={medias}
                 elegidoId={elegidoId}
                 onTocar={tocarJugador}
               />
@@ -297,6 +323,7 @@ export default function TeamsModal({
                 name="Equipo B"
                 color={colors.teamB}
                 players={split.teamB}
+                medias={medias}
                 elegidoId={elegidoId}
                 onTocar={tocarJugador}
               />
@@ -307,6 +334,7 @@ export default function TeamsModal({
                 name="Equipo A"
                 color={colors.teamA}
                 players={split.teamA}
+                medias={medias}
                 elegidoId={elegidoId}
                 onTocar={tocarJugador}
               />
@@ -314,6 +342,7 @@ export default function TeamsModal({
                 name="Equipo B"
                 color={colors.teamB}
                 players={split.teamB}
+                medias={medias}
                 elegidoId={elegidoId}
                 onTocar={tocarJugador}
               />
@@ -331,6 +360,7 @@ export default function TeamsModal({
                 <Fila
                   key={p.id}
                   player={p}
+                  media={medias[p.id] ?? overall(p)}
                   elegido={p.id === elegidoId}
                   onPress={() => tocarJugador(p.id)}
                 />

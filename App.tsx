@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { buildTeams } from './src/balance';
-import { ajustesDe, elosDe } from './src/elo';
+import { ajustesDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
@@ -219,6 +219,13 @@ function Root() {
     [players, partidos]
   );
 
+  /** Lo mismo pero sólo el número, que es lo que piden las pantallas. */
+  const medias = useMemo(() => {
+    const salida: Record<string, number> = {};
+    for (const id in ajustes) salida[id] = ajustes[id].elo;
+    return salida;
+  }, [ajustes]);
+
   /** Aplica un cambio sólo al plantel que se está usando. */
   const editarPlantel = useCallback(
     (cambio: (plantel: Squad) => Squad) => {
@@ -373,7 +380,7 @@ function Root() {
           usarTodos,
           bancoPrevio: bancoPrevio(partidos),
           duplasPrevias: duplasPrevias(partidos),
-          elo: elosDe(players, partidos),
+          elo: medias,
           avoid,
         }),
         null
@@ -732,6 +739,7 @@ function Root() {
           <HistoryScreen
             players={players}
             partidos={partidos}
+            ajustes={ajustes}
             vista={tab}
             onCargarResultado={(partido) => setResultadoId(partido.id)}
             onBorrarPartidos={handleBorrarPartidos}
@@ -755,6 +763,7 @@ function Root() {
         ) : (
           <MatchScreen
             players={players}
+            ajustes={ajustes}
             format={format}
             onFormatChange={setFormat}
             usarTodos={usarTodos}
@@ -775,6 +784,7 @@ function Root() {
       <PlayerFormModal
         visible={formVisible}
         player={editing}
+        ajuste={editing ? ajustes[editing.id] : undefined}
         resumen={editing ? resumenDe(editing.id, partidos) : undefined}
         onClose={() => {
           setFormVisible(false);
@@ -826,6 +836,7 @@ function Root() {
         split={split}
         format={format}
         plantel={activo?.nombre ?? 'Plantel'}
+        medias={medias}
         guardado={guardadoId !== null}
         onClose={() => setTeamsVisible(false)}
         onReshuffle={handleReshuffle}

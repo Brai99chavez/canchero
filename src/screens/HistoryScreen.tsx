@@ -16,11 +16,14 @@ import {
   tieneResultado,
 } from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
-import { overall, Partido, Player } from '../types';
+import { Ajuste, mediaDe } from '../elo';
+import { Partido, Player } from '../types';
 
 interface Props {
   players: Player[];
   partidos: Partido[];
+  /** La media corregida por resultados, para mostrar la misma en todos lados. */
+  ajustes: Record<string, Ajuste>;
   /** Qué mirar: lo elige la barra de abajo, que tiene una pestaña por vista. */
   vista: Pestania;
   onCargarResultado: (partido: Partido) => void;
@@ -67,6 +70,7 @@ function Forma({ ultimos }: { ultimos: Signo[] }) {
 export default function HistoryScreen({
   players,
   partidos,
+  ajustes,
   vista,
   onCargarResultado,
   onBorrarPartidos,
@@ -254,7 +258,7 @@ export default function HistoryScreen({
           }
           renderItem={({ item }) => (
             <View style={styles.filaTabla}>
-              <RatingBadge value={overall(item.jugador)} />
+              <RatingBadge value={mediaDe(item.jugador, ajustes)} />
               <View style={styles.filaTexto}>
                 <Text style={styles.nombre} numberOfLines={1}>
                   {item.jugador.nombre}

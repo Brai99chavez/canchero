@@ -154,3 +154,11 @@ export function elosDe(
   for (const id in ajustes) salida[id] = ajustes[id].elo;
   return salida;
 }
+
+/**
+ * La media a mostrar, resuelta contra el mapa de ajustes. Si no hay partidos
+ * suficientes devuelve la que cargaste, que es lo mismo que el ajuste en cero.
+ */
+export function mediaDe(p: Player, ajustes: Record<string, Ajuste>): number {
+  return ajustes[p.id]?.elo ?? overall(p);
+}

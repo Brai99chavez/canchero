@@ -298,10 +298,25 @@ que importa: es cuánto le creés a los resultados por encima de tu ojo.
 deshace solo, corregir las stats de alguien mueve su número con ellas, y el
 respaldo ya lo lleva sin hacer nada — porque lleva los partidos.
 
-El sorteo usa este número, que es el punto: si con alguien el equipo pierde más
-de lo que debería, el sorteo se entera. Al editar un jugador siempre se ve la
-media base — mostrar la corregida haría que al guardar se hornee el ajuste
-adentro y se vuelva a sumar encima.
+**Es el único número que se muestra en toda la app**: la lista, la tabla, la
+convocatoria, la cancha, los equipos y la carta usan el corregido. Dos números
+compitiendo en seis pantallas se vuelve un lío, y el mismo jugador mostrando 75
+acá y 81 allá es peor que no tener nada.
+
+Las dos excepciones son a propósito: **al editar** se ve la media base, porque
+es la que se está tocando — mostrar la corregida haría que al guardar se hornee
+el ajuste adentro y se sume encima. Y en la **ficha del jugador** hay una línea
+que explica de dónde sale el número y cuál es tu media. Eso es lo que faltó la
+vez anterior: un número que se mueve solo y no dice por qué termina
+desconfiando a cualquiera.
+
+El sorteo lo usa, que es el punto: si con alguien el equipo pierde más de lo
+que debería, el sorteo se entera.
+
+**En lo que se comparte no va ningún puntaje individual.** Ni en la imagen ni
+en el texto: eso va al grupo entero, y ver que a uno le pusieron 62 al lado de
+un 88 no le suma nada al partido. La media del equipo sí queda, que es lo que
+muestra que el reparto fue parejo.
 
 Un límite honesto: si los mismos cinco juegan siempre juntos, ningún método
 puede repartir la culpa entre ellos. Por eso importa que el sorteo rote las

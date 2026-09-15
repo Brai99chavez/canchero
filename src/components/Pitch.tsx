@@ -34,11 +34,14 @@ function armarLineas(players: Player[]): { jugadores: Player[]; y: number }[] {
 
 export default function Pitch({
   players,
+  medias,
   color,
   elegidoId,
   onTocar,
 }: {
   players: Player[];
+  /** La media a mostrar en cada ficha, ya corregida por resultados. */
+  medias: Record<string, number>;
   color: string;
   elegidoId: string | null;
   onTocar: (id: string) => void;
@@ -133,7 +136,9 @@ export default function Pitch({
                   elegido && styles.discoElegido,
                 ]}
               >
-                <Text style={styles.media}>{overall(jugador)}</Text>
+                <Text style={styles.media}>
+                  {medias[jugador.id] ?? overall(jugador)}
+                </Text>
               </View>
               <Text style={styles.nombre} numberOfLines={1}>
                 {jugador.nombre.split(' ')[0].slice(0, 9)}

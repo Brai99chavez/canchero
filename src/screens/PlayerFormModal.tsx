@@ -20,6 +20,7 @@ import { SILUETA } from '../assets';
 import Opcion from '../components/Opcion';
 import PlayerCard, { ResumenCarta } from '../components/PlayerCard';
 import { Button, RatingBadge } from '../components/ui';
+import { Ajuste } from '../elo';
 import { discardPhoto, pickPhoto } from '../photos';
 import { newId } from '../storage';
 import { Seccion } from '../components/Banner';
@@ -52,6 +53,8 @@ function snap(value: number, step: number): number {
 interface Props {
   visible: boolean;
   player: Player | null;
+  /** Cómo quedó su media después de los resultados. Sin partidos, no viene. */
+  ajuste?: Ajuste;
   /** Partidos, goles y asistencias del jugador, para mostrar en la carta. */
   resumen?: ResumenCarta;
   onClose: () => void;
@@ -93,6 +96,7 @@ function StatRow({
 export default function PlayerFormModal({
   visible,
   player,
+  ajuste,
   resumen,
   onClose,
   onSave,
@@ -204,7 +208,35 @@ export default function PlayerFormModal({
 
           {!editing && player ? (
             <ScrollView contentContainerStyle={styles.cardContent}>
-              <PlayerCard player={player} resumen={resumen} />
+              <PlayerCard
+                player={player}
+                media={ajuste?.elo}
+                resumen={resumen}
+              />
+
+              {/*
+                La explicación que faltaba la vez anterior: un número que se
+                mueve solo y no dice por qué termina desconfiando a cualquiera.
+              */}
+              {ajuste && ajuste.ajuste !== 0 ? (
+                <Text style={styles.explicacion}>
+                  <Text style={ajuste.ajuste > 0 ? styles.sube : styles.baja}>
+                    {ajuste.ajuste > 0 ? 'Rinde por encima' : 'Rinde por debajo'}
+                    {' '}de su media
+                  </Text>
+                  {`: ${ajuste.base} → ${ajuste.elo} según los resultados de ` +
+                    `sus ${ajuste.partidos} partidos. La media que cargaste ` +
+                    `sigue siendo ${ajuste.base} y la ves al editarlo.`}
+                </Text>
+              ) : ajuste && ajuste.partidos > 0 ? (
+                <Text style={styles.explicacion}>
+                  {ajuste.tope === 0
+                    ? `Con ${ajuste.partidos} ${
+                        ajuste.partidos === 1 ? 'partido' : 'partidos'
+                      } todavía no alcanza para corregir su media. Hacen falta 5.`
+                    : 'Sus resultados coinciden con la media que le cargaste.'}
+                </Text>
+              ) : null}
               <Button
                 title="Editar jugador"
                 onPress={() => setEditing(true)}
@@ -348,6 +380,16 @@ export default function PlayerFormModal({
 }
 
 const styles = StyleSheet.create({
+  explicacion: {
+    color: colors.textMuted,
+    fontSize: 12.5,
+    fontFamily: 'Barlow_400Regular',
+    lineHeight: 18,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  sube: { color: colors.primary, fontFamily: 'Barlow_700Bold' },
+  baja: { color: colors.danger, fontFamily: 'Barlow_700Bold' },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

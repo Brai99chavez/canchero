@@ -122,13 +122,19 @@ export interface ResumenCarta {
 
 export default function PlayerCard({
   player,
+  media: mediaProp,
   resumen,
 }: {
   player: Player;
+  /**
+   * La media a dibujar. Sin esto usa la que sale de las stats — que es lo que
+   * hay que mostrar mientras se edita, porque es la que se está tocando.
+   */
+  media?: number;
   /** Lo que hizo en los partidos cargados. Sin partidos, no se dibuja nada. */
   resumen?: ResumenCarta;
 }) {
-  const media = overall(player);
+  const media = mediaProp ?? overall(player);
   const p = CARD_TEMPLATES[tierFor(media)];
 
   const columnas = [STAT_KEYS.slice(0, 3), STAT_KEYS.slice(3)];

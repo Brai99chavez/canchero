@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ajuste, mediaDe } from '../elo';
 import { Objetivo } from '../components/Guia';
 import Opcion from '../components/Opcion';
 import { FondoDegradado } from '../components/Angular';
@@ -17,6 +18,7 @@ import { Format, FORMATS, overall, Player } from '../types';
 
 interface Props {
   players: Player[];
+  ajustes: Record<string, Ajuste>;
   format: Format;
   onFormatChange: (format: Format) => void;
   usarTodos: boolean;
@@ -32,6 +34,7 @@ interface Props {
 
 export default function MatchScreen({
   players,
+  ajustes,
   format,
   onFormatChange,
   usarTodos,
@@ -157,7 +160,7 @@ export default function MatchScreen({
                 {item.nombre}
               </Text>
               <PositionPill position={item.posicion} />
-              <RatingBadge value={overall(item)} size={32} />
+              <RatingBadge value={mediaDe(item, ajustes)} size={32} />
             </Presionable>
           );
         }}
