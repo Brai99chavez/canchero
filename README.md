@@ -269,17 +269,23 @@ Cuando haya cobro, el que decide si una cuenta es Pro es el servidor.
 sin querer, nunca para dar por buena una compra: un APK modificado cambia esa
 constante en cinco minutos.
 
-## La media que evoluciona
+## La diferencia de gol
 
-`src/stats.ts`. Cada jugador tiene un ajuste de ±5 sobre su media base, que sale
-de los últimos 8 partidos y se aplica tanto a la carta como al armado de
-equipos.
+En la tabla, al lado de cada jugador: los goles que hizo y recibió su equipo en
+los partidos que jugó, y el promedio por partido.
 
-Los resultados mueven para los dos lados: ganar seguido suma, perder seguido
-resta. Los goles y asistencias **sólo suman** — un arquero no convierte nunca y
-castigarlo por eso sería absurdo además de romper el balance. Todo se multiplica
-por una confianza que crece con los partidos jugados, y hacen falta al menos 3
-partidos antes de mover nada.
+No mide habilidad — eso se pone a ojo y no hay forma de medirlo en un picado.
+Lo que da es la **memoria que el ojo no tiene**: cada derrota tiene su
+explicación el sábado, y la tendencia de tres meses no la ve nadie. Si alguien
+viene en −1,8 por partido, ahí hay algo para pensar; qué es, lo decide una
+persona.
+
+Se muestra el promedio y no sólo el total porque el que jugó veinte partidos
+acumula más que el que jugó tres sin ser mejor.
+
+Hubo antes una media que se ajustaba sola con los resultados y se sacó: era
+invisible, nadie entendía de dónde salía el número. Si vuelve, tiene que
+entrarse por acá, con el dato crudo a la vista primero.
 
 ## Cómo arma los equipos
 

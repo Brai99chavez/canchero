@@ -14,6 +14,17 @@ export interface Resumen {
   perdidos: number;
   goles: number;
   asistencias: number;
+  /**
+   * Los goles que hizo y recibió su equipo en los partidos que jugó, y la
+   * diferencia entre ambos.
+   *
+   * No mide habilidad —eso no se mide a ojo ni con cuentas— pero da la memoria
+   * que el ojo no tiene: cada derrota tiene su explicación el sábado, y la
+   * tendencia de tres meses no la ve nadie.
+   */
+  aFavor: number;
+  enContra: number;
+  diferencia: number;
   /** Positiva si viene ganando, negativa si viene perdiendo. */
   racha: number;
   /** Del más reciente al más viejo, para dibujar la tirita de forma. */
@@ -27,6 +38,9 @@ const VACIO: Resumen = {
   perdidos: 0,
   goles: 0,
   asistencias: 0,
+  aFavor: 0,
+  enContra: 0,
+  diferencia: 0,
   racha: 0,
   ultimos: [],
 };
@@ -69,6 +83,10 @@ export function resumenDe(jugadorId: string, partidos: Partido[]): Resumen {
     else if (signo === 'E') resumen.empatados++;
     else resumen.perdidos++;
 
+    const enA = partido.equipoA.includes(jugadorId);
+    resumen.aFavor += enA ? partido.golesA! : partido.golesB!;
+    resumen.enContra += enA ? partido.golesB! : partido.golesA!;
+
     const act = actuacion(partido, jugadorId);
     resumen.goles += act?.goles ?? 0;
     resumen.asistencias += act?.asistencias ?? 0;
@@ -87,11 +105,49 @@ export function resumenDe(jugadorId: string, partidos: Partido[]): Resumen {
     resumen.racha = primero === 'G' ? largo : -largo;
   }
 
+  resumen.diferencia = resumen.aFavor - resumen.enContra;
   return resumen;
 }
 
-/** Cuántos partidos recientes se miran para el banco. */
+/**
+ * La diferencia de gol por partido. Es la que se puede comparar entre dos
+ * jugadores: el que jugó veinte partidos acumula más que el que jugó tres sin
+ * ser mejor.
+ */
+export function diferenciaPorPartido(r: Resumen): number {
+  return r.jugados === 0 ? 0 : r.diferencia / r.jugados;
+}
+
+/** Cuántos partidos recientes se miran para el banco y para las duplas. */
 const VENTANA = 8;
+
+/**
+ * Cuántas veces cayó junto cada par de jugadores en los últimos partidos.
+ *
+ * El sorteo lo usa para no repetir siempre las mismas duplas. Hay muchos
+ * repartos igual de parejos donde dos siguen del mismo lado, así que sin esto
+ * podés jugar con el mismo ocho fechas seguidas sin que nada lo impida.
+ *
+ * La clave es el par ordenado por id, para que `a+b` y `b+a` sean lo mismo.
+ */
+export function duplasPrevias(partidos: Partido[]): Record<string, number> {
+  const cuenta: Record<string, number> = {};
+  for (const partido of porFecha(partidos).slice(0, VENTANA)) {
+    for (const equipo of [partido.equipoA, partido.equipoB]) {
+      for (let i = 0; i < equipo.length; i++) {
+        for (let j = i + 1; j < equipo.length; j++) {
+          const clave = claveDupla(equipo[i], equipo[j]);
+          cuenta[clave] = (cuenta[clave] ?? 0) + 1;
+        }
+      }
+    }
+  }
+  return cuenta;
+}
+
+export function claveDupla(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
 
 /**
  * Cuántas veces quedó afuera cada jugador en los últimos partidos. El sorteo

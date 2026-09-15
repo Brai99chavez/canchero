@@ -1,3 +1,4 @@
+import { claveDupla } from './stats';
 import {
   FIXED_POSITIONS,
   Format,
@@ -23,7 +24,15 @@ const W_LIBERO_SPREAD = 0.5; // desempate: repartir los líberos entre los dos
  * "volver a sortear" sale de explorar los repartos que quedan dentro de este
  * margen, no de los reinicios.
  */
-const TOLERANCE = 5;
+/**
+ * Cuánto peor que el mejor reparto se acepta, para poder elegir entre varios.
+ *
+ * Medido con 10 jugadores en fútbol 5: con 5 el sorteo sólo puede producir 8
+ * repartos distintos y terminás jugando con la misma gente; con 10 son 12, y
+ * la diferencia de media pasa de 0,38 a 0,50 puntos — nada que se note en una
+ * cancha. De 20 para arriba salta a casi 2 puntos y ahí sí se siente.
+ */
+const TOLERANCE = 10;
 
 /** Pasos de exploración para juntar repartos alternativos igual de parejos. */
 const WALK_STEPS = 400;
@@ -85,6 +94,35 @@ function positionPenalty(teamA: Player[], teamB: Player[]): number {
 }
 
 /** Cuanto más bajo, más parejos están los dos equipos. */
+/**
+ * Cuántas veces vienen jugando juntos los pares que quedaron del mismo lado.
+ *
+ * No entra en `splitCost` a propósito. El costo decide qué repartos son
+ * aceptablemente parejos; esto decide cuál de esos aceptables se elige. Metido
+ * adentro del costo quedaba diluido —la elección final es al azar entre todo
+ * lo que entra en la tolerancia— y no cambiaba casi nada.
+ */
+function duplaPenalty(
+  teamA: Player[],
+  teamB: Player[],
+  duplas: Record<string, number>
+): number {
+  let total = 0;
+  for (const equipo of [teamA, teamB]) {
+    for (let i = 0; i < equipo.length; i++) {
+      for (let j = i + 1; j < equipo.length; j++) {
+        total += duplas[claveDupla(equipo[i].id, equipo[j].id)] ?? 0;
+      }
+    }
+  }
+  // Por par, si no un fútbol 11 penaliza mucho más que un fútbol 5 sólo por
+  // tener más pares.
+  const pares = pairsOf(teamA.length) + pairsOf(teamB.length);
+  return pares === 0 ? 0 : total / pares;
+}
+
+const pairsOf = (n: number) => (n * (n - 1)) / 2;
+
 function splitCost(teamA: Player[], teamB: Player[]): number {
   const ovrDiff = Math.abs(mean(teamA.map(overall)) - mean(teamB.map(overall)));
 
@@ -281,6 +319,8 @@ export interface OpcionesSorteo {
   usarTodos?: boolean;
   /** Cuántas veces quedó afuera cada jugador en los últimos partidos. */
   bancoPrevio?: Record<string, number>;
+  /** Cuántas veces cayó junto cada par, para no repetir siempre las mismas. */
+  duplasPrevias?: Record<string, number>;
   avoid?: TeamSplit | null;
 }
 
@@ -289,7 +329,12 @@ export function buildTeams(
   format: Format,
   opciones: OpcionesSorteo = {}
 ): TeamSplit {
-  const { usarTodos = false, bancoPrevio = {}, avoid = null } = opciones;
+  const {
+    usarTodos = false,
+    bancoPrevio = {},
+    duplasPrevias = {},
+    avoid = null,
+  } = opciones;
 
   if (players.length < 2) {
     return { teamA: players.slice(0, 1), teamB: [], bench: [] };
@@ -328,7 +373,23 @@ export function buildTeams(
     ? variants.filter((c) => signature(c.teamA, c.teamB) !== avoidKey)
     : variants;
   const pool = fresh.length > 0 ? fresh : variants;
-  const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+  // Entre todos los repartos igual de parejos, los que menos repiten duplas; y
+  // entre esos, uno al azar. El azar sigue estando: como las cuentas cambian
+  // cada fecha, el mínimo se mueve solo de un sábado al otro.
+  let menor = Infinity;
+  let mejores: Candidate[] = [];
+  for (const c of pool) {
+    const repeticion = duplaPenalty(c.teamA, c.teamB, duplasPrevias);
+    if (repeticion < menor - 1e-9) {
+      menor = repeticion;
+      mejores = [c];
+    } else if (repeticion <= menor + 1e-9) {
+      mejores.push(c);
+    }
+  }
+
+  const chosen = mejores[Math.floor(Math.random() * mejores.length)];
 
   // Sortea qué lado es A y cuál B para que el mismo reparto no salga siempre
   // con los mismos nombres de equipo.

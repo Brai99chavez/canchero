@@ -52,7 +52,7 @@ import {
   puedeAgregarJugador,
   puedeCrearPlantel,
 } from './src/plan';
-import { bancoPrevio, resumenDe } from './src/stats';
+import { bancoPrevio, duplasPrevias, resumenDe } from './src/stats';
 import {
   borrarTodo,
   EstadoGuia,
@@ -362,6 +362,7 @@ function Root() {
         buildTeams(convocados, format, {
           usarTodos,
           bancoPrevio: bancoPrevio(partidos),
+          duplasPrevias: duplasPrevias(partidos),
           avoid,
         }),
         null

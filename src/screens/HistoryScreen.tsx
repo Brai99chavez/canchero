@@ -9,7 +9,12 @@ import {
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
-import { resumenDe, Signo, tieneResultado } from '../stats';
+import {
+  diferenciaPorPartido,
+  resumenDe,
+  Signo,
+  tieneResultado,
+} from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
 import { overall, Partido, Player } from '../types';
 
@@ -265,6 +270,25 @@ export default function HistoryScreen({
                 </Text>
                 <Forma ultimos={item.resumen.ultimos} />
               </View>
+
+              {item.resumen.jugados > 0 ? (
+                <View style={styles.dg}>
+                  <Text
+                    style={[
+                      styles.dgNumero,
+                      item.resumen.diferencia > 0 && styles.dgBien,
+                      item.resumen.diferencia < 0 && styles.dgMal,
+                    ]}
+                  >
+                    {item.resumen.diferencia > 0 ? '+' : ''}
+                    {item.resumen.diferencia}
+                  </Text>
+                  <Text style={styles.dgPie}>
+                    {diferenciaPorPartido(item.resumen).toFixed(1).replace('.', ',')}
+                    /PJ
+                  </Text>
+                </View>
+              ) : null}
             </View>
           )}
         />
@@ -358,6 +382,20 @@ const styles = StyleSheet.create({
   cargar: { marginTop: spacing.md },
   equipos: { color: colors.teamA, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
   equiposB: { color: colors.teamB, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
+  dg: { alignItems: 'flex-end', minWidth: 46 },
+  dgNumero: {
+    color: colors.textMuted,
+    fontSize: 17,
+    fontFamily: 'Anton_400Regular',
+  },
+  dgBien: { color: colors.primary },
+  dgMal: { color: colors.danger },
+  dgPie: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: 'Barlow_600SemiBold',
+    letterSpacing: 0.2,
+  },
   filaTabla: {
     flexDirection: 'row',
     alignItems: 'center',
