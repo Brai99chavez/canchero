@@ -8,13 +8,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { exportar, importar } from '../backup';
+import { importar } from '../backup';
 import {
-  CloudIcon,
-  ExportIcon,
   GearIcon,
   ImportIcon,
   PlusIcon,
+  UserIcon,
 } from '../components/icons';
 import Panel, {
   DIAGONAL,
@@ -98,27 +97,6 @@ export default function SquadsScreen({
     );
   }
 
-  async function handleExportarTodos() {
-    if (totalJugadores === 0) {
-      Alert.alert('Nada para exportar', 'No hay jugadores cargados todavía.');
-      return;
-    }
-    setTrabajando(true);
-    try {
-      const compartido = await exportar(planteles);
-      if (!compartido) {
-        Alert.alert(
-          'No se puede compartir',
-          'Este dispositivo no tiene con qué compartir archivos.'
-        );
-      }
-    } catch (error) {
-      Alert.alert('No se pudo exportar', String(error));
-    } finally {
-      setTrabajando(false);
-    }
-  }
-
   async function handleImportar() {
     setTrabajando(true);
     try {
@@ -169,7 +147,7 @@ export default function SquadsScreen({
               accessibilityLabel={sesion ? 'Tu cuenta' : 'Entrar a tu cuenta'}
             >
               <FondoDegradado colores={degradados.panel} />
-              <CloudIcon
+              <UserIcon
                 color={sesion ? colors.primary : colors.textMuted}
                 size={20}
               />
@@ -183,15 +161,6 @@ export default function SquadsScreen({
           >
             <FondoDegradado colores={degradados.panel} />
             <ImportIcon color={colors.primary} size={20} />
-          </Presionable>
-          <Presionable
-            onPress={handleExportarTodos}
-            disabled={trabajando}
-            style={styles.iconoBoton}
-            accessibilityLabel="Exportar todos los planteles"
-          >
-            <FondoDegradado colores={degradados.panel} />
-            <ExportIcon color={colors.primary} size={20} />
           </Presionable>
           <Objetivo paso="crear-plantel">
             <Presionable onPress={onNuevo} style={styles.addButton}>

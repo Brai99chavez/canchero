@@ -87,17 +87,6 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
-/** Flecha que sale de una bandeja: exportar. */
-export function ExportIcon(props: IconProps) {
-  return (
-    <Trazo {...props}>
-      <Path d="M12 15V3" />
-      <Path d="M8 6.5L12 2.8l4 3.7" />
-      <Path d="M4 14v5a2 2 0 002 2h12a2 2 0 002-2v-5" />
-    </Trazo>
-  );
-}
-
 /** Flecha que entra a una bandeja: importar. */
 export function ImportIcon(props: IconProps) {
   return (
@@ -158,13 +147,12 @@ export function CheckListIcon(props: IconProps) {
   );
 }
 
-/** Nube: la cuenta y el respaldo. */
-export function CloudIcon(props: IconProps) {
+/** Una persona: la cuenta. */
+export function UserIcon(props: IconProps) {
   return (
     <Trazo {...props}>
-      <Path d="M7 19a4.5 4.5 0 01-.6-8.96 5.5 5.5 0 0110.55-1.4A4.3 4.3 0 0117.5 19z" />
-      <Path d="M12 11v5.5" />
-      <Path d="M9.7 13.3L12 11l2.3 2.3" />
+      <Circle cx="12" cy="8" r="4" />
+      <Path d="M4.5 20v-1a5 5 0 015-5h5a5 5 0 015 5v1" />
     </Trazo>
   );
 }
