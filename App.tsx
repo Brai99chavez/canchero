@@ -28,6 +28,7 @@ import MatchScreen from './src/screens/MatchScreen';
 import PlayerFormModal from './src/screens/PlayerFormModal';
 import NewSquadModal from './src/screens/NewSquadModal';
 import PlayersScreen from './src/screens/PlayersScreen';
+import RecuperarModal from './src/screens/RecuperarModal';
 import SquadConfigModal, {
   CambiosPlantel,
 } from './src/screens/SquadConfigModal';
@@ -40,6 +41,7 @@ import {
   sesionActual,
   Sesion,
 } from './src/nube/cuenta';
+import { alRecuperar, Recuperacion } from './src/nube/enlaces';
 import { subirFotosPendientes } from './src/nube/fotos';
 import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
@@ -115,6 +117,8 @@ function Root() {
   const [guia, setGuia] = useState<EstadoGuia>({ activa: false, vistos: [] });
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [cuentaVisible, setCuentaVisible] = useState(false);
+  /** Lo que trajo el link del mail para cambiar la contraseña. */
+  const [recuperacion, setRecuperacion] = useState<Recuperacion | null>(null);
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
   /** La firma de lo último que llegó a subir, para saber qué falta. */
   const [firmaSubida, setFirmaSubida] = useState<string | null>(null);
@@ -147,6 +151,17 @@ function Root() {
     if (!hayNube) return;
     sesionActual().then(setSesion);
     return alCambiarSesion(setSesion);
+  }, []);
+
+  /*
+   * El link del mail para cambiar la contraseña. Puede llegar con la app
+   * cerrada —y ahí es lo primero que pasa— o con la app abierta, así que se
+   * escucha desde el arranque y no desde la pantalla de cuenta, que capaz ni
+   * está montada.
+   */
+  useEffect(() => {
+    if (!hayNube) return;
+    return alRecuperar(setRecuperacion);
   }, []);
 
   useEffect(() => {
@@ -821,6 +836,15 @@ function Root() {
           enConfig && handleGuardarConfig(enConfig.id, cambios)
         }
         onBorrar={() => enConfig && handleBorrarPlantel(enConfig.id)}
+      />
+
+      <RecuperarModal
+        pedido={recuperacion}
+        onClose={() => setRecuperacion(null)}
+        onListo={() => {
+          setRecuperacion(null);
+          setCuentaVisible(true);
+        }}
       />
 
       <CuentaModal

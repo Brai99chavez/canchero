@@ -1,3 +1,4 @@
+import { urlDeRecuperacion } from './enlaces';
 import { Plan } from '../plan';
 import {
   alPerderSesion,
@@ -61,6 +62,14 @@ export function explicar(error: unknown): Explicacion {
       detalle:
         'Te mandamos un link cuando creaste la cuenta. Buscalo en tu casilla ' +
         '—fijate también en spam— y tocalo para poder entrar.',
+    };
+  }
+  if (m.includes('invalid token') || m.includes('expired')) {
+    return {
+      titulo: 'Ese link ya no sirve',
+      detalle:
+        'Los links para cambiar la contraseña duran una hora y se usan una ' +
+        'sola vez. Pedí uno nuevo desde "Olvidé mi contraseña".',
     };
   }
   if (m.includes('too many') || m.includes('rate limit')) {
@@ -142,7 +151,7 @@ export async function sesionActual(): Promise<Sesion | null> {
 
 export interface Alta {
   sesion: Sesion | null;
-  /** Si algún día se prende la confirmación por mail, la sesión no viene. */
+  /** El servidor pide confirmar el mail, así que la sesión no viene todavía. */
   faltaConfirmar: boolean;
 }
 
@@ -197,11 +206,31 @@ export async function entrar(email: string, clave: string): Promise<Sesion> {
  */
 export async function pedirRecuperacion(email: string): Promise<void> {
   const { error } = await clienteObligatorio().requestPasswordReset({
+    // Adónde vuelve el link. No puede ir fijo: en el APK es
+    // `canchero://recuperar`, pero probando con Expo Go quien abre es Expo Go
+    // y la dirección es otra. Con la fija, el mail no abría nada al probar.
+    redirectTo: urlDeRecuperacion(),
     email: email.trim(),
-    redirectTo: 'canchero://recuperar',
   });
   if (error) {
     throw new Error(enCastellano(error.message ?? 'No se pudo pedir el cambio.'));
+  }
+}
+
+/**
+ * Cambia la contraseña con el token que vino en el link del mail.
+ *
+ * No deja la sesión abierta a propósito: el que llega hasta acá tiene el mail
+ * en la mano, pero recién ahora sabe la contraseña nueva. Que la escriba una
+ * vez confirma que la anotó en algún lado y no la olvida a los dos minutos.
+ */
+export async function cambiarClave(token: string, nueva: string): Promise<void> {
+  const { error } = await clienteObligatorio().resetPassword({
+    newPassword: nueva,
+    token,
+  });
+  if (error) {
+    throw new Error(enCastellano(error.message ?? 'No se pudo cambiar la contraseña.'));
   }
 }
 

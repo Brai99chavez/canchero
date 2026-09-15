@@ -61,9 +61,13 @@ export const auth = betterAuth({
    *
    * Probando con Expo Go el origen es otro —`exp://ip:8081/--/`, porque quien
    * corre es Expo Go y no la app— así que hay que sumarlo a mano con la
-   * variable TRUSTED_ORIGINS, separando por comas. El patrón que sirve es
-   * `exp://*​/*`: con un solo comodín no matchea, porque el origen trae ese
-   * `/--/` al final.
+   * variable TRUSTED_ORIGINS, separando por comas.
+   *
+   * El patrón que sirve es `exp://*​/**`. Con `exp://*` no matchea nada, por
+   * el `/--/` que trae el origen al final. Y `exp://*​/*` alcanza para el
+   * origen pero no para el link de recuperación, que es un segmento más
+   * largo: `exp://ip:8081/--/recuperar`. Un comodín no cruza la barra; dos
+   * sí.
    *
    * Va por variable de entorno y no fijo en el código para poder sacarlo
    * antes de publicar sin tocar nada.
