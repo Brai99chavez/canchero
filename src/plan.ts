@@ -13,6 +13,21 @@ export type Plan = 'gratis' | 'pro';
 /** Mientras no haya cuentas, todos usan el plan gratis. */
 export const PLAN: Plan = 'gratis';
 
+/**
+ * Si Pro ya se puede comprar. Mientras esté en falso, los avisos dicen que
+ * está por salir en vez de mandar a contratarlo: ofrecer una salida que
+ * todavía no existe es peor que no ofrecer ninguna.
+ *
+ * El día que el cobro esté andando, esta constante pasa a true y los textos se
+ * acomodan solos.
+ */
+export const PRO_DISPONIBLE = false;
+
+/** Cómo se nombra la salida en cada aviso. */
+const SALIDA_PRO = PRO_DISPONIBLE
+  ? 'Con Pro no hay tope.'
+  : 'El plan Pro, sin tope, sale próximamente.';
+
 interface Limites {
   planteles: number;
   jugadores: number;
@@ -65,10 +80,11 @@ export function idsActivos(
 
 /** Lo que se le muestra al plantel que quedó fuera del plan. */
 export function motivoBloqueado(plan: Plan = PLAN): string {
-  return (
-    `Tu plan llega a ${limites(plan).planteles} planteles. ` +
-    'Pasate a Pro o borrá otro para usar este.'
-  );
+  return PRO_DISPONIBLE
+    ? `Tu plan llega a ${limites(plan).planteles} planteles. Pasate a Pro o ` +
+      'borrá otro para usar este.'
+    : `Tu plan llega a ${limites(plan).planteles} planteles. Borrá otro para ` +
+      'usar este. Pro, sin tope, sale próximamente.';
 }
 
 export function puedeCrearPlantel(
@@ -82,7 +98,7 @@ export function puedeCrearPlantel(
     titulo: 'Plan gratis',
     motivo:
       `El plan gratis llega hasta ${max} planteles y ya tenés ${cuantos}. ` +
-      'Borrá uno o pasate a Pro, que no tiene tope.',
+      `Borrá uno para hacer lugar. ${SALIDA_PRO}`,
   };
 }
 
@@ -97,6 +113,6 @@ export function puedeAgregarJugador(
     titulo: 'Plantel completo',
     motivo:
       `En el plan gratis cada plantel llega hasta ${max} jugadores. ` +
-      'Con Pro no hay tope.',
+      SALIDA_PRO,
   };
 }

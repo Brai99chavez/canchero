@@ -194,6 +194,11 @@ crearlo o al importarlo—, no cuándo se creó en el teléfono de otro:
 Cuando exista la cuenta, `llegada` tiene que sincronizarse con ella para que
 los dos teléfonos de la misma persona coincidan en cuáles están activos.
 
+`PRO_DISPONIBLE` está en falso mientras no se pueda comprar: con eso los
+avisos dicen que Pro está por salir en vez de mandar a contratarlo. Ofrecer una
+salida que todavía no existe es peor que no ofrecer ninguna. El día que el
+cobro ande, esa constante pasa a true y los textos se acomodan solos.
+
 Cuando haya cobro, el que decide si una cuenta es Pro es el servidor.
 `src/plan.ts` sirve para mostrar u ocultar cosas y para frenar al que se pasa
 sin querer, nunca para dar por buena una compra: un APK modificado cambia esa
