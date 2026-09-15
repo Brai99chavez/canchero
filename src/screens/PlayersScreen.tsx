@@ -35,13 +35,36 @@ interface Props {
   onEdit: (player: Player) => void;
 }
 
-type Orden = 'media' | 'nombre';
+/**
+ * Por qué campo y para qué lado. El botón muestra el sentido —`99-0`, `A-Z`—
+ * en vez de decir sólo el campo: así se sabe qué va a pasar antes de tocarlo,
+ * y tocar el que ya está activo lo da vuelta.
+ */
+type Campo = 'media' | 'nombre';
+interface Orden {
+  campo: Campo;
+  desc: boolean;
+}
+
+/** El sentido con el que arranca cada campo: la media de mayor a menor. */
+const SENTIDO_INICIAL: Record<Campo, boolean> = { media: true, nombre: false };
+
+/**
+ * El rótulo de cada botón. El que no está elegido muestra con qué sentido
+ * arrancaría, no el del otro: si dijera el ajeno estaría anunciando algo que
+ * no va a pasar al tocarlo.
+ */
+function etiquetaOrden(campo: Campo, orden: Orden): string {
+  const desc = orden.campo === campo ? orden.desc : SENTIDO_INICIAL[campo];
+  if (campo === 'media') return desc ? '99-0' : '0-99';
+  return desc ? 'Z-A' : 'A-Z';
+}
 
 export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
   const [query, setQuery] = useState('');
   /** `null` es "todas": el filtro apagado no es una posición más. */
   const [puesto, setPuesto] = useState<Position | null>(null);
-  const [orden, setOrden] = useState<Orden>('media');
+  const [orden, setOrden] = useState<Orden>({ campo: 'media', desc: true });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,14 +73,31 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
         (!q || p.nombre.toLowerCase().includes(q)) &&
         (!puesto || p.posicion === puesto)
     );
+    // Los dos comparadores van de menor a mayor y el sentido los da vuelta.
+    // Antes uno era descendente y el otro ascendente, con lo cual el mismo
+    // signo significaba cosas distintas y el nombre ordenaba al reves de lo
+    // que decia el boton.
+    const sentido = orden.desc ? -1 : 1;
+    const porNombre = (a: Player, b: Player) =>
+      a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+
     return list.sort((a, b) =>
-      orden === 'media'
+      orden.campo === 'media'
         ? // A igual media manda el nombre, si no el orden baila entre
           // renderizados con los que empatan.
-          overall(b) - overall(a) || a.nombre.localeCompare(b.nombre)
-        : a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+          sentido * (overall(a) - overall(b)) || porNombre(a, b)
+        : sentido * porNombre(a, b)
     );
   }, [players, query, puesto, orden]);
+
+  /** Cambia de campo, o da vuelta el que ya estaba elegido. */
+  function ordenarPor(campo: Campo) {
+    setOrden((prev) =>
+      prev.campo === campo
+        ? { campo, desc: !prev.desc }
+        : { campo, desc: SENTIDO_INICIAL[campo] }
+    );
+  }
 
   /** Cuántos hay de cada puesto, para no ofrecer un filtro que da vacío. */
   const porPuesto = useMemo(() => {
@@ -121,11 +161,14 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
             <View style={styles.separadorFiltros} />
 
             <Chip
-              texto={orden === 'media' ? 'Por media' : 'De la A a la Z'}
-              activo
-              onPress={() =>
-                setOrden(orden === 'media' ? 'nombre' : 'media')
-              }
+              texto={etiquetaOrden('media', orden)}
+              activo={orden.campo === 'media'}
+              onPress={() => ordenarPor('media')}
+            />
+            <Chip
+              texto={etiquetaOrden('nombre', orden)}
+              activo={orden.campo === 'nombre'}
+              onPress={() => ordenarPor('nombre')}
             />
           </ScrollView>
         </>
