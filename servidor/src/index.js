@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
+import { borrarFoto, hayFotos, permisoDeSubida } from './fotos.js';
 
 const app = new Hono();
 
@@ -12,7 +13,7 @@ const app = new Hono();
 app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
 
 /** Render pega acá para saber si el servicio está vivo. */
-app.get('/', (c) => c.json({ ok: true, servicio: 'canchero-api' }));
+app.get('/', (c) => c.json({ ok: true, servicio: 'canchero-api', fotos: hayFotos }));
 
 /**
  * De acá para abajo hay que estar logueado. Esto es lo que en Supabase hacían
@@ -20,6 +21,13 @@ app.get('/', (c) => c.json({ ok: true, servicio: 'canchero-api' }));
  * cambiando un id en la URL.
  */
 app.use('/planteles/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
+app.use('/fotos/*', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
   c.set('usuario', sesion.user);
@@ -47,6 +55,35 @@ app.get('/perfil', async (c) => {
     [usuario.id]
   );
   return c.json({ email: usuario.email, plan: rows[0]?.plan ?? 'gratis' });
+});
+
+/**
+ * Un permiso para subir una foto. El archivo no pasa por acá: la app lo manda
+ * derecho a R2 con esta URL, y después guarda la pública en el jugador.
+ */
+app.post('/fotos/permiso', async (c) => {
+  if (!hayFotos) return c.json({ error: 'Las fotos no están configuradas.' }, 503);
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    return c.json(await permisoDeSubida(usuario.id, cuerpo?.tipo));
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/** Saca una foto del bucket: la del jugador que se borró o que la cambió. */
+app.post('/fotos/borrar', async (c) => {
+  if (!hayFotos) return c.json({ ok: true });
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  const urls = Array.isArray(cuerpo?.urls) ? cuerpo.urls.slice(0, 100) : [];
+  // Que falle una no tiene por qué frenar las demás: una foto que quedó
+  // colgada es basura, no un error que haya que mostrarle a nadie.
+  for (const url of urls) {
+    await borrarFoto(usuario.id, url).catch(() => {});
+  }
+  return c.json({ ok: true });
 });
 
 app.get('/planteles', async (c) => {
