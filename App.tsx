@@ -41,6 +41,7 @@ import {
 } from './src/nube/cuenta';
 import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
+  AVISO_PRO,
   idsActivos,
   limites,
   motivoBloqueado,
@@ -115,18 +116,28 @@ function Root() {
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
   /** La firma de lo último que llegó a subir, para saber qué falta. */
   const [firmaSubida, setFirmaSubida] = useState<string | null>(null);
+  /**
+   * Los planteles borrados acá que todavía siguen en la nube. Viajan con el
+   * backup y no en el momento de borrar, por lo mismo: un borrado sin querer
+   * no tiene por qué llevarse la copia puesta.
+   */
+  const [borradosPendientes, setBorrados] = useState<string[]>([]);
   // El plan sale del servidor cuando hay cuenta. Sin cuenta, el de siempre.
   const [plan, setPlan] = useState<Plan>(PLAN);
-  const { dialogo, avisar } = useDialogo();
+  const { dialogo, preguntar } = useDialogo();
 
   /** Avisa si la acción no entra en el plan y dice si se puede seguir. */
   const dejaSeguir = useCallback(
     (permiso: Permiso) => {
       if (permiso.ok) return true;
-      avisar(permiso.titulo, permiso.motivo);
+      preguntar({
+        titulo: permiso.titulo,
+        mensaje: permiso.motivo,
+        destacado: permiso.pro,
+      });
       return false;
     },
-    [avisar]
+    [preguntar]
   );
 
   // La sesión puede cambiar desde el modal o sola, cuando vence el token.
@@ -141,6 +152,7 @@ function Root() {
       setPlan(PLAN);
       setUltimaCopia(null);
       setFirmaSubida(null);
+      setBorrados([]);
       return;
     }
     planDeLaCuenta().then(setPlan);
@@ -164,32 +176,19 @@ function Root() {
   }, [planteles, activoId, predeterminadoId, ready]);
 
   /**
-   * El respaldo sube solo, un rato después del último cambio: guardar en cada
-   * tecleada sería una llamada por letra. Que falle no molesta a nadie —se
-   * reintenta con el cambio siguiente— así que no interrumpe con un cartel.
+   * El respaldo NO se hace solo: sube únicamente cuando se toca el botón.
+   *
+   * Automático parecía mejor hasta que se piensa en el caso malo: borrás un
+   * plantel sin querer y a los dos segundos ese borrado ya está en la nube,
+   * que era justo de donde ibas a recuperarlo. Una copia que se pisa sola no
+   * es una copia de seguridad.
    */
   const firmaActual = useMemo(() => firmaDe(planteles), [planteles]);
 
-  useEffect(() => {
-    if (!ready || !sesion || planteles.length === 0) return;
-    if (firmaActual === firmaSubida) return;
-    const id = setTimeout(() => {
-      subir(planteles)
-        .then(() => {
-          setUltimaCopia(new Date());
-          setFirmaSubida(firmaActual);
-        })
-        .catch(() => {});
-    }, 2500);
-    return () => clearTimeout(id);
-  }, [planteles, sesion, ready, firmaActual, firmaSubida]);
-
-  /**
-   * Si lo que hay en el teléfono no es lo último que llegó al servidor.
-   * Normalmente el respaldo automático lo deja en falso a los pocos segundos;
-   * queda en verdadero cuando falló, que es justo cuando hay que avisar.
-   */
-  const haySinSubir = Boolean(sesion) && firmaActual !== firmaSubida;
+  /** Si lo que hay en el teléfono no es lo último que se subió. */
+  const haySinSubir =
+    Boolean(sesion) &&
+    (firmaActual !== firmaSubida || borradosPendientes.length > 0);
 
   const activo = useMemo(
     () => planteles.find((p) => p.id === activoId) ?? planteles[0],
@@ -496,8 +495,8 @@ function Root() {
       const plantel = planteles.find((p) => p.id === id);
       plantel?.jugadores.forEach((j) => cleanupPhotos(j.id));
 
-      // Si no se marcara, el plantel volvería la próxima vez que se restaure.
-      if (sesion) marcarBorrado(id).catch(() => {});
+      // Queda anotado para el próximo backup, no se borra en la nube ahora.
+      if (sesion) setBorrados((prev) => [...new Set([...prev, id])]);
 
       const quedan = planteles.filter((p) => p.id !== id);
       setPlanteles(quedan);
@@ -592,9 +591,14 @@ function Root() {
   const handleBackup = useCallback(async () => {
     if (!sesion) return;
     await subir(planteles);
+    // Los borrados van después de subir: si la subida falla, el plantel sigue
+    // en la nube y no se perdió nada.
+    for (const id of borradosPendientes) await marcarBorrado(id);
+
+    setBorrados([]);
     setUltimaCopia(new Date());
     setFirmaSubida(firmaDe(planteles));
-  }, [planteles, sesion]);
+  }, [planteles, sesion, borradosPendientes]);
 
   /**
    * Traer reemplaza en vez de mezclar: sin una fecha de modificación por
@@ -609,6 +613,11 @@ function Root() {
     const traidos = await bajar();
     if (traidos.length === 0) return 0;
 
+    // Lo que se trae es exactamente lo que hay en la nube: no queda nada
+    // pendiente de subir ni de borrar.
+    setBorrados([]);
+    setFirmaSubida(firmaDe(traidos));
+    setUltimaCopia(new Date());
     setPlanteles(traidos);
     setActivoId(traidos[0].id);
     setPredeterminadoId(null);
@@ -671,6 +680,7 @@ function Root() {
             limitePlanteles={limites(plan).planteles}
             activos={activos}
             motivoBloqueo={motivoBloqueado(plan)}
+            avisoPro={AVISO_PRO}
             sesion={hayNube ? sesion : undefined}
             onCuenta={() => setCuentaVisible(true)}
             onNuevo={() => {

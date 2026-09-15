@@ -34,6 +34,8 @@ interface Props {
   activos: Set<string>;
   /** Qué decirle al plantel que quedó fuera del plan. */
   motivoBloqueo: string;
+  /** La línea de Pro, aparte para poder resaltarla. */
+  avisoPro: string;
   /**
    * La sesión abierta, `null` si no entró, o `undefined` si esta copia de la
    * app no tiene nube configurada — ahí el botón de cuenta ni aparece.
@@ -53,6 +55,7 @@ export default function SquadsScreen({
   limitePlanteles,
   activos,
   motivoBloqueo,
+  avisoPro,
   sesion,
   onCuenta,
   predeterminadoId,
@@ -195,7 +198,10 @@ export default function SquadsScreen({
                   {item.jugadores.length === 1 ? 'jugador' : 'jugadores'}
                 </Text>
                 {bloqueado ? (
-                  <Text style={styles.bloqueado}>{motivoBloqueo}</Text>
+                  <>
+                    <Text style={styles.bloqueado}>{motivoBloqueo}</Text>
+                    <Text style={styles.proximamente}>{avisoPro}</Text>
+                  </>
                 ) : null}
               </Pressable>
 
@@ -231,6 +237,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Barlow_700Bold',
     marginTop: 5,
+  },
+  proximamente: {
+    color: colors.primary,
+    fontSize: 11.5,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.3,
+    marginTop: 2,
   },
   topBar: {
     flexDirection: 'row',

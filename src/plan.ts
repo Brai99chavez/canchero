@@ -23,8 +23,12 @@ export const PLAN: Plan = 'gratis';
  */
 export const PRO_DISPONIBLE = false;
 
-/** Cómo se nombra la salida en cada aviso. */
-const SALIDA_PRO = PRO_DISPONIBLE
+/**
+ * La línea de Pro, aparte del resto del mensaje. Viaja suelta para poder
+ * pintarla con el color de la marca: mezclada adentro del párrafo se pierde,
+ * y es justamente lo que se quiere que quede.
+ */
+export const AVISO_PRO = PRO_DISPONIBLE
   ? 'Con Pro no hay tope.'
   : 'El plan Pro, sin tope, sale próximamente.';
 
@@ -49,7 +53,7 @@ export function limites(plan: Plan = PLAN): Limites {
  */
 export type Permiso =
   | { ok: true }
-  | { ok: false; titulo: string; motivo: string };
+  | { ok: false; titulo: string; motivo: string; pro: string };
 
 const SI: Permiso = { ok: true };
 
@@ -80,11 +84,10 @@ export function idsActivos(
 
 /** Lo que se le muestra al plantel que quedó fuera del plan. */
 export function motivoBloqueado(plan: Plan = PLAN): string {
+  const max = limites(plan).planteles;
   return PRO_DISPONIBLE
-    ? `Tu plan llega a ${limites(plan).planteles} planteles. Pasate a Pro o ` +
-      'borrá otro para usar este.'
-    : `Tu plan llega a ${limites(plan).planteles} planteles. Borrá otro para ` +
-      'usar este. Pro, sin tope, sale próximamente.';
+    ? `Tu plan llega a ${max} planteles. Pasate a Pro o borrá otro para usarlo.`
+    : `Tu plan llega a ${max} planteles. Borrá otro para poder usar este.`;
 }
 
 export function puedeCrearPlantel(
@@ -98,7 +101,8 @@ export function puedeCrearPlantel(
     titulo: 'Plan gratis',
     motivo:
       `El plan gratis llega hasta ${max} planteles y ya tenés ${cuantos}. ` +
-      `Borrá uno para hacer lugar. ${SALIDA_PRO}`,
+      'Borrá uno para hacer lugar.',
+    pro: AVISO_PRO,
   };
 }
 
@@ -111,8 +115,7 @@ export function puedeAgregarJugador(
   return {
     ok: false,
     titulo: 'Plantel completo',
-    motivo:
-      `En el plan gratis cada plantel llega hasta ${max} jugadores. ` +
-      SALIDA_PRO,
+    motivo: `En el plan gratis cada plantel llega hasta ${max} jugadores.`,
+    pro: AVISO_PRO,
   };
 }

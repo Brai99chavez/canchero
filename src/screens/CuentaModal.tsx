@@ -185,21 +185,24 @@ export default function CuentaModal({
                 {haySinSubir ? (
                   <Aviso
                     titulo="Hay cambios sin guardar"
-                    detalle="Tocá BACKUP para subirlos a tu cuenta."
+                    detalle="Tocá HACER BACKUP para subirlos a tu cuenta."
                   />
                 ) : null}
 
                 <Seccion style={styles.seccion}>Backup</Seccion>
                 <Text style={styles.ayuda}>
-                  Guarda tus planteles en la cuenta. Se hace solo unos segundos
-                  después de cada cambio; el botón es para forzarlo.
+                  Guarda tus planteles en la cuenta. Se hace sólo cuando tocás
+                  el botón: si se guardara solo, borrar un plantel sin querer
+                  se llevaría puesta la copia de la que ibas a recuperarlo.
                 </Text>
-                <Text style={styles.estado}>
+                <Text
+                  style={[styles.estado, haySinSubir && styles.estadoPendiente]}
+                >
                   {haySinSubir
-                    ? 'Hay cambios sin subir.'
+                    ? 'Hay cambios sin guardar en la nube.'
                     : ultimaCopia
                     ? `Guardado a las ${ultimaCopia}.`
-                    : 'Todo al día.'}
+                    : 'Todavía no guardaste nada en esta sesión.'}
                 </Text>
                 <Button
                   title="Hacer backup"
@@ -332,6 +335,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   seccion: { marginTop: spacing.xl },
   mail: { color: colors.text, fontSize: 16, fontFamily: fuentes.bold },
+  estadoPendiente: { color: colors.danger },
   estado: {
     color: colors.primary,
     fontSize: 12,

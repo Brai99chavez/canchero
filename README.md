@@ -132,16 +132,23 @@ archivo que cualquiera se baja y descomprime.
 
 La pantalla de cuenta tiene dos acciones, **Backup** y **Restore**:
 
-- **Backup** sube los planteles a la cuenta. Se hace solo unos segundos después
-  de cada cambio; el botón es para forzarlo. Si falla no interrumpe: se
-  reintenta con el cambio siguiente.
+- **Backup** sube los planteles a la cuenta, **sólo al tocar el botón**.
+  Automático parecía mejor hasta pensar en el caso malo: borrás un plantel sin
+  querer y a los dos segundos ese borrado ya está en la nube, que era justo de
+  donde ibas a recuperarlo. Una copia que se pisa sola no es una copia de
+  seguridad.
+
+  Por lo mismo, borrar un plantel **no lo borra en la nube en ese momento**:
+  queda anotado y viaja con el próximo backup, después de subir los que
+  quedan, así una subida fallida no se lleva nada.
 - **Restore** trae los de la cuenta a este teléfono y **reemplaza** lo local,
   con confirmación. No mezcla, porque sin una fecha de modificación por plantel
   no hay forma de saber cuál de las dos copias es la buena, y adivinar mal se
   lleva datos cargados a mano. La mezcla de verdad es el paso siguiente.
 
-**Cerrar sesión no borra nada del teléfono.** Si quedó algo sin subir, avisa
-antes y ofrece hacer el backup y cerrar en un solo paso. Eso lo sabe comparando
+**Cerrar sesión no borra nada del teléfono.** Si quedó algo sin subir —que
+ahora es lo normal, porque el backup es manual— avisa antes y ofrece hacer el
+backup y cerrar en un solo paso. Eso lo sabe comparando
 `firmaDe()` —un hash corto de lo que se subiría— con la firma de la última
 subida que salió bien. Va sobre lo que viaja y no sobre el plantel entero, para
 que elegir una foto, que no se sube, no cuente como cambio pendiente.

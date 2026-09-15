@@ -17,6 +17,8 @@ interface Config {
   mensaje?: string;
   /** Texto del botón que confirma. Sin esto es sólo un aviso, con un "Listo". */
   confirmar?: string;
+  /** Una línea con el color de la marca, debajo del mensaje. */
+  destacado?: string;
   /** Pinta de rojo lo que no se puede deshacer. */
   peligro?: boolean;
   onConfirmar?: () => void;
@@ -111,6 +113,9 @@ function Dialogo({
           {config?.mensaje ? (
             <Text style={styles.mensaje}>{config.mensaje}</Text>
           ) : null}
+          {config?.destacado ? (
+            <Text style={styles.destacado}>{config.destacado}</Text>
+          ) : null}
 
           {config?.alternativa ? (
             <View style={styles.apilados}>
@@ -179,6 +184,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   apilados: { gap: spacing.sm, marginTop: spacing.lg },
+  destacado: {
+    color: colors.primary,
+    fontSize: 13,
+    fontFamily: fuentes.extra,
+    letterSpacing: 0.3,
+    lineHeight: 18,
+    marginTop: spacing.sm,
+  },
   botones: {
     flexDirection: 'row',
     gap: spacing.sm,
