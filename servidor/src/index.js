@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
+import { hayMails } from './mails.js';
 import { planDe, recortarAlPlan } from './planes.js';
 import {
   borrarFoto,
@@ -18,8 +19,19 @@ const app = new Hono();
  */
 app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
 
-/** Render pega acá para saber si el servicio está vivo. */
-app.get('/', (c) => c.json({ ok: true, servicio: 'canchero-api', fotos: hayFotos }));
+/**
+ * Render pega acá para saber si el servicio está vivo, y de paso dice qué
+ * tiene configurado. Son booleanos de configuración, no secretos, y evitan
+ * tener que adivinar si un despliegue quedó a medias.
+ */
+app.get('/', (c) =>
+  c.json({
+    ok: true,
+    servicio: 'canchero-api',
+    fotos: hayFotos,
+    mails: hayMails,
+  })
+);
 
 /**
  * De acá para abajo hay que estar logueado. Esto es lo que en Supabase hacían
