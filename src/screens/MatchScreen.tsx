@@ -147,8 +147,14 @@ export default function MatchScreen({
               onPress={() => onToggle(item.id)}
               style={[styles.row, selected && styles.rowSelected]}
             >
+              {/*
+                Teñido, no pintado: encima van la pastilla de posición y la
+                media, que tienen sus propios colores y sobre el acento lleno
+                no se leen. El borde y el tilde alcanzan para que se entienda
+                que está elegido.
+              */}
               {selected ? (
-                <FondoDegradado colores={degradados.acentoTenue} />
+                <FondoDegradado colores={degradados.acento} opacidad={0.14} />
               ) : null}
               <View style={[styles.check, selected && styles.checkOn]}>
                 {selected ? (

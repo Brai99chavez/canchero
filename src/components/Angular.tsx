@@ -26,9 +26,19 @@ function useIdDegradado() {
 export function FondoDegradado({
   colores,
   vertical = false,
+  opacidad,
 }: {
   colores: readonly [string, string];
   vertical?: boolean;
+  /**
+   * De 0 a 1, para teñir en vez de pintar.
+   *
+   * Va acá y no como un color con alfa —`#5BF5A526`— porque react-native-svg
+   * descarta el alfa del color de cada parada: hace `color & 0x00ffffff` y usa
+   * `stopOpacity`, que por defecto es 1. O sea que un hex de ocho dígitos se
+   * dibuja opaco y el tinte sale pintado a fondo.
+   */
+  opacidad?: number;
 }) {
   const id = useIdDegradado();
   const [medida, setMedida] = useState({ ancho: 0, alto: 0 });
@@ -62,6 +72,7 @@ export function FondoDegradado({
             width={medida.ancho}
             height={medida.alto}
             fill={`url(#${id})`}
+            opacity={opacidad}
           />
         </Svg>
       ) : null}
