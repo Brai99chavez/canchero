@@ -627,7 +627,7 @@ function Root() {
     const conFotos = await subirFotosPendientes(planteles);
     if (conFotos.subidas > 0) setPlanteles(conFotos.planteles);
 
-    await subir(conFotos.planteles);
+    const ignorados = await subir(conFotos.planteles);
     // Los borrados van después de subir: si la subida falla, el plantel sigue
     // en la nube y no se perdió nada.
     for (const id of borradosPendientes) await marcarBorrado(id);
@@ -636,6 +636,15 @@ function Root() {
     setUltimaCopia(new Date());
     setFirmaSubida(firmaDe(conFotos.planteles));
 
+    if (ignorados > 0) {
+      throw new Error(
+        `${ignorados} ${
+          ignorados === 1 ? 'plantel no entró' : 'planteles no entraron'
+        } en tu plan y ${
+          ignorados === 1 ? 'quedó' : 'quedaron'
+        } sólo en este teléfono. Se guardaron los más viejos.`
+      );
+    }
     if (conFotos.fallaron > 0) {
       throw new Error(
         `Se guardó todo, pero ${conFotos.fallaron} ${

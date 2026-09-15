@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
+import { planDe, recortarAlPlan } from './planes.js';
 import {
   borrarFoto,
   hayFotos,
@@ -53,13 +54,7 @@ app.use('/perfil', async (c, siguiente) => {
  */
 app.get('/perfil', async (c) => {
   const usuario = c.get('usuario');
-  const { rows } = await consultar(
-    `insert into perfiles (usuario_id) values ($1)
-     on conflict (usuario_id) do update set usuario_id = excluded.usuario_id
-     returning plan`,
-    [usuario.id]
-  );
-  return c.json({ email: usuario.email, plan: rows[0]?.plan ?? 'gratis' });
+  return c.json({ email: usuario.email, plan: await planDe(usuario.id) });
 });
 
 /**
@@ -112,10 +107,18 @@ app.put('/planteles', async (c) => {
   const cuerpo = await c.req.json().catch(() => null);
   const lista = Array.isArray(cuerpo?.planteles) ? cuerpo.planteles : null;
   if (!lista) return c.json({ error: 'Falta la lista de planteles.' }, 400);
-  if (lista.length === 0) return c.json({ guardados: 0 });
+  if (lista.length === 0) return c.json({ guardados: 0, ignorados: 0 });
   if (lista.length > 200) return c.json({ error: 'Demasiados planteles.' }, 413);
 
-  for (const p of lista) {
+  // El límite se aplica acá y no se confía en lo que diga la app: un APK
+  // modificado puede pedir lo que quiera, pero lo que se guarda lo decide el
+  // servidor contra el plan que figura en la base.
+  const { aceptados, ignorados } = recortarAlPlan(
+    lista,
+    await planDe(usuario.id)
+  );
+
+  for (const p of aceptados) {
     if (typeof p?.id !== 'string' || typeof p?.nombre !== 'string') continue;
     await consultar(
       `insert into planteles (id, dueno, nombre, llegada, datos, borrado, actualizado)
@@ -143,7 +146,7 @@ app.put('/planteles', async (c) => {
     await fotosEnUso(usuario.id)
   ).catch(() => 0);
 
-  return c.json({ guardados: lista.length, fotosBorradas });
+  return c.json({ guardados: aceptados.length, ignorados, fotosBorradas });
 });
 
 /** Las URLs de foto que aparecen en los planteles vivos de una cuenta. */

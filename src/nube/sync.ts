@@ -60,15 +60,24 @@ function aFila(p: Squad) {
   };
 }
 
-export async function subir(planteles: Squad[]): Promise<void> {
+/**
+ * Sube y devuelve cuántos quedaron afuera por el plan.
+ *
+ * El servidor recorta contra el plan que figura en su base, no contra lo que
+ * diga la app: acá los límites son para avisar, allá son la regla. Si recortó,
+ * hay que decirlo — dar por guardado algo que no se guardó es la peor forma de
+ * perder datos.
+ */
+export async function subir(planteles: Squad[]): Promise<number> {
   // Sin planteles no se sube nada: una app recién instalada no tiene por qué
   // poder vaciar el respaldo antes de que la persona alcance a restaurarlo.
-  if (planteles.length === 0) return;
+  if (planteles.length === 0) return 0;
 
-  await pedir('/planteles', {
-    metodo: 'PUT',
-    cuerpo: { planteles: planteles.map(aFila) },
-  });
+  const r = await pedir<{ guardados: number; ignorados?: number }>(
+    '/planteles',
+    { metodo: 'PUT', cuerpo: { planteles: planteles.map(aFila) } }
+  );
+  return r.ignorados ?? 0;
 }
 
 /**

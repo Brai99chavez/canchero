@@ -92,8 +92,19 @@ restaurarlo.
 plantel volvería la próxima vez que otro teléfono restaure.
 
 **El plan no se puede escribir desde la app.** No hay endpoint que lo toque:
-`perfiles` la escribe el webhook del cobro, con su propia clave. Un APK
-modificado no puede volverse Pro.
+`perfiles` la escribe el webhook del cobro, con su propia clave.
+
+**Y el límite se aplica acá, no allá** (`src/planes.js`). En la app hay una
+copia de los mismos números, pero esa vive adentro del APK, y un APK se
+descompila, se cambia y se vuelve a firmar: quien quiera saltearse el límite
+sólo tiene que cambiar una constante. Por eso `PUT /planteles` recorta contra
+el plan que figura en la base y devuelve cuántos ignoró, para que la app pueda
+avisar en vez de dar por guardado algo que no se guardó.
+
+El tope de jugadores por plantel no se verifica: un plantel de treinta no le
+cuesta nada al servidor, y rechazarlo le haría perder datos a alguien que
+importó un respaldo grande y no hizo nada malo. Lo que se cobra es la cantidad
+de planteles, y eso sí se verifica.
 
 **Los errores no se devuelven con detalle.** El detalle va al log del servidor;
 al teléfono le llega que falló y nada más, para no filtrar nombres de tablas ni
