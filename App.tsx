@@ -445,9 +445,10 @@ function Root() {
     [resultadoId, editarPlantel]
   );
 
-  const handleBorrarPartido = useCallback(
-    (id: string) => {
-      editarPartidos((prev) => prev.filter((p) => p.id !== id));
+  const handleBorrarPartidos = useCallback(
+    (ids: string[]) => {
+      const fuera = new Set(ids);
+      editarPartidos((prev) => prev.filter((p) => !fuera.has(p.id)));
     },
     [editarPartidos]
   );
@@ -697,7 +698,7 @@ function Root() {
             partidos={partidos}
             vista={tab}
             onCargarResultado={(partido) => setResultadoId(partido.id)}
-            onBorrarPartido={handleBorrarPartido}
+            onBorrarPartidos={handleBorrarPartidos}
           />
         ) : tab === 'plantel' ? (
           <PlayersScreen

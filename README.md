@@ -170,6 +170,22 @@ apaga el servicio cuando no se usa y tarda en despertar, así que cortar a los
 diez daría "sin conexión" cada vez que alguien es el primero del día en abrir
 la app.
 
+## Limpiar el historial
+
+En **En juego** y en **Jugados**, arriba de la lista hay *Elegir para borrar*:
+se marcan los que sobran y el botón rojo de abajo los saca de una. *Todos*
+selecciona la lista entera, que es la forma de vaciar el historial de un
+plantel sin un botón aparte para eso.
+
+Mantener apretado un partido entra al modo con ese ya marcado, que es el atajo
+que espera cualquiera que borró algo en un celular.
+
+Cambiar de pestaña sale del modo: lo que quedó marcado era de la otra lista, y
+borrar eso no sería lo que nadie espera.
+
+Borrar un partido lo saca de la tabla y de los PJ/G/A de las cartas, porque
+todo eso se calcula sobre la lista de partidos y no se guarda aparte.
+
 ## Planes y límites
 
 El plan gratis llega a **2 planteles** de hasta **24 jugadores** cada uno; Pro

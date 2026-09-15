@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -19,7 +19,7 @@ interface Props {
   /** Qué mirar: lo elige la barra de abajo, que tiene una pestaña por vista. */
   vista: Pestania;
   onCargarResultado: (partido: Partido) => void;
-  onBorrarPartido: (id: string) => void;
+  onBorrarPartidos: (ids: string[]) => void;
 }
 
 /**
@@ -64,9 +64,19 @@ export default function HistoryScreen({
   partidos,
   vista,
   onCargarResultado,
-  onBorrarPartido,
+  onBorrarPartidos,
 }: Props) {
   const { dialogo, preguntar } = useDialogo();
+  /**
+   * `null` cuando no se está eligiendo nada. Un conjunto vacío ya es modo
+   * selección, así que la barra aparece apenas se entra y no recién al marcar
+   * el primero.
+   */
+  const [elegidos, setElegidos] = useState<Set<string> | null>(null);
+
+  // Cambiar de pestaña sale del modo: lo que quedó marcado era de la otra
+  // lista, y borrar eso no sería lo que nadie espera.
+  useEffect(() => setElegidos(null), [vista]);
 
   const ordenados = useMemo(
     () => partidos.slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
@@ -96,21 +106,82 @@ export default function HistoryScreen({
       });
   }, [players, partidos]);
 
-  function confirmarBorrado(partido: Partido) {
+  const lista = vista === 'activos' ? activos : jugados;
+
+  function alternar(id: string) {
+    setElegidos((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else siguiente.add(id);
+      return siguiente;
+    });
+  }
+
+  function confirmarBorrado() {
+    const ids = [...(elegidos ?? [])];
+    if (ids.length === 0) return;
+    const uno = ids.length === 1;
     preguntar({
-      titulo: 'Borrar partido',
-      mensaje: 'Se elimina del historial y deja de contar en las estadísticas.',
+      titulo: uno ? 'Borrar partido' : `Borrar ${ids.length} partidos`,
+      mensaje:
+        (uno
+          ? 'Se elimina del historial y deja de contar '
+          : 'Se eliminan del historial y dejan de contar ') +
+        'en la tabla y en las cartas. No se puede deshacer.',
       confirmar: 'Borrar',
       peligro: true,
-      onConfirmar: () => onBorrarPartido(partido.id),
+      onConfirmar: () => {
+        onBorrarPartidos(ids);
+        setElegidos(null);
+      },
     });
   }
 
   return (
     <View style={styles.container}>
+      {vista !== 'tabla' && lista.length > 0 ? (
+        <View style={styles.barra}>
+          {elegidos ? (
+            <>
+              <Pressable onPress={() => setElegidos(null)} hitSlop={8}>
+                <Text style={styles.accion}>Cancelar</Text>
+              </Pressable>
+              <Text style={styles.cuenta}>
+                {elegidos.size}{' '}
+                {elegidos.size === 1 ? 'elegido' : 'elegidos'}
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setElegidos(
+                    elegidos.size === lista.length
+                      ? new Set()
+                      : new Set(lista.map((p) => p.id))
+                  )
+                }
+                hitSlop={8}
+              >
+                <Text style={styles.accion}>
+                  {elegidos.size === lista.length ? 'Ninguno' : 'Todos'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.cuenta}>
+                {lista.length}{' '}
+                {lista.length === 1 ? 'partido' : 'partidos'}
+              </Text>
+              <Pressable onPress={() => setElegidos(new Set())} hitSlop={8}>
+                <Text style={styles.accion}>Elegir para borrar</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      ) : null}
+
       {vista !== 'tabla' ? (
         <FlatList
-          data={vista === 'activos' ? activos : jugados}
+          data={lista}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
@@ -128,11 +199,16 @@ export default function HistoryScreen({
           }
           renderItem={({ item }) => {
             const cargado = tieneResultado(item);
+            const marcado = elegidos?.has(item.id) ?? false;
             return (
               <Pressable
-                style={styles.partido}
-                onPress={() => onCargarResultado(item)}
-                onLongPress={() => confirmarBorrado(item)}
+                style={[styles.partido, marcado && styles.partidoElegido]}
+                onPress={() =>
+                  elegidos ? alternar(item.id) : onCargarResultado(item)
+                }
+                // Mantener apretado entra al modo con ese ya marcado, que es
+                // el atajo que espera cualquiera que borró algo en el celular.
+                onLongPress={() => setElegidos(new Set([item.id]))}
               >
                 <View style={styles.partidoCabecera}>
                   <Text style={styles.fecha}>{fechaCorta(item.fecha)}</Text>
@@ -149,7 +225,7 @@ export default function HistoryScreen({
                 <Text style={styles.equiposB} numberOfLines={1}>
                   {item.equipoB.map((id) => item.nombres[id]).join(', ')}
                 </Text>
-                {cargado ? null : (
+                {cargado || elegidos ? null : (
                   <Button
                     title="Cargar resultado"
                     onPress={() => onCargarResultado(item)}
@@ -194,12 +270,51 @@ export default function HistoryScreen({
         />
       )}
 
+      {elegidos && elegidos.size > 0 ? (
+        <View style={styles.pieBorrar}>
+          <Button
+            title={`Borrar ${elegidos.size} ${
+              elegidos.size === 1 ? 'partido' : 'partidos'
+            }`}
+            variant="danger"
+            onPress={confirmarBorrado}
+          />
+        </View>
+      ) : null}
+
       {dialogo}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  barra: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  cuenta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: 'Barlow_700Bold',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  accion: {
+    color: colors.primary,
+    fontSize: 12,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  partidoElegido: { borderColor: colors.primary, borderWidth: 1.5 },
+  pieBorrar: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
+  },
   container: { flex: 1 },
   pestania: {
     flex: 1,
