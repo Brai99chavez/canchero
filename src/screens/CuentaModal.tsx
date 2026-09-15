@@ -18,6 +18,7 @@ import { useDialogo } from '../components/Dialogo';
 import { Aviso, Button } from '../components/ui';
 import {
   entrar,
+  pedirRecuperacion,
   Explicacion,
   explicar,
   registrarse,
@@ -96,11 +97,31 @@ export default function CuentaModal({
       if (alta.faltaConfirmar) {
         avisar(
           'Revisá tu mail',
-          'Te mandamos un link para confirmar la cuenta. Después entrá desde acá.'
+          `Te mandamos un link a ${email.trim()} para confirmar la cuenta. ` +
+            'Tocalo y después entrá desde acá. Fijate también en spam.'
         );
         setModo('entrar');
       }
     });
+
+  const handleOlvide = () => {
+    const limpio = email.trim();
+    if (!limpio.includes('@')) {
+      setError({
+        titulo: 'Escribí tu mail primero',
+        detalle: 'Ponelo arriba y volvé a tocar acá para que te mandemos el link.',
+      });
+      return;
+    }
+    conAviso(async () => {
+      await pedirRecuperacion(limpio);
+      avisar(
+        'Revisá tu mail',
+        `Si hay una cuenta con ${limpio}, te llega un link para elegir una ` +
+          'contraseña nueva. Vence en una hora, y fijate también en spam.'
+      );
+    });
+  };
 
   const handleSalir = () => {
     if (haySinSubir) {
@@ -318,6 +339,13 @@ export default function CuentaModal({
                   }
                   variant="ghost"
                 />
+                {modo === 'entrar' ? (
+                  <Button
+                    title="Olvidé mi contraseña"
+                    onPress={handleOlvide}
+                    variant="ghost"
+                  />
+                ) : null}
               </>
             )}
           </ScrollView>

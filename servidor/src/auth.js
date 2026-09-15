@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { expo } from '@better-auth/expo';
 import { pool } from './db.js';
+import { mailDeConfirmacion, mailDeRecuperacion } from './mails.js';
 
 /**
  * Las cuentas. Better Auth se encarga de lo que no conviene escribir a mano
@@ -21,10 +22,33 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
-    // Se arranca sin confirmar el mail para no depender de un servicio de
-    // envío el primer día. Antes de abrirla al público hay que prenderlo: si
-    // no, cualquiera se registra con el mail de otro.
-    requireEmailVerification: false,
+
+    /**
+     * Sin esto una contraseña olvidada es la cuenta perdida para siempre, con
+     * el respaldo adentro. Es lo primero que había que resolver de los mails,
+     * antes que confirmar la dirección.
+     */
+    sendResetPassword: async ({ user, url }) => {
+      await mailDeRecuperacion(user.email, url);
+    },
+    resetPasswordTokenExpiresIn: 60 * 60,
+
+    /**
+     * Sin esto cualquiera se registra con el mail de otro, y ese otro se queda
+     * sin poder usar el suyo. Hasta que no confirme, la cuenta existe pero no
+     * puede entrar.
+     */
+    requireEmailVerification: true,
+  },
+
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await mailDeConfirmacion(user.email, url);
+    },
+    /** El mail sale al registrarse, sin que la app tenga que pedirlo aparte. */
+    sendOnSignUp: true,
+    /** Al confirmar queda la sesión abierta, sin pedir la contraseña de nuevo. */
+    autoSignInAfterVerification: true,
   },
 
   // La app no es un sitio web: no hay cookies ni dominio, el token viaja en el

@@ -99,11 +99,32 @@ modificado no puede volverse Pro.
 al teléfono le llega que falló y nada más, para no filtrar nombres de tablas ni
 cadenas de conexión.
 
+## Los mails
+
+`src/mails.js`, con Resend. **Sin `RESEND_API_KEY` no se envía nada**: el mail
+se escribe en el log del servidor con el link incluido. Eso permite probar el
+circuito entero sin mandar correo de verdad, y que un despliegue mal
+configurado no se caiga — queda anotado y sigue andando.
+
+Dos mails:
+
+- **Recuperar contraseña.** Sin esto, una contraseña olvidada es la cuenta
+  perdida para siempre con el respaldo adentro. El link vence en una hora y no
+  se puede usar dos veces.
+- **Confirmar la cuenta.** Está **prendido**: hasta que no confirme, la cuenta
+  existe pero no puede entrar. Sin eso cualquiera se registra con el mail de
+  otro y ese otro se queda sin poder usar el suyo.
+
+Pedir la recuperación responde igual exista o no la cuenta, a propósito: si
+dijera "ese mail no está registrado" sería una forma de averiguar quién tiene
+cuenta probando direcciones.
+
+El HTML de los mails es simple a propósito: los clientes de correo soportan
+mucho menos CSS que un navegador, y un mail que llega roto es peor que uno feo.
+
 ## Pendiente
 
-- Confirmación de mail. Hoy está apagada para no depender de un servicio de
-  envío el primer día. **Antes de abrirla al público hay que prenderla**: si no,
-  cualquiera se registra con el mail de otro. Necesita Resend o similar.
-- Las fotos. Neon no guarda archivos: van a Cloudflare R2 o S3.
 - Mezclar dos copias en vez de reemplazar. Necesita una fecha de modificación
   por plantel, actualizada en cada cambio.
+- Un dominio propio para los mails. Hoy salen de un subdominio prestado y se
+  lee raro para una app que se llama CANCHERO. Es cosmético.

@@ -50,6 +50,14 @@ export function explicar(error: unknown): Explicacion {
       detalle: 'Fijate que tenga arroba y que no falte nada después del punto.',
     };
   }
+  if (m.includes('not verified') || m.includes('verify')) {
+    return {
+      titulo: 'Falta confirmar tu mail',
+      detalle:
+        'Te mandamos un link cuando creaste la cuenta. Buscalo en tu casilla ' +
+        '—fijate también en spam— y tocalo para poder entrar.',
+    };
+  }
   if (m.includes('too many') || m.includes('rate limit')) {
     return {
       titulo: 'Demasiados intentos',
@@ -149,6 +157,23 @@ export async function entrar(email: string, clave: string): Promise<Sesion> {
   const sesion = { id: data.user.id, email: data.user.email };
   avisar(sesion);
   return sesion;
+}
+
+/**
+ * Manda el mail para elegir una contraseña nueva.
+ *
+ * Responde igual exista o no la cuenta, a propósito: si dijera "ese mail no
+ * está registrado" sería una forma de averiguar quién tiene cuenta probando
+ * direcciones.
+ */
+export async function pedirRecuperacion(email: string): Promise<void> {
+  const { error } = await clienteObligatorio().requestPasswordReset({
+    email: email.trim(),
+    redirectTo: 'canchero://recuperar',
+  });
+  if (error) {
+    throw new Error(enCastellano(error.message ?? 'No se pudo pedir el cambio.'));
+  }
 }
 
 export async function salir(): Promise<void> {
