@@ -277,6 +277,12 @@ export default function HistoryScreen({
 
               {item.resumen.jugados > 0 ? (
                 <View style={styles.dg}>
+                  {/*
+                    Etiquetado porque al lado está la media corregida, que
+                    también es un número chico con signo: sin decir cuál es
+                    cuál, el -8 de goles y el -3 de la media se confunden.
+                  */}
+                  <Text style={styles.dgTitulo}>Dif. gol</Text>
                   <Text
                     style={[
                       styles.dgNumero,
@@ -289,7 +295,7 @@ export default function HistoryScreen({
                   </Text>
                   <Text style={styles.dgPie}>
                     {diferenciaPorPartido(item.resumen).toFixed(1).replace('.', ',')}
-                    /PJ
+                    {' por partido'}
                   </Text>
                 </View>
               ) : null}
@@ -386,7 +392,14 @@ const styles = StyleSheet.create({
   cargar: { marginTop: spacing.md },
   equipos: { color: colors.teamA, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
   equiposB: { color: colors.teamB, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
-  dg: { alignItems: 'flex-end', minWidth: 46 },
+  dg: { alignItems: 'flex-end', minWidth: 74 },
+  dgTitulo: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
   dgNumero: {
     color: colors.textMuted,
     fontSize: 17,
@@ -396,7 +409,7 @@ const styles = StyleSheet.create({
   dgMal: { color: colors.danger },
   dgPie: {
     color: colors.textMuted,
-    fontSize: 10,
+    fontSize: 9.5,
     fontFamily: 'Barlow_600SemiBold',
     letterSpacing: 0.2,
   },

@@ -247,8 +247,8 @@ export default function PlayersScreen({
                     ajustes[item.id].ajuste > 0 ? styles.sube : styles.baja,
                   ]}
                 >
-                  {ajustes[item.id].ajuste > 0 ? '+' : ''}
-                  {ajustes[item.id].ajuste}
+                  {/* De cuánto era su media antes de corregirla. */}
+                  {`de ${ajustes[item.id].base}`}
                 </Text>
               ) : null}
             </View>
