@@ -58,7 +58,7 @@ PLANTILLAS = {
         clip=[(434, 75), (650, 75), (992, 218), (992, 1241), (862, 1310),
               (520, 1390), (222, 1310), (114, 1241), (114, 218)],
         ajustes={
-            'foto': dict(x=0.08, y=0.125, width=0.86, height=0.485),
+            'foto': dict(x=0.13, y=0.125, width=0.76, height=0.485),
             'busto': dict(x=0.20, y=0.265, width=0.60, height=0.345),
             'nombre': dict(GRILLA['nombre'], baseline=0.6150),
             'aportes': dict(GRILLA['aportes'], baseline=0.6510),

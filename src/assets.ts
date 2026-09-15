@@ -171,7 +171,10 @@ const NEON = construir(
   '#F2F6FF',
   '#08132E',
   {
-    foto: { x: 0.08, y: 0.125, width: 0.86, height: 0.485 },
+    // Un 5% de aire más de cada lado que el resto de las plantillas: el
+    // marco de esquirlas se mete bastante hacia adentro y la foto le
+    // quedaba encima.
+    foto: { x: 0.13, y: 0.125, width: 0.76, height: 0.485 },
     busto: { x: 0.2, y: 0.265, width: 0.6, height: 0.345 },
     nombre: { ...GRILLA.nombre, baseline: 0.615 },
     aportes: { ...GRILLA.aportes, baseline: 0.651 },
