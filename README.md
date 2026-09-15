@@ -325,23 +325,19 @@ duplas.
 `npm run prueba:elo` corre los casos: el bueno que hace perder, el que lo
 llevan de arrastre, el que gana peleado, y que sin datos no invente.
 
-## La diferencia de gol
+## La tabla
 
-En la tabla, al lado de cada jugador: los goles que hizo y recibió su equipo en
-los partidos que jugó, y el promedio por partido.
+Por jugador: la media corregida, el registro, la tirita de los últimos cinco y
+el **porcentaje de partidos ganados**. Los empates no cuentan como medio — se
+ganó o no se ganó, que es como se habla de esto en un grupo.
 
-No mide habilidad — eso se pone a ojo y no hay forma de medirlo en un picado.
-Lo que da es la **memoria que el ojo no tiene**: cada derrota tiene su
-explicación el sábado, y la tendencia de tres meses no la ve nadie. Si alguien
-viene en −1,8 por partido, ahí hay algo para pensar; qué es, lo decide una
-persona.
+El porcentaje repite en parte lo que dice el registro, y eso es a propósito: se
+lee de un vistazo sin tener que dividir `0G 1E 5P` mentalmente.
 
-Se muestra el promedio y no sólo el total porque el que jugó veinte partidos
-acumula más que el que jugó tres sin ser mejor.
-
-Hubo antes una media que se ajustaba sola con los resultados y se sacó: era
-invisible, nadie entendía de dónde salía el número. Si vuelve, tiene que
-entrarse por acá, con el dato crudo a la vista primero.
+Lo que no muestra, y se calcula igual en `src/stats.ts`, es la **diferencia de
+gol**. Distingue cosas que el porcentaje no —perder 1-0 cinco veces y perder
+8-0 cinco veces son el mismo 0%— pero se prefirió el porcentaje por ser más
+directo. Volver a mostrarla es cambiar una pantalla, no la cuenta.
 
 ## Cómo arma los equipos
 

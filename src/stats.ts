@@ -16,11 +16,9 @@ export interface Resumen {
   asistencias: number;
   /**
    * Los goles que hizo y recibió su equipo en los partidos que jugó, y la
-   * diferencia entre ambos.
-   *
-   * No mide habilidad —eso no se mide a ojo ni con cuentas— pero da la memoria
-   * que el ojo no tiene: cada derrota tiene su explicación el sábado, y la
-   * tendencia de tres meses no la ve nadie.
+   * diferencia entre ambos. Hoy no se muestran en ningún lado: se calculan
+   * igual porque son parte del resumen, y volver a mostrarlos es cambiar una
+   * pantalla y no la cuenta.
    */
   aFavor: number;
   enContra: number;
@@ -110,12 +108,11 @@ export function resumenDe(jugadorId: string, partidos: Partido[]): Resumen {
 }
 
 /**
- * La diferencia de gol por partido. Es la que se puede comparar entre dos
- * jugadores: el que jugó veinte partidos acumula más que el que jugó tres sin
- * ser mejor.
+ * El porcentaje de partidos ganados. Los empates no cuentan como medio: se
+ * ganó o no se ganó, que es como se habla de esto en un grupo.
  */
-export function diferenciaPorPartido(r: Resumen): number {
-  return r.jugados === 0 ? 0 : r.diferencia / r.jugados;
+export function winrate(r: Resumen): number {
+  return r.jugados === 0 ? 0 : Math.round((100 * r.ganados) / r.jugados);
 }
 
 /** Cuántos partidos recientes se miran para el banco y para las duplas. */

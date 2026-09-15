@@ -9,12 +9,7 @@ import {
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
-import {
-  diferenciaPorPartido,
-  resumenDe,
-  Signo,
-  tieneResultado,
-} from '../stats';
+import { resumenDe, Signo, tieneResultado, winrate } from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
 import { Partido, Player } from '../types';
@@ -279,23 +274,18 @@ export default function HistoryScreen({
                 <View style={styles.dg}>
                   {/*
                     Etiquetado porque al lado está la media corregida, que
-                    también es un número chico con signo: sin decir cuál es
-                    cuál, el -8 de goles y el -3 de la media se confunden.
+                    también es un número suelto: sin decir cuál es cuál se
+                    confunden.
                   */}
-                  <Text style={styles.dgTitulo}>Dif. gol</Text>
+                  <Text style={styles.dgTitulo}>Ganados</Text>
                   <Text
                     style={[
                       styles.dgNumero,
-                      item.resumen.diferencia > 0 && styles.dgBien,
-                      item.resumen.diferencia < 0 && styles.dgMal,
+                      winrate(item.resumen) >= 60 && styles.dgBien,
+                      winrate(item.resumen) < 40 && styles.dgMal,
                     ]}
                   >
-                    {item.resumen.diferencia > 0 ? '+' : ''}
-                    {item.resumen.diferencia}
-                  </Text>
-                  <Text style={styles.dgPie}>
-                    {diferenciaPorPartido(item.resumen).toFixed(1).replace('.', ',')}
-                    {' por partido'}
+                    {winrate(item.resumen)}%
                   </Text>
                 </View>
               ) : null}
@@ -392,7 +382,7 @@ const styles = StyleSheet.create({
   cargar: { marginTop: spacing.md },
   equipos: { color: colors.teamA, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
   equiposB: { color: colors.teamB, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
-  dg: { alignItems: 'flex-end', minWidth: 74 },
+  dg: { alignItems: 'flex-end', minWidth: 58 },
   dgTitulo: {
     color: colors.textMuted,
     fontSize: 9,
