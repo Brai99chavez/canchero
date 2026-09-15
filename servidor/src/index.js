@@ -23,6 +23,11 @@ app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
  * Render pega acá para saber si el servicio está vivo, y de paso dice qué
  * tiene configurado. Son booleanos de configuración, no secretos, y evitan
  * tener que adivinar si un despliegue quedó a medias.
+ *
+ * `version` es el commit que Render está corriendo, que él mismo pone en el
+ * entorno. Sin esto, después de subir un cambio no hay forma de saber si lo
+ * que contesta el servidor ya es el código nuevo o todavía el viejo: se
+ * esperaba un rato y se cruzaban los dedos.
  */
 app.get('/', (c) =>
   c.json({
@@ -30,6 +35,7 @@ app.get('/', (c) =>
     servicio: 'canchero-api',
     fotos: hayFotos,
     mails: hayMails,
+    version: (process.env.RENDER_GIT_COMMIT ?? 'local').slice(0, 7),
   })
 );
 
