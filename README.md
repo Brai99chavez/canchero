@@ -62,6 +62,32 @@ Para Android con emulador: `npm run android`.
    cinco. Tocá un partido para cargar o corregir su resultado; mantenelo
    apretado para borrarlo.
 
+## Los avisos y las preguntas
+
+No queda ningún `Alert` del sistema en la app. Los de Android e iOS son
+cuadrados, blancos o grises y con la tipografía del sistema: al lado del resto
+parecen de otra aplicación, y se ven distintos en cada teléfono.
+
+En su lugar hay tres piezas, según qué tan fuerte sea la interrupción:
+
+- `Aviso` (`components/ui.tsx`) — un recuadro rojo **adentro** de la pantalla,
+  para errores del formulario que se está mirando. No tapa nada ni obliga a
+  aceptar.
+- `useDialogo` (`components/Dialogo.tsx`) — el aviso o la pregunta encima de
+  todo, con Cancelar y el botón de confirmar en rojo cuando no hay vuelta
+  atrás.
+- `Hoja` (`components/Hoja.tsx`) — sube desde abajo cuando hay que **elegir**
+  entre dos caminos, como exportar.
+
+Cada pantalla arma su propio `useDialogo` en vez de haber uno solo arriba de
+todo: los modales de React Native son ventanas aparte, y uno que nace afuera de
+la ventana abierta corre el riesgo de quedar por debajo.
+
+`avisar` acepta un tercer argumento con qué hacer al cerrarlo. Hace falta
+cuando el aviso es lo último que pasa en una pantalla que después se cierra:
+cerrarla antes de mostrarlo se llevaría el diálogo puesto, porque vive adentro
+de esa ventana.
+
 ## Respaldo: exportar e importar
 
 Se exporta **un plantel por vez**, desde su tuerca. El botón abre una hoja con

@@ -10,10 +10,11 @@ import {
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { buildTeams } from './src/balance';
 import AppHeader from './src/components/AppHeader';
+import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
 import TabBar from './src/components/TabBar';
@@ -74,12 +75,7 @@ import type { TabKey as Tab } from './src/components/TabBar';
 /** La app arranca en la lista, salvo que haya un plantel por defecto. */
 type Vista = 'lista' | 'plantel';
 
-/** Avisa si la acción no entra en el plan y dice si se puede seguir. */
-function dejaSeguir(permiso: Permiso): boolean {
-  if (permiso.ok) return true;
-  Alert.alert(permiso.titulo, permiso.motivo);
-  return false;
-}
+
 
 export default function App() {
   return (
@@ -119,6 +115,17 @@ function Root() {
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
   // El plan sale del servidor cuando hay cuenta. Sin cuenta, el de siempre.
   const [plan, setPlan] = useState<Plan>(PLAN);
+  const { dialogo, avisar } = useDialogo();
+
+  /** Avisa si la acción no entra en el plan y dice si se puede seguir. */
+  const dejaSeguir = useCallback(
+    (permiso: Permiso) => {
+      if (permiso.ok) return true;
+      avisar(permiso.titulo, permiso.motivo);
+      return false;
+    },
+    [avisar]
+  );
 
   // La sesión puede cambiar desde el modal o sola, cuando vence el token.
   useEffect(() => {
@@ -576,45 +583,20 @@ function Root() {
    * Traer reemplaza en vez de mezclar: sin una fecha de modificación por
    * plantel no hay forma de saber cuál de las dos copias es la buena, y
    * adivinar mal se lleva puestos datos que alguien cargó a mano.
+   *
+   * Preguntar y contar cómo salió es cosa de la pantalla de cuenta: sus
+   * diálogos nacen dentro de su propia ventana y no corren riesgo de quedar
+   * por debajo. Acá sólo se trae y se aplica.
    */
-  const handleRestaurar = useCallback(() => {
-    Alert.alert(
-      'Traer de la nube',
-      'Los planteles de este teléfono se reemplazan por los de tu cuenta. Si acá tenés algo que no subiste, se pierde.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Traer',
-          style: 'destructive',
-          onPress: () => {
-            bajar()
-              .then((traidos) => {
-                if (traidos.length === 0) {
-                  Alert.alert(
-                    'No hay nada guardado',
-                    'Tu cuenta todavía no tiene planteles.'
-                  );
-                  return;
-                }
-                setPlanteles(traidos);
-                setActivoId(traidos[0].id);
-                setPredeterminadoId(null);
-                setVista('lista');
-                setCuentaVisible(false);
-                Alert.alert(
-                  'Listo',
-                  `Se trajeron ${traidos.length} ${
-                    traidos.length === 1 ? 'plantel' : 'planteles'
-                  }.`
-                );
-              })
-              .catch((error) =>
-                Alert.alert('No se pudo traer', String(error?.message ?? error))
-              );
-          },
-        },
-      ]
-    );
+  const handleRestaurar = useCallback(async () => {
+    const traidos = await bajar();
+    if (traidos.length === 0) return 0;
+
+    setPlanteles(traidos);
+    setActivoId(traidos[0].id);
+    setPredeterminadoId(null);
+    setVista('lista');
+    return traidos.length;
   }, []);
 
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
@@ -764,6 +746,8 @@ function Root() {
         onGuardarAhora={handleGuardarAhora}
         onRestaurar={handleRestaurar}
       />
+
+      {dialogo}
 
       <NewSquadModal
         visible={nuevoVisible}

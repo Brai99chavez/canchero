@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -18,6 +17,7 @@ import Panel, {
   FondoDegradado,
 } from '../components/Angular';
 import { Etiqueta } from '../components/Banner';
+import { useDialogo } from '../components/Dialogo';
 import { Logotipo } from '../components/Logo';
 import { Objetivo } from '../components/Guia';
 import { Aparecer, Presionable } from '../components/motion';
@@ -63,6 +63,7 @@ export default function SquadsScreen({
   onReiniciar,
 }: Props) {
   const [importarVisible, setImportarVisible] = useState(false);
+  const { dialogo, preguntar } = useDialogo();
 
   const totalJugadores = planteles.reduce(
     (acc, p) => acc + p.jugadores.length,
@@ -70,30 +71,24 @@ export default function SquadsScreen({
   );
 
   function confirmarReinicio() {
-    Alert.alert(
-      'Empezar de cero',
-      'Se borran todos los planteles, jugadores, partidos y fotos. La app queda como recién instalada y no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar todo',
-          style: 'destructive',
-          onPress: () =>
-            Alert.alert(
-              '¿Seguro?',
-              'Si no exportaste, esto no se recupera.',
-              [
-                { text: 'Mejor no', style: 'cancel' },
-                {
-                  text: 'Sí, borrar todo',
-                  style: 'destructive',
-                  onPress: onReiniciar,
-                },
-              ]
-            ),
-        },
-      ]
-    );
+    // Se pregunta dos veces a propósito: es lo único de la app que no tiene
+    // vuelta atrás.
+    preguntar({
+      titulo: 'Empezar de cero',
+      mensaje:
+        'Se borran todos los planteles, jugadores, partidos y fotos. La app ' +
+        'queda como recién instalada y no se puede deshacer.',
+      confirmar: 'Borrar todo',
+      peligro: true,
+      onConfirmar: () =>
+        preguntar({
+          titulo: '¿Seguro?',
+          mensaje: 'Si no exportaste, esto no se recupera.',
+          confirmar: 'Sí, borrar todo',
+          peligro: true,
+          onConfirmar: onReiniciar,
+        }),
+    });
   }
 
   return (
@@ -222,6 +217,8 @@ export default function SquadsScreen({
         onClose={() => setImportarVisible(false)}
         onImportar={onImportar}
       />
+
+      {dialogo}
     </View>
   );
 }

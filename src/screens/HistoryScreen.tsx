@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
 import { resumenDe, Signo, tieneResultado } from '../stats';
@@ -66,6 +66,8 @@ export default function HistoryScreen({
   onCargarResultado,
   onBorrarPartido,
 }: Props) {
+  const { dialogo, preguntar } = useDialogo();
+
   const ordenados = useMemo(
     () => partidos.slice().sort((a, b) => b.fecha.localeCompare(a.fecha)),
     [partidos]
@@ -95,18 +97,13 @@ export default function HistoryScreen({
   }, [players, partidos]);
 
   function confirmarBorrado(partido: Partido) {
-    Alert.alert(
-      'Borrar partido',
-      'Se elimina del historial y deja de contar en las estadísticas.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar',
-          style: 'destructive',
-          onPress: () => onBorrarPartido(partido.id),
-        },
-      ]
-    );
+    preguntar({
+      titulo: 'Borrar partido',
+      mensaje: 'Se elimina del historial y deja de contar en las estadísticas.',
+      confirmar: 'Borrar',
+      peligro: true,
+      onConfirmar: () => onBorrarPartido(partido.id),
+    });
   }
 
   return (
@@ -196,6 +193,8 @@ export default function HistoryScreen({
           )}
         />
       )}
+
+      {dialogo}
     </View>
   );
 }

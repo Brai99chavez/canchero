@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Seccion } from '../components/Banner';
 import HeaderModal from '../components/HeaderModal';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
+import { useDialogo } from '../components/Dialogo';
 import { Aviso, Button } from '../components/ui';
 import {
   entrar,
@@ -34,7 +34,8 @@ interface Props {
   ultimaCopia: string | null;
   onClose: () => void;
   onGuardarAhora: () => Promise<void>;
-  onRestaurar: () => void;
+  /** Trae la copia y devuelve cuántos planteles vinieron. */
+  onRestaurar: () => Promise<number>;
 }
 
 type Modo = 'entrar' | 'registro';
@@ -54,6 +55,7 @@ export default function CuentaModal({
   const [trabajando, setTrabajando] = useState(false);
   const [verClave, setVerClave] = useState(false);
   const [error, setError] = useState<Explicacion | null>(null);
+  const { dialogo, avisar, preguntar } = useDialogo();
 
   useEffect(() => {
     if (visible) {
@@ -89,7 +91,7 @@ export default function CuentaModal({
       const alta = await registrarse(email, clave);
       setClave('');
       if (alta.faltaConfirmar) {
-        Alert.alert(
+        avisar(
           'Revisá tu mail',
           'Te mandamos un link para confirmar la cuenta. Después entrá desde acá.'
         );
@@ -98,18 +100,39 @@ export default function CuentaModal({
     });
 
   const handleSalir = () =>
-    Alert.alert(
-      'Cerrar sesión',
-      'Los planteles siguen en este teléfono. La copia de la nube queda guardada para cuando vuelvas a entrar.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar sesión',
-          style: 'destructive',
-          onPress: () => conAviso(salir),
-        },
-      ]
-    );
+    preguntar({
+      titulo: 'Cerrar sesión',
+      mensaje:
+        'Los planteles siguen en este teléfono. La copia de la nube queda ' +
+        'guardada para cuando vuelvas a entrar.',
+      confirmar: 'Cerrar sesión',
+      peligro: true,
+      onConfirmar: () => conAviso(salir),
+    });
+
+  const handleRestaurar = () =>
+    preguntar({
+      titulo: 'Traer de la nube',
+      mensaje:
+        `Los ${cuantosPlanteles} ${
+          cuantosPlanteles === 1 ? 'plantel' : 'planteles'
+        } de este teléfono se reemplazan por los de tu cuenta. ` +
+        'Si acá tenés algo que no subiste, se pierde.',
+      confirmar: 'Traer',
+      peligro: true,
+      onConfirmar: () =>
+        conAviso(async () => {
+          const cuantos = await onRestaurar();
+          if (cuantos === 0) {
+            avisar(
+              'No hay nada guardado',
+              'Tu cuenta todavía no tiene planteles.'
+            );
+            return;
+          }
+          onClose();
+        }),
+    });
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -155,7 +178,7 @@ export default function CuentaModal({
                 </Text>
                 <Button
                   title="Traer de la nube"
-                  onPress={onRestaurar}
+                  onPress={handleRestaurar}
                   variant="ghost"
                   style={styles.boton}
                 />
@@ -256,6 +279,8 @@ export default function CuentaModal({
             )}
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {dialogo}
       </SafeAreaView>
     </Modal>
   );

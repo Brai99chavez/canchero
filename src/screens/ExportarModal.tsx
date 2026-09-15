@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
 import { compartir, descargar } from '../backup';
+import { useDialogo } from '../components/Dialogo';
 import Hoja, { Opcion } from '../components/Hoja';
 import { DownloadIcon, ShareIcon } from '../components/icons';
 import { colors } from '../theme';
@@ -21,6 +21,7 @@ export default function ExportarModal({
   onClose: () => void;
 }) {
   const [trabajando, setTrabajando] = useState(false);
+  const { dialogo, avisar } = useDialogo();
 
   async function conAviso(accion: () => Promise<void>) {
     if (trabajando) return;
@@ -28,7 +29,7 @@ export default function ExportarModal({
     try {
       await accion();
     } catch (error) {
-      Alert.alert(
+      avisar(
         'No se pudo exportar',
         String(error instanceof Error ? error.message : error)
       );
@@ -43,10 +44,10 @@ export default function ExportarModal({
       const carpeta = await descargar([plantel]);
       // Sin carpeta es que cerró el selector: no hay nada que avisar.
       if (!carpeta) return;
-      onClose();
-      Alert.alert(
+      avisar(
         'Guardado',
-        `El archivo quedó en ${carpeta}. Lo vas a encontrar con el explorador de archivos del teléfono.`
+        `El archivo quedó en ${carpeta}. Lo vas a encontrar con el explorador de archivos del teléfono.`,
+        onClose
       );
     });
 
@@ -55,7 +56,7 @@ export default function ExportarModal({
       if (!plantel) return;
       const pudo = await compartir([plantel]);
       if (!pudo) {
-        Alert.alert(
+        avisar(
           'No se puede compartir',
           'Este teléfono no tiene con qué compartir archivos.'
         );
@@ -91,6 +92,7 @@ export default function ExportarModal({
         onPress={handleCompartir}
         disabled={trabajando}
       />
+      {dialogo}
     </Hoja>
   );
 }

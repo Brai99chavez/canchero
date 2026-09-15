@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { importar } from '../backup';
+import { useDialogo } from '../components/Dialogo';
 import Hoja from '../components/Hoja';
 import { Button } from '../components/ui';
 import { colors, fuentes, spacing } from '../theme';
@@ -21,6 +22,7 @@ export default function ImportarModal({
   onImportar: (nuevos: Squad[]) => void;
 }) {
   const [trabajando, setTrabajando] = useState(false);
+  const { dialogo, avisar } = useDialogo();
 
   async function handleBuscar() {
     setTrabajando(true);
@@ -30,8 +32,7 @@ export default function ImportarModal({
       if (!resultado) return;
 
       onImportar(resultado.planteles);
-      onClose();
-      Alert.alert(
+      avisar(
         'Listo',
         `Se agregaron ${resultado.planteles.length} ${
           resultado.planteles.length === 1 ? 'plantel' : 'planteles'
@@ -40,10 +41,11 @@ export default function ImportarModal({
             ? ` y ${resultado.partidos} ${
                 resultado.partidos === 1 ? 'partido' : 'partidos'
               } de historial.`
-            : '.')
+            : '.'),
+        onClose
       );
     } catch (error) {
-      Alert.alert(
+      avisar(
         'No se pudo importar',
         String(error instanceof Error ? error.message : error)
       );
@@ -84,6 +86,7 @@ export default function ImportarModal({
         loading={trabajando}
         style={styles.boton}
       />
+      {dialogo}
     </Hoja>
   );
 }

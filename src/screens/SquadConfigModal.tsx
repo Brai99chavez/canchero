@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
@@ -44,6 +44,7 @@ export default function SquadConfigModal({
 }: Props) {
   // Todo se edita en borrador y recién se aplica con Guardar.
   const [nombre, setNombre] = useState('');
+  const { dialogo, avisar, preguntar } = useDialogo();
   const [predeterminado, setPredeterminado] = useState(false);
   const [exportarVisible, setExportarVisible] = useState(false);
 
@@ -62,7 +63,7 @@ export default function SquadConfigModal({
   function handleGuardar() {
     const limpio = nombre.trim();
     if (!limpio) {
-      Alert.alert('Falta el nombre', 'El plantel necesita un nombre.');
+      avisar('Falta el nombre', 'El plantel necesita un nombre.');
       return;
     }
     onGuardar({ nombre: limpio, predeterminado });
@@ -73,16 +74,19 @@ export default function SquadConfigModal({
       onClose();
       return;
     }
-    Alert.alert('Descartar cambios', 'Hay cambios sin guardar.', [
-      { text: 'Seguir editando', style: 'cancel' },
-      { text: 'Descartar', style: 'destructive', onPress: onClose },
-    ]);
+    preguntar({
+      titulo: 'Descartar cambios',
+      mensaje: 'Hay cambios sin guardar.',
+      confirmar: 'Descartar',
+      peligro: true,
+      onConfirmar: onClose,
+    });
   }
 
   function handleExportar() {
     if (!plantel) return;
     if (plantel.jugadores.length === 0) {
-      Alert.alert('Nada para exportar', 'Este plantel no tiene jugadores.');
+      avisar('Nada para exportar', 'Este plantel no tiene jugadores.');
       return;
     }
     setExportarVisible(true);
@@ -90,14 +94,15 @@ export default function SquadConfigModal({
 
   function handleBorrar() {
     if (!plantel) return;
-    Alert.alert(
-      'Borrar plantel',
-      `Se elimina "${plantel.nombre}" con sus ${plantel.jugadores.length} jugadores, y también sus fotos. No se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Borrar', style: 'destructive', onPress: onBorrar },
-      ]
-    );
+    preguntar({
+      titulo: 'Borrar plantel',
+      mensaje:
+        `Se elimina "${plantel.nombre}" con sus ${plantel.jugadores.length} ` +
+        'jugadores, y también sus fotos. No se puede deshacer.',
+      confirmar: 'Borrar',
+      peligro: true,
+      onConfirmar: onBorrar,
+    });
   }
 
   return (
@@ -178,6 +183,8 @@ export default function SquadConfigModal({
         plantel={plantel}
         onClose={() => setExportarVisible(false)}
       />
+
+      {dialogo}
     </Modal>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
@@ -60,6 +60,7 @@ export default function MatchResultModal({
   onGuardar,
 }: Props) {
   const [golesA, setGolesA] = useState('');
+  const { dialogo, preguntar } = useDialogo();
   const [golesB, setGolesB] = useState('');
   const [aportes, setAportes] = useState<Aportes>({});
   /** Quiénes al final no jugaron: se sacan del partido al guardar. */
@@ -169,23 +170,20 @@ export default function MatchResultModal({
       const detalle = sobranA
         ? `${sumaA} goles cargados contra un marcador de ${marcadorA}`
         : `${sumaB} goles cargados contra un marcador de ${marcadorB}`;
-      Alert.alert(
-        'El marcador no cierra',
-        `En el equipo ${equipo} hay ${detalle}. ¿Querés que el marcador tome la suma de los goles cargados?`,
-        [
-          { text: 'Lo corrijo yo', style: 'cancel' },
-          {
-            text: 'Usar la suma',
-            onPress: () => {
-              const finalA = sobranA ? sumaA : marcadorA;
-              const finalB = sobranB ? sumaB : marcadorB;
-              setGolesA(String(finalA));
-              setGolesB(String(finalB));
-              guardar(finalA, finalB);
-            },
-          },
-        ]
-      );
+      preguntar({
+        titulo: 'El marcador no cierra',
+        mensaje:
+          `En el equipo ${equipo} hay ${detalle}. ¿Querés que el marcador ` +
+          'tome la suma de los goles cargados?',
+        confirmar: 'Usar la suma',
+        onConfirmar: () => {
+          const finalA = sobranA ? sumaA : marcadorA;
+          const finalB = sobranB ? sumaB : marcadorB;
+          setGolesA(String(finalA));
+          setGolesB(String(finalB));
+          guardar(finalA, finalB);
+        },
+      });
       return;
     }
 
@@ -329,6 +327,8 @@ export default function MatchResultModal({
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {dialogo}
     </Modal>
   );
 }

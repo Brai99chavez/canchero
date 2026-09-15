@@ -1,7 +1,6 @@
 import Slider from '@react-native-community/slider';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZonaGuia } from '../components/Guia';
+import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import { SILUETA } from '../assets';
 import Opcion from '../components/Opcion';
@@ -99,6 +99,7 @@ export default function PlayerFormModal({
   onDelete,
 }: Props) {
   const [editing, setEditing] = useState(false);
+  const { dialogo, avisar, preguntar } = useDialogo();
   const [id, setId] = useState('');
   const [nombre, setNombre] = useState('');
   const [posicion, setPosicion] = useState<Position>('MED');
@@ -141,7 +142,7 @@ export default function PlayerFormModal({
   function handleSave() {
     const name = nombre.trim();
     if (!name) {
-      Alert.alert('Falta el nombre', 'Escribí el nombre del jugador.');
+      avisar('Falta el nombre', 'Escribí el nombre del jugador.');
       return;
     }
     onSave({ id, nombre: name, posicion, stats, foto });
@@ -165,18 +166,13 @@ export default function PlayerFormModal({
 
   function handleDelete() {
     if (!player || !onDelete) return;
-    Alert.alert(
-      'Borrar jugador',
-      'Se elimina a ' + player.nombre + ' del plantel.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar',
-          style: 'destructive',
-          onPress: () => onDelete(player.id),
-        },
-      ]
-    );
+    preguntar({
+      titulo: 'Borrar jugador',
+      mensaje: `Se elimina a ${player.nombre} del plantel.`,
+      confirmar: 'Borrar',
+      peligro: true,
+      onConfirmar: () => onDelete(player.id),
+    });
   }
 
   return (
@@ -345,6 +341,8 @@ export default function PlayerFormModal({
         </KeyboardAvoidingView>
         </ZonaGuia>
       </SafeAreaView>
+
+      {dialogo}
     </Modal>
   );
 }
