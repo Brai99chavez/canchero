@@ -154,7 +154,8 @@ function Root() {
       setPlan(PLAN);
       setUltimaCopia(null);
       setFirmaSubida(null);
-      setBorrados([]);
+      // Los borrados pendientes se quedan: siguen siendo verdad aunque no
+      // haya sesión, y hay que propagarlos cuando se vuelva a entrar.
       return;
     }
     planDeLaCuenta().then(setPlan);
@@ -166,6 +167,7 @@ function Root() {
       setPlanteles(guardado.planteles);
       setActivoId(guardado.activoId);
       setPredeterminadoId(guardado.predeterminadoId);
+      setBorrados(guardado.borrados);
       setVista(guardado.predeterminadoId ? 'plantel' : 'lista');
       setReady(true);
     });
@@ -174,8 +176,13 @@ function Root() {
   // Persiste los planteles en el celular ante cualquier cambio.
   useEffect(() => {
     if (!ready) return;
-    savePlanteles({ planteles, activoId, predeterminadoId });
-  }, [planteles, activoId, predeterminadoId, ready]);
+    savePlanteles({
+      planteles,
+      activoId,
+      predeterminadoId,
+      borrados: borradosPendientes,
+    });
+  }, [planteles, activoId, predeterminadoId, borradosPendientes, ready]);
 
   /**
    * El respaldo NO se hace solo: sube únicamente cuando se toca el botón.
@@ -527,7 +534,9 @@ function Root() {
       plantel?.jugadores.forEach((j) => cleanupPhotos(j.id));
 
       // Queda anotado para el próximo backup, no se borra en la nube ahora.
-      if (sesion) setBorrados((prev) => [...new Set([...prev, id])]);
+      // Se anota haya sesión o no: si entrás después, la nube todavía tiene
+      // ese plantel y hay que decírselo, si no reaparece al restaurar.
+      setBorrados((prev) => [...new Set([...prev, id])]);
 
       const quedan = planteles.filter((p) => p.id !== id);
       setPlanteles(quedan);
@@ -539,7 +548,7 @@ function Root() {
         setActivoId(quedan.length > 0 ? quedan[0].id : '');
       }
     },
-    [planteles, activoId, predeterminadoId, sesion]
+    [planteles, activoId, predeterminadoId]
   );
 
   /** Deja la app como recién instalada: sin planteles, sin fotos, sin nada. */

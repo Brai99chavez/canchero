@@ -22,6 +22,15 @@ export interface Guardado {
   activoId: string;
   /** Plantel que se abre solo al arrancar. Sin esto, se muestra la lista. */
   predeterminadoId: string | null;
+  /**
+   * Planteles borrados acá que todavía pueden seguir en la nube.
+   *
+   * Se guardan en el disco y no sólo en memoria porque el backup es manual:
+   * entre que borrás y subís puede pasar una semana y cerrarse la app veinte
+   * veces. Si se perdieran, la nube nunca se enteraría y el plantel volvería
+   * a aparecer la próxima vez que restaures.
+   */
+  borrados: string[];
 }
 
 export function newId(): string {
@@ -213,6 +222,9 @@ export async function loadPlanteles(): Promise<Guardado> {
           predeterminadoId: existe(parsed?.predeterminadoId)
             ? parsed.predeterminadoId
             : null,
+          borrados: Array.isArray(parsed?.borrados)
+            ? parsed.borrados.filter((x: unknown) => typeof x === 'string')
+            : [],
         };
       }
     }
@@ -224,6 +236,7 @@ export async function loadPlanteles(): Promise<Guardado> {
         planteles: migrados,
         activoId: migrados[0].id,
         predeterminadoId: migrados[0].id,
+        borrados: [],
       };
       await savePlanteles(guardado);
       return guardado;
@@ -235,7 +248,7 @@ export async function loadPlanteles(): Promise<Guardado> {
   // Instalación nueva: sin planteles. Que el primero lo cree y lo nombre el
   // usuario hace que el grupo tenga nombre propio desde el arranque, y es lo
   // que le da sentido a la pantalla de bienvenida.
-  return { planteles: [], activoId: '', predeterminadoId: null };
+  return { planteles: [], activoId: '', predeterminadoId: null, borrados: [] };
 }
 
 const GUIA_KEY = 'cancha-app/guia/v1';
