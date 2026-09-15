@@ -2,7 +2,12 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
-import { borrarFoto, hayFotos, permisoDeSubida } from './fotos.js';
+import {
+  borrarFoto,
+  hayFotos,
+  limpiarHuerfanas,
+  permisoDeSubida,
+} from './fotos.js';
 
 const app = new Hono();
 
@@ -130,8 +135,31 @@ app.put('/planteles', async (c) => {
       ]
     );
   }
-  return c.json({ guardados: lista.length });
+  // Recién acá se sabe qué fotos siguen en uso: se mira lo que quedó
+  // guardado, no lo que vino en el pedido, así una foto que referencia un
+  // plantel que no vino en este backup tampoco se borra.
+  const fotosBorradas = await limpiarHuerfanas(
+    usuario.id,
+    await fotosEnUso(usuario.id)
+  ).catch(() => 0);
+
+  return c.json({ guardados: lista.length, fotosBorradas });
 });
+
+/** Las URLs de foto que aparecen en los planteles vivos de una cuenta. */
+async function fotosEnUso(usuarioId) {
+  const { rows } = await consultar(
+    'select datos from planteles where dueno = $1 and not borrado',
+    [usuarioId]
+  );
+  const usadas = [];
+  for (const fila of rows) {
+    for (const jugador of fila.datos?.jugadores ?? []) {
+      if (typeof jugador?.foto === 'string') usadas.push(jugador.foto);
+    }
+  }
+  return usadas;
+}
 
 /**
  * Se marca en vez de borrar: si la fila desapareciera, el plantel volvería a

@@ -212,15 +212,21 @@ Si una foto falla al subir, el plantel se guarda igual: la foto queda local y
 se reintenta en el próximo backup. Perder el respaldo entero porque una imagen
 no subió sería mucho peor que quedarse sin esa imagen.
 
-**Todavía no se borran las fotos del bucket**, y no es un olvido: mientras el
-backup sea manual, una foto que acá ya no se usa puede seguir siendo la que
-referencia la copia de la nube. El endpoint existe; lo que falta es hacer la
-limpieza en el momento correcto, durante el backup y contra lo que queda
-referenciado después de subir.
+**Las fotos que ya no usa nadie se borran al final del backup**, no antes. El
+servidor mira qué quedó guardado —no lo que vino en el pedido— y saca del
+bucket lo que ningún plantel vivo referencia. Ese es el único momento en que se
+sabe con certeza qué sigue en uso: hacerlo desde el teléfono al borrar un
+jugador podía llevarse la foto que la copia de la nube todavía estaba
+mostrando.
+
+Con **15 minutos de gracia**: una foto recién subida puede estar esperando el
+plantel que la va a nombrar, y borrarla ahí la perdería.
 
 `npm run prueba:fotos` recorre el camino entero contra el servidor de verdad:
 permiso, subida, que se vea por la URL pública, que viaje en el backup y que se
-borre.
+borre. `npm run prueba:limpieza` prueba el barrido, incluido que el margen
+proteja lo recién subido y que nunca toque las fotos de otra cuenta; necesita
+las variables `R2_*` en el `.env` local.
 
 ## Planes y límites
 

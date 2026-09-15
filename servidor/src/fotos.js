@@ -1,5 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectsCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
@@ -82,4 +87,64 @@ export async function borrarFoto(usuarioId, url) {
   await getCliente().send(
     new DeleteObjectCommand({ Bucket: bucket, Key: key })
   );
+}
+
+/**
+ * Saca del bucket las fotos de esta cuenta que ya no referencia ningún
+ * plantel.
+ *
+ * Corre al final del backup, contra lo que quedó guardado: recién ahí se sabe
+ * qué sigue en uso. Hacerlo antes, o desde el teléfono al borrar un jugador,
+ * podía llevarse la foto que la copia de la nube todavía estaba mostrando.
+ *
+ * `usadas` son las URLs públicas que aparecen en los planteles vivos.
+ */
+const MINUTOS_DE_GRACIA = 15;
+
+export async function limpiarHuerfanas(usuarioId, usadas, gracia = MINUTOS_DE_GRACIA) {
+  if (!hayFotos) return 0;
+
+  const prefijo = `${usuarioId}/jugadores/`;
+  const enUso = new Set();
+  for (const url of usadas) {
+    if (esNuestra(url)) enUso.add(url.slice(publica.length + 1));
+  }
+
+  // Un margen antes de tocar nada: una foto recién subida puede estar
+  // esperando el plantel que la va a nombrar, y borrarla ahí la perdería.
+  const limite = Date.now() - gracia * 60 * 1000;
+
+  let continuacion;
+  let borradas = 0;
+  do {
+    const pagina = await getCliente().send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefijo,
+        ContinuationToken: continuacion,
+      })
+    );
+
+    const sobran = (pagina.Contents ?? [])
+      .filter(
+        (o) =>
+          !enUso.has(o.Key) &&
+          (!o.LastModified || o.LastModified.getTime() < limite)
+      )
+      .map((o) => ({ Key: o.Key }));
+
+    if (sobran.length > 0) {
+      await getCliente().send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: sobran, Quiet: true },
+        })
+      );
+      borradas += sobran.length;
+    }
+
+    continuacion = pagina.IsTruncated ? pagina.NextContinuationToken : undefined;
+  } while (continuacion);
+
+  return borradas;
 }

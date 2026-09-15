@@ -312,8 +312,12 @@ function Root() {
           ? jugadores.map((p) => (p.id === player.id ? player : p))
           : [...jugadores, player]
       );
+      // Guardar un jugador no cambia de pantalla: se vuelve a la lista del
+      // plantel en el que se estaba, que es donde se lo acaba de agregar.
       setFormVisible(false);
       setEditing(null);
+      setVista('plantel');
+      setTab('plantel');
     },
     [editarActivo]
   );
@@ -444,6 +448,12 @@ function Root() {
       setTab('historial');
     },
     [resultadoId, editarPlantel]
+  );
+
+  /** Si entra otro plantel, avisando con el cartel del plan cuando no. */
+  const hayLugar = useCallback(
+    () => dejaSeguir(puedeCrearPlantel(planteles.length, plan)),
+    [dejaSeguir, planteles.length, plan]
   );
 
   const handleBorrarPartidos = useCallback(
@@ -700,10 +710,9 @@ function Root() {
             sesion={hayNube ? sesion : undefined}
             onCuenta={() => setCuentaVisible(true)}
             onNuevo={() => {
-              if (dejaSeguir(puedeCrearPlantel(planteles.length, plan))) {
-                setNuevoVisible(true);
-              }
+              if (hayLugar()) setNuevoVisible(true);
             }}
+            hayLugar={hayLugar}
             onImportar={handleImportarPlanteles}
             onReiniciar={handleReiniciar}
           />

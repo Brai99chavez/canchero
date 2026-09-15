@@ -46,6 +46,12 @@ interface Props {
   onAbrir: (id: string) => void;
   onConfig: (id: string) => void;
   onNuevo: () => void;
+  /**
+   * Si entra otro plantel. Importar también suma, así que avisa lo mismo que
+   * el botón de nuevo y antes de abrir el explorador de archivos: enterarse
+   * después de elegir el archivo sería peor.
+   */
+  hayLugar: () => boolean;
   onImportar: (nuevos: Squad[]) => void;
   onReiniciar: () => void;
 }
@@ -62,6 +68,7 @@ export default function SquadsScreen({
   onAbrir,
   onConfig,
   onNuevo,
+  hayLugar,
   onImportar,
   onReiniciar,
 }: Props) {
@@ -127,7 +134,7 @@ export default function SquadsScreen({
             </Presionable>
           ) : null}
           <Presionable
-            onPress={() => setImportarVisible(true)}
+            onPress={() => hayLugar() && setImportarVisible(true)}
             style={styles.iconoBoton}
             accessibilityLabel="Importar planteles"
           >

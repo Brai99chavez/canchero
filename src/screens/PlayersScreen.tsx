@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +18,16 @@ import { PlusIcon } from '../components/icons';
 import { Aparecer, Presionable } from '../components/motion';
 import { EmptyState, PositionPill, RatingBadge } from '../components/ui';
 import { angulo, colors, degradados, radius, sombra, spacing } from '../theme';
-import { overall, Player, STAT_KEYS, STAT_LABELS } from '../types';
+import {
+  overall,
+  Player,
+  Position,
+  POSITION_COLORS,
+  POSITION_LABELS,
+  POSITIONS,
+  STAT_KEYS,
+  STAT_LABELS,
+} from '../types';
 
 interface Props {
   players: Player[];
@@ -25,16 +35,36 @@ interface Props {
   onEdit: (player: Player) => void;
 }
 
+type Orden = 'media' | 'nombre';
+
 export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
   const [query, setQuery] = useState('');
+  /** `null` es "todas": el filtro apagado no es una posición más. */
+  const [puesto, setPuesto] = useState<Position | null>(null);
+  const [orden, setOrden] = useState<Orden>('media');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q
-      ? players.filter((p) => p.nombre.toLowerCase().includes(q))
-      : players;
-    return list.slice().sort((a, b) => overall(b) - overall(a));
-  }, [players, query]);
+    const list = players.filter(
+      (p) =>
+        (!q || p.nombre.toLowerCase().includes(q)) &&
+        (!puesto || p.posicion === puesto)
+    );
+    return list.sort((a, b) =>
+      orden === 'media'
+        ? // A igual media manda el nombre, si no el orden baila entre
+          // renderizados con los que empatan.
+          overall(b) - overall(a) || a.nombre.localeCompare(b.nombre)
+        : a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+    );
+  }, [players, query, puesto, orden]);
+
+  /** Cuántos hay de cada puesto, para no ofrecer un filtro que da vacío. */
+  const porPuesto = useMemo(() => {
+    const cuenta = {} as Record<Position, number>;
+    for (const p of players) cuenta[p.posicion] = (cuenta[p.posicion] ?? 0) + 1;
+    return cuenta;
+  }, [players]);
 
   return (
     <View style={styles.container}>
@@ -54,13 +84,47 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
       </View>
 
       {players.length > 3 ? (
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar jugador"
-          placeholderTextColor={colors.textMuted}
-          style={styles.search}
-        />
+        <>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar jugador"
+            placeholderTextColor={colors.textMuted}
+            style={styles.search}
+          />
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtros}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Chip
+              texto="Todos"
+              activo={puesto === null}
+              onPress={() => setPuesto(null)}
+            />
+            {POSITIONS.filter((p) => porPuesto[p]).map((p) => (
+              <Chip
+                key={p}
+                texto={`${p} ${porPuesto[p]}`}
+                activo={puesto === p}
+                color={POSITION_COLORS[p]}
+                onPress={() => setPuesto(puesto === p ? null : p)}
+              />
+            ))}
+
+            <View style={styles.separadorFiltros} />
+
+            <Chip
+              texto={orden === 'media' ? 'Por media' : 'De la A a la Z'}
+              activo
+              onPress={() =>
+                setOrden(orden === 'media' ? 'nombre' : 'media')
+              }
+            />
+          </ScrollView>
+        </>
       ) : null}
 
       <FlatList
@@ -69,10 +133,14 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          query ? (
+          query || puesto ? (
             <EmptyState
               title="Sin resultados"
-              subtitle="Probá con otro nombre."
+              subtitle={
+                puesto && !query
+                  ? `No hay ningún ${POSITION_LABELS[puesto].toLowerCase()} en el plantel.`
+                  : 'Probá con otro nombre.'
+              }
             />
           ) : (
             <EmptyState
@@ -134,7 +202,67 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
   );
 }
 
+/**
+ * Una pastilla de filtro. Cuando está activa se pinta con el color del puesto,
+ * que es el mismo que llevan las etiquetas de las cartas: así el filtro y lo
+ * filtrado se leen como lo mismo.
+ */
+function Chip({
+  texto,
+  activo,
+  color,
+  onPress,
+}: {
+  texto: string;
+  activo: boolean;
+  color?: string;
+  onPress: () => void;
+}) {
+  const acento = color ?? colors.primary;
+  return (
+    <Presionable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        activo && { borderColor: acento, backgroundColor: `${acento}22` },
+      ]}
+    >
+      <Text style={[styles.chipTexto, activo && { color: acento }]}>
+        {texto}
+      </Text>
+    </Presionable>
+  );
+}
+
 const styles = StyleSheet.create({
+  filtros: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  separadorFiltros: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    transform: [{ skewX: angulo.inclinacion }],
+  },
+  chipTexto: {
+    color: colors.textMuted,
+    fontSize: 11.5,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    transform: [{ skewX: angulo.derecho }],
+  },
   container: {
     flex: 1,
   },
