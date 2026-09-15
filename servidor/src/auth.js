@@ -31,7 +31,26 @@ export const auth = betterAuth({
   // header. Este plugin es el que habilita ese modo y el esquema canchero://.
   plugins: [expo()],
 
-  trustedOrigins: ['canchero://'],
+  /**
+   * De dónde se aceptan pedidos. `canchero://` es el esquema de la app
+   * compilada.
+   *
+   * Probando con Expo Go el origen es otro —`exp://ip:8081/--/`, porque quien
+   * corre es Expo Go y no la app— así que hay que sumarlo a mano con la
+   * variable TRUSTED_ORIGINS, separando por comas. El patrón que sirve es
+   * `exp://*​/*`: con un solo comodín no matchea, porque el origen trae ese
+   * `/--/` al final.
+   *
+   * Va por variable de entorno y no fijo en el código para poder sacarlo
+   * antes de publicar sin tocar nada.
+   */
+  trustedOrigins: [
+    'canchero://',
+    ...(process.env.TRUSTED_ORIGINS ?? '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  ],
 
   session: {
     // Un celular no se vuelve a loguear cada semana. La sesión dura 60 días y

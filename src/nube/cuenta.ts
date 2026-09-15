@@ -7,26 +7,84 @@ export interface Sesion {
 }
 
 /**
- * Los mensajes del servidor vienen en inglés. Se traducen los que un usuario
- * puede provocar; el resto pasa tal cual, que es más útil que un "algo salió
- * mal" sin información.
+ * Qué mostrar cuando algo falla. Los mensajes del servidor vienen en inglés y
+ * bastante secos, así que se traducen los que un usuario puede provocar.
+ *
+ * Cada uno lleva un detalle con qué hacer al respecto: decir "mail o
+ * contraseña incorrectos" y nada más deja a la persona probando lo mismo de
+ * nuevo. El que no reconocemos pasa tal cual, que es más útil que un "algo
+ * salió mal" sin información.
  */
-function enCastellano(mensaje: string): string {
-  const m = mensaje.toLowerCase();
+export interface Explicacion {
+  titulo: string;
+  detalle: string;
+}
+
+export function explicar(error: unknown): Explicacion {
+  const crudo = error instanceof Error ? error.message : String(error);
+  const m = crudo.toLowerCase();
+
   if (m.includes('invalid email or password') || m.includes('invalid credentials')) {
-    return 'Mail o contraseña incorrectos.';
+    return {
+      titulo: 'Mail o contraseña incorrectos',
+      detalle:
+        'Revisá que no se haya colado un espacio ni las mayúsculas. Si nunca ' +
+        'creaste la cuenta, tocá "No tengo cuenta" y registrate.',
+    };
   }
   if (m.includes('already exists') || m.includes('already registered')) {
-    return 'Ya hay una cuenta con ese mail. Probá entrar.';
+    return {
+      titulo: 'Ese mail ya tiene cuenta',
+      detalle: 'Tocá "Ya tengo cuenta" y entrá con tu contraseña.',
+    };
   }
-  if (m.includes('password') && m.includes('short')) {
-    return 'La contraseña tiene que tener al menos 8 caracteres.';
+  if (m.includes('password') && (m.includes('short') || m.includes('length'))) {
+    return {
+      titulo: 'Contraseña muy corta',
+      detalle: 'Tiene que tener 8 caracteres o más.',
+    };
   }
-  if (m.includes('invalid email')) return 'Ese mail no parece válido.';
-  if (m.includes('too many')) {
-    return 'Demasiados intentos seguidos. Esperá un minuto.';
+  if (m.includes('invalid email')) {
+    return {
+      titulo: 'Ese mail no parece válido',
+      detalle: 'Fijate que tenga arroba y que no falte nada después del punto.',
+    };
   }
-  return mensaje;
+  if (m.includes('too many') || m.includes('rate limit')) {
+    return {
+      titulo: 'Demasiados intentos',
+      detalle: 'Esperá un minuto y probá de nuevo.',
+    };
+  }
+  if (m.includes('origin')) {
+    return {
+      titulo: 'El servidor no acepta esta versión de la app',
+      detalle:
+        'Pasa al probar con Expo Go: el servidor sólo confía en los orígenes ' +
+        'que tiene configurados. Hay que agregar el de Expo Go en la variable ' +
+        'TRUSTED_ORIGINS del servidor.',
+    };
+  }
+  if (m.includes('conexión') || m.includes('network') || m.includes('fetch')) {
+    return {
+      titulo: 'No hay conexión con el servidor',
+      detalle:
+        'Fijate que tengas internet. Si es la primera vez en un rato, el ' +
+        'servidor puede tardar hasta un minuto en despertar: probá de nuevo.',
+    };
+  }
+  if (m.includes('cerró la sesión') || m.includes('401')) {
+    return {
+      titulo: 'Se cerró la sesión',
+      detalle: 'Entrá de nuevo con tu mail y contraseña.',
+    };
+  }
+  return { titulo: 'No se pudo', detalle: crudo };
+}
+
+/** Para los pocos lugares que todavía muestran el error como texto suelto. */
+function enCastellano(mensaje: string): string {
+  return explicar(new Error(mensaje)).titulo;
 }
 
 /**

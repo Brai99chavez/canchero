@@ -10,11 +10,12 @@ import {
   angulo,
   colors,
   degradados,
+  fuentes,
   radius,
   sombra,
   spacing,
 } from '../theme';
-import { FondoDegradado } from './Angular';
+import Panel, { DIAGONAL, FondoDegradado } from './Angular';
 import { Etiqueta } from './Banner';
 import { Presionable } from './motion';
 import { Position, POSITION_COLORS, ratingColor } from '../types';
@@ -119,6 +120,35 @@ export function Button({
   );
 }
 
+/**
+ * Un error explicado, con la cara de la app. Reemplaza al cartel del sistema
+ * cuando el problema es del formulario que se está mirando: un `Alert` tapa la
+ * pantalla, obliga a aceptarlo y se lleva puesto el contexto de lo que pasó.
+ *
+ * El detalle no es decoración: decir "mail o contraseña incorrectos" sin
+ * agregar qué hacer deja a la persona probando lo mismo de nuevo.
+ */
+export function Aviso({
+  titulo,
+  detalle,
+}: {
+  titulo: string;
+  detalle?: string;
+}) {
+  return (
+    <Panel
+      style={styles.aviso}
+      degradado={degradados.panelTenue}
+      borde={colors.danger}
+      grosor={1.5}
+      esquinas={DIAGONAL}
+    >
+      <Text style={styles.avisoTitulo}>{titulo}</Text>
+      {detalle ? <Text style={styles.avisoDetalle}>{detalle}</Text> : null}
+    </Panel>
+  );
+}
+
 export function EmptyState({
   title,
   subtitle,
@@ -159,6 +189,20 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create({
+  aviso: { padding: spacing.md },
+  avisoTitulo: {
+    color: colors.danger,
+    fontSize: 14,
+    fontFamily: fuentes.extra,
+    letterSpacing: 0.3,
+  },
+  avisoDetalle: {
+    color: colors.textMuted,
+    fontSize: 12.5,
+    fontFamily: fuentes.regular,
+    lineHeight: 17,
+    marginTop: 3,
+  },
   badge: {
     borderWidth: 2,
     alignItems: 'center',

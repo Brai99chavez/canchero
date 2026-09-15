@@ -15,8 +15,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Seccion } from '../components/Banner';
 import HeaderModal from '../components/HeaderModal';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
-import { Button } from '../components/ui';
-import { entrar, registrarse, salir, Sesion } from '../nube/cuenta';
+import { Aviso, Button } from '../components/ui';
+import {
+  entrar,
+  Explicacion,
+  explicar,
+  registrarse,
+  salir,
+  Sesion,
+} from '../nube/cuenta';
 import { colors, fuentes, radius, spacing } from '../theme';
 
 interface Props {
@@ -46,12 +53,14 @@ export default function CuentaModal({
   const [clave, setClave] = useState('');
   const [trabajando, setTrabajando] = useState(false);
   const [verClave, setVerClave] = useState(false);
+  const [error, setError] = useState<Explicacion | null>(null);
 
   useEffect(() => {
     if (visible) {
       setClave('');
       setTrabajando(false);
       setVerClave(false);
+      setError(null);
     }
   }, [visible]);
 
@@ -59,10 +68,11 @@ export default function CuentaModal({
 
   async function conAviso(accion: () => Promise<void>) {
     setTrabajando(true);
+    setError(null);
     try {
       await accion();
-    } catch (error) {
-      Alert.alert('No se pudo', String(error instanceof Error ? error.message : error));
+    } catch (problema) {
+      setError(explicar(problema));
     } finally {
       setTrabajando(false);
     }
@@ -118,6 +128,10 @@ export default function CuentaModal({
               <>
                 <Seccion>Sesión iniciada</Seccion>
                 <Text style={styles.mail}>{sesion.email}</Text>
+
+                {error ? (
+                  <Aviso titulo={error.titulo} detalle={error.detalle} />
+                ) : null}
                 <Text style={styles.ayuda}>
                   {ultimaCopia
                     ? `Última copia: ${ultimaCopia}.`
@@ -168,9 +182,16 @@ export default function CuentaModal({
                   cambiás de teléfono. La app funciona igual sin ella.
                 </Text>
 
+                {error ? (
+                  <Aviso titulo={error.titulo} detalle={error.detalle} />
+                ) : null}
+
                 <TextInput
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    setError(null);
+                  }}
                   placeholder="Mail"
                   placeholderTextColor={colors.textMuted}
                   style={styles.input}
@@ -182,7 +203,10 @@ export default function CuentaModal({
                 <View style={styles.campoClave}>
                   <TextInput
                     value={clave}
-                    onChangeText={setClave}
+                    onChangeText={(t) => {
+                      setClave(t);
+                      setError(null);
+                    }}
                     placeholder="Contraseña (mínimo 8)"
                     placeholderTextColor={colors.textMuted}
                     style={[styles.input, styles.inputClave]}
