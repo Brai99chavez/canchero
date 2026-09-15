@@ -78,8 +78,13 @@ export function Opcion({
       style={[styles.opcion, disabled && styles.apagada]}
     >
       <FondoDegradado colores={degradados.panelTenue} />
+      {/*
+        Con el acento al 15% el recuadro no se veía sobre el panel oscuro y el
+        ícono quedaba como un trazo fino flotando. Va el degradado lleno y el
+        ícono oscuro encima, igual que los botones principales de la app.
+      */}
       <View style={styles.icono}>
-        <FondoDegradado colores={degradados.acentoTenue} />
+        <FondoDegradado colores={degradados.acento} />
         {icono}
       </View>
       <View style={styles.textos}>
@@ -119,8 +124,8 @@ const styles = StyleSheet.create({
   },
   apagada: { opacity: 0.45 },
   icono: {
-    width: 42,
-    height: 40,
+    width: 44,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

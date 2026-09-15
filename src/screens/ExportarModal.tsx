@@ -79,14 +79,14 @@ export default function ExportarModal({
       onClose={onClose}
     >
       <Opcion
-        icono={<DownloadIcon color={colors.primary} size={21} />}
+        icono={<DownloadIcon color={colors.sobreAcento} size={22} />}
         titulo="Guardar en el teléfono"
         detalle="Elegís la carpeta: Descargas, Drive, donde quieras. Queda en el teléfono."
         onPress={handleDescargar}
         disabled={trabajando}
       />
       <Opcion
-        icono={<ShareIcon color={colors.primary} size={21} />}
+        icono={<ShareIcon color={colors.sobreAcento} size={22} />}
         titulo="Compartir"
         detalle="Se lo mandás a alguien por WhatsApp, mail o lo que uses."
         onPress={handleCompartir}

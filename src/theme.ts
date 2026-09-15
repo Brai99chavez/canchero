@@ -20,6 +20,11 @@ export const colors = {
  */
 export const degradados = {
   acento: ['#5BF5A5', '#2FD9E8'] as const,
+  /**
+   * El acento al 15%. Sirve para teñir una fila entera —como el jugador
+   * convocado— pero no para un recuadro chico: ahí no se distingue del
+   * fondo y lo que tenga encima queda flotando.
+   */
   acentoTenue: ['#5BF5A526', '#2FD9E826'] as const,
   panel: ['#1D2344', '#141931'] as const,
   panelTenue: ['#191E3A', '#12162C'] as const,
