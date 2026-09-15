@@ -1,0 +1,302 @@
+import React from 'react';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
+import {
+  angulo,
+  colors,
+  degradados,
+  radius,
+  sombra,
+  spacing,
+} from '../theme';
+import { FondoDegradado } from './Angular';
+import { Etiqueta } from './Banner';
+import { Presionable } from './motion';
+import { Position, POSITION_COLORS, ratingColor } from '../types';
+
+export function PositionPill({ position }: { position: Position }) {
+  return <Etiqueta color={POSITION_COLORS[position]}>{position}</Etiqueta>;
+}
+
+export function RatingBadge({ value, size = 38 }: { value: number; size?: number }) {
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderColor: ratingColor(value),
+        },
+      ]}
+    >
+      <Text style={[styles.badgeText, { color: ratingColor(value), fontSize: size * 0.4 }]}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+export function StatBar({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.statRow}>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <View style={styles.statTrack}>
+        <View style={[styles.statFill, { width: `${Math.max(2, value)}%` }]}>
+          <FondoDegradado
+            colores={[ratingColor(value), degradados.acento[1]]}
+          />
+        </View>
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
+}
+
+interface ButtonProps {
+  title: string;
+  onPress: () => void;
+  variant?: 'primary' | 'ghost' | 'danger';
+  disabled?: boolean;
+  loading?: boolean;
+  /** Versión chica, para las acciones de los encabezados. */
+  compacto?: boolean;
+  style?: ViewStyle;
+}
+
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  disabled,
+  loading,
+  compacto,
+  style,
+}: ButtonProps) {
+  const isPrimary = variant === 'primary';
+  const isDanger = variant === 'danger';
+  return (
+    <Presionable
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={[
+        styles.button,
+        isPrimary && styles.buttonPrimary,
+        !isPrimary && styles.buttonGhost,
+        isDanger && styles.buttonDanger,
+        compacto && styles.buttonCompacto,
+        (disabled || loading) && styles.buttonDisabled,
+        style,
+      ]}
+    >
+      {isPrimary && !disabled && !loading ? (
+        <FondoDegradado colores={degradados.acento} />
+      ) : null}
+      {isDanger ? <FondoDegradado colores={degradados.peligro} /> : null}
+      {loading ? (
+        <ActivityIndicator color={isPrimary ? colors.sobreAcento : colors.text} />
+      ) : (
+        <Text
+          style={[
+            styles.buttonText,
+            compacto && styles.buttonTextCompacto,
+            isPrimary && styles.buttonTextPrimary,
+            isDanger && styles.buttonTextDanger,
+          ]}
+        >
+          {title.toUpperCase()}
+        </Text>
+      )}
+    </Presionable>
+  );
+}
+
+export function EmptyState({
+  title,
+  subtitle,
+  pasos,
+  accion,
+  onAccion,
+}: {
+  title: string;
+  subtitle: string;
+  /** Los primeros pasos, para que la pantalla vacía no sea un callejón. */
+  pasos?: string[];
+  accion?: string;
+  onAccion?: () => void;
+}) {
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySubtitle}>{subtitle}</Text>
+
+      {pasos ? (
+        <View style={styles.pasos}>
+          {pasos.map((paso, i) => (
+            <View key={paso} style={styles.paso}>
+              <View style={styles.pasoNumero}>
+                <Text style={styles.pasoNumeroTexto}>{i + 1}</Text>
+              </View>
+              <Text style={styles.pasoTexto}>{paso}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {accion && onAccion ? (
+        <Button title={accion} onPress={onAccion} style={styles.emptyBoton} />
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  badge: {
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: 'Barlow_800ExtraBold',
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: 6,
+  },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: 'Barlow_400Regular',
+    width: 108,
+  },
+  statTrack: {
+    flex: 1,
+    height: 7,
+    backgroundColor: colors.surfaceAlt,
+    overflow: 'hidden',
+    transform: [{ skewX: angulo.inclinacion }],
+  },
+  statFill: {
+    height: '100%',
+  },
+  statValue: {
+    color: colors.text,
+    fontSize: 12,
+    fontFamily: 'Barlow_700Bold',
+    width: 24,
+    textAlign: 'right',
+  },
+  button: {
+    paddingVertical: 13,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ skewX: angulo.inclinacion }],
+  },
+  buttonCompacto: {
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+  },
+  buttonTextCompacto: {
+    fontSize: 12,
+    letterSpacing: 0.8,
+  },
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+    overflow: 'hidden',
+    ...sombra,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.35,
+  },
+  buttonGhost: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  buttonDanger: {
+    borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  buttonText: {
+    color: colors.text,
+    fontFamily: 'Barlow_800ExtraBold',
+    fontSize: 14,
+    letterSpacing: 1,
+    // Endereza el texto contra la inclinación de la caja.
+    transform: [{ skewX: angulo.derecho }],
+  },
+  buttonTextPrimary: {
+    color: colors.sobreAcento,
+  },
+  buttonTextDanger: {
+    color: '#2A0806',
+  },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: 19,
+    fontFamily: 'Anton_400Regular',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontFamily: 'Barlow_400Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  pasos: {
+    marginTop: spacing.xl,
+    gap: spacing.md,
+    alignSelf: 'stretch',
+  },
+  paso: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  pasoNumero: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary + '26',
+    borderWidth: 1,
+    borderColor: colors.primary + '59',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pasoNumeroTexto: {
+    color: colors.primary,
+    fontSize: 12,
+    fontFamily: 'Barlow_900Black',
+  },
+  pasoTexto: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: 13,
+    fontFamily: 'Barlow_400Regular',
+    lineHeight: 18,
+  },
+  emptyBoton: {
+    marginTop: spacing.xl,
+    alignSelf: 'stretch',
+  },
+});
