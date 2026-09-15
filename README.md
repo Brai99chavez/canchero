@@ -157,8 +157,8 @@ Dos cosas más:
 
 - **Borrar marca el plantel como borrado** en vez de sacar la fila: si
   desapareciera, volvería la próxima vez que otro teléfono restaure.
-- **Las fotos no suben**: son archivos de este teléfono y la ruta no significa
-  nada en otro. Van con un lugar para archivos, más adelante.
+- **Las fotos viajan con el backup**, pero no adentro del JSON: se suben a
+  Cloudflare R2 y en el plantel queda la URL. Ver abajo.
 
 La sesión se guarda en el almacenamiento seguro del sistema y no junto a los
 planteles: es la llave de la cuenta, no un dato más. Que venza el token no se
@@ -185,6 +185,42 @@ borrar eso no sería lo que nadie espera.
 
 Borrar un partido lo saca de la tabla y de los PJ/G/A de las cartas, porque
 todo eso se calcula sobre la lista de partidos y no se guarda aparte.
+
+## Las fotos
+
+Van a Cloudflare R2 y viajan con el backup: en el plantel queda la URL, no la
+imagen. Sin las variables `R2_*` en el servidor queda apagado solo y las fotos
+siguen viviendo únicamente en cada teléfono.
+
+**El archivo no pasa por el servidor.** La app le pide un permiso
+(`POST /fotos/permiso`), el servidor firma una URL que vale cinco minutos, y la
+app manda el archivo derecho al bucket. Pasarlo por el medio ocuparía el
+contenedor —512 MB en el plan gratis de Render, que además se duerme— para
+mover algo que no lo necesita.
+
+**Se achica en el teléfono, no en el servidor** (`src/photos.ts`): 640 px de
+ancho y compresión 0.72 al elegirla. Una foto de celular son 3 o 4 MB y queda
+en unos 50 KB — ochenta veces menos para subir, para bajar y para ocupar en el
+teléfono. En el ecommerce eso se hace con `sharp` del lado del servidor porque
+el que sube es un navegador; acá el que sube es un celular y puede hacerlo él.
+
+Dos cosas del servidor que no son decorativas: la key arranca con el id de la
+cuenta, así una cuenta no puede escribir encima de la foto de otra aunque se
+ponga a inventar nombres, y el borrado vuelve a chequear ese prefijo.
+
+Si una foto falla al subir, el plantel se guarda igual: la foto queda local y
+se reintenta en el próximo backup. Perder el respaldo entero porque una imagen
+no subió sería mucho peor que quedarse sin esa imagen.
+
+**Todavía no se borran las fotos del bucket**, y no es un olvido: mientras el
+backup sea manual, una foto que acá ya no se usa puede seguir siendo la que
+referencia la copia de la nube. El endpoint existe; lo que falta es hacer la
+limpieza en el momento correcto, durante el backup y contra lo que queda
+referenciado después de subir.
+
+`npm run prueba:fotos` recorre el camino entero contra el servidor de verdad:
+permiso, subida, que se vea por la URL pública, que viaje en el backup y que se
+borre.
 
 ## Planes y límites
 

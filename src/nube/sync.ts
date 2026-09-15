@@ -1,3 +1,4 @@
+import { esLocal } from '../photos';
 import { sanitizePlantel } from '../storage';
 import { Squad } from '../types';
 import { pedir } from './cliente';
@@ -20,12 +21,15 @@ interface PlantelDeLaNube {
 }
 
 /**
- * Las fotos no suben: son archivos de este teléfono y la ruta no significa
- * nada en otro. El que restaure ve la silueta hasta sacarlas de nuevo.
- * Subirlas es otra etapa, con un lugar para archivos.
+ * Las fotos que ya están en la nube viajan: su URL sirve en cualquier
+ * teléfono. Las que todavía son un archivo de acá no, porque esa ruta no
+ * significa nada en otro aparato — esas las sube el backup justo antes, y si
+ * alguna falla se manda el plantel igual y se reintenta la próxima.
  */
-function sinFotos(jugadores: Squad['jugadores']) {
-  return jugadores.map(({ foto: _foto, ...resto }) => resto);
+function sinFotosLocales(jugadores: Squad['jugadores']) {
+  return jugadores.map((j) =>
+    esLocal(j.foto) ? { ...j, foto: undefined } : j
+  );
 }
 
 /**
@@ -52,7 +56,7 @@ function aFila(p: Squad) {
     id: p.id,
     nombre: p.nombre,
     llegada: p.llegada,
-    datos: { jugadores: sinFotos(p.jugadores), partidos: p.partidos },
+    datos: { jugadores: sinFotosLocales(p.jugadores), partidos: p.partidos },
   };
 }
 

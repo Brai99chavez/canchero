@@ -39,6 +39,7 @@ import {
   sesionActual,
   Sesion,
 } from './src/nube/cuenta';
+import { subirFotosPendientes } from './src/nube/fotos';
 import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
   AVISO_PRO,
@@ -591,14 +592,28 @@ function Root() {
 
   const handleBackup = useCallback(async () => {
     if (!sesion) return;
-    await subir(planteles);
+
+    // Primero las fotos: recién cuando están arriba el plantel puede llevar
+    // sus URLs. Las que fallan quedan locales y se reintentan en el próximo.
+    const conFotos = await subirFotosPendientes(planteles);
+    if (conFotos.subidas > 0) setPlanteles(conFotos.planteles);
+
+    await subir(conFotos.planteles);
     // Los borrados van después de subir: si la subida falla, el plantel sigue
     // en la nube y no se perdió nada.
     for (const id of borradosPendientes) await marcarBorrado(id);
 
     setBorrados([]);
     setUltimaCopia(new Date());
-    setFirmaSubida(firmaDe(planteles));
+    setFirmaSubida(firmaDe(conFotos.planteles));
+
+    if (conFotos.fallaron > 0) {
+      throw new Error(
+        `Se guardó todo, pero ${conFotos.fallaron} ${
+          conFotos.fallaron === 1 ? 'foto quedó' : 'fotos quedaron'
+        } sin subir. Probá de nuevo más tarde.`
+      );
+    }
   }, [planteles, sesion, borradosPendientes]);
 
   /**

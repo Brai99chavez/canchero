@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "prueba": "node prueba.mjs"
+    "prueba": "node prueba.mjs",
+    "prueba:fotos": "node prueba-fotos.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1132.0",
