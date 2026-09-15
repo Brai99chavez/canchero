@@ -9,7 +9,8 @@
     "start": "node src/index.js",
     "prueba": "node prueba.mjs",
     "prueba:fotos": "node prueba-fotos.mjs",
-    "prueba:limpieza": "node --env-file=.env prueba-limpieza.mjs"
+    "prueba:limpieza": "node --env-file=.env prueba-limpieza.mjs",
+    "prueba:cuentas": "node --env-file=.env prueba-cuentas.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1132.0",
