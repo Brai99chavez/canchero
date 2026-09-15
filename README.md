@@ -269,6 +269,47 @@ Cuando haya cobro, el que decide si una cuenta es Pro es el servidor.
 sin querer, nunca para dar por buena una compra: un APK modificado cambia esa
 constante en cinco minutos.
 
+## La media que corrige tu ojo
+
+`src/elo.ts`. La media que cargás a mano dice lo que el jugador **sabe hacer**;
+esto dice lo que **pasa cuando juega**. Arranca exactamente en tu media y se
+mueve con los resultados.
+
+Lo que la hace útil es que no mira si ganó, sino si ganó **cuando se esperaba
+que ganara**. Si su equipo era favorito y perdió, pega fuerte; si lo llevaron
+de arrastre en un equipo muy superior, ganar casi no le suma. Esa corrección
+por compañeros y rivales sale de la fórmula, no hay que programarla.
+
+**El tope es la confianza.** Cuánto se le permite alejarse de tu media depende
+de cuántos partidos lo respaldan:
+
+| Partidos | Se mueve hasta |
+|---|---|
+| menos de 5 | nada |
+| 5 a 15 | ±3 |
+| 15 a 40 | ±6 |
+| 40 o más | ±8 |
+
+Con pocos partidos el sistema no sabe, y en vez de avisarlo con una etiqueta
+que nadie lee, directamente no se le permite opinar. Ese ±8 es la única perilla
+que importa: es cuánto le creés a los resultados por encima de tu ojo.
+
+**No se guarda, se recalcula del historial.** Borrar un partido de prueba lo
+deshace solo, corregir las stats de alguien mueve su número con ellas, y el
+respaldo ya lo lleva sin hacer nada — porque lleva los partidos.
+
+El sorteo usa este número, que es el punto: si con alguien el equipo pierde más
+de lo que debería, el sorteo se entera. Al editar un jugador siempre se ve la
+media base — mostrar la corregida haría que al guardar se hornee el ajuste
+adentro y se vuelva a sumar encima.
+
+Un límite honesto: si los mismos cinco juegan siempre juntos, ningún método
+puede repartir la culpa entre ellos. Por eso importa que el sorteo rote las
+duplas.
+
+`npm run prueba:elo` corre los casos: el bueno que hace perder, el que lo
+llevan de arrastre, el que gana peleado, y que sin datos no invente.
+
 ## La diferencia de gol
 
 En la tabla, al lado de cada jugador: los goles que hizo y recibió su equipo en

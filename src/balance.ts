@@ -123,8 +123,16 @@ function duplaPenalty(
 
 const pairsOf = (n: number) => (n * (n - 1)) / 2;
 
-function splitCost(teamA: Player[], teamB: Player[]): number {
-  const ovrDiff = Math.abs(mean(teamA.map(overall)) - mean(teamB.map(overall)));
+/**
+ * Con qué media se arma el equipo. Por defecto la que cargaste a mano; si hay
+ * historial suficiente, la corregida por los resultados (`src/elo.ts`). Es lo
+ * que cierra el círculo: si con un jugador el equipo pierde más de lo que
+ * debería, el sorteo se entera.
+ */
+export type Valor = (p: Player) => number;
+
+function splitCost(teamA: Player[], teamB: Player[], valor: Valor): number {
+  const ovrDiff = Math.abs(mean(teamA.map(valor)) - mean(teamB.map(valor)));
 
   const statDiff = mean(
     STAT_KEYS.map((k) => Math.abs(meanStat(teamA, k) - meanStat(teamB, k)))
@@ -144,12 +152,13 @@ function splitCost(teamA: Player[], teamB: Player[]): number {
 function greedySplit(
   players: Player[],
   topeA: number,
-  topeB: number
+  topeB: number,
+  valor: Valor
 ): [Player[], Player[]] {
   const ordered: Player[] = [];
   for (const pos of POSITIONS) {
     const group = shuffle(players.filter((p) => p.posicion === pos)).sort(
-      (a, b) => overall(b) - overall(a)
+      (a, b) => valor(b) - valor(a)
     );
     ordered.push(...group);
   }
@@ -174,8 +183,8 @@ function greedySplit(
       continue;
     }
 
-    const sumA = teamA.reduce((acc, p) => acc + overall(p), 0);
-    const sumB = teamB.reduce((acc, p) => acc + overall(p), 0);
+    const sumA = teamA.reduce((acc, p) => acc + valor(p), 0);
+    const sumB = teamB.reduce((acc, p) => acc + valor(p), 0);
     if (sumA !== sumB) {
       (sumA < sumB ? teamA : teamB).push(player);
       continue;
@@ -188,8 +197,8 @@ function greedySplit(
 }
 
 /** Intercambia jugadores entre equipos mientras eso mejore el balance. */
-function localSearch(teamA: Player[], teamB: Player[]): number {
-  let best = splitCost(teamA, teamB);
+function localSearch(teamA: Player[], teamB: Player[], valor: Valor): number {
+  let best = splitCost(teamA, teamB, valor);
   let improved = true;
 
   while (improved) {
@@ -197,7 +206,7 @@ function localSearch(teamA: Player[], teamB: Player[]): number {
     for (let i = 0; i < teamA.length; i++) {
       for (let j = 0; j < teamB.length; j++) {
         [teamA[i], teamB[j]] = [teamB[j], teamA[i]];
-        const cost = splitCost(teamA, teamB);
+        const cost = splitCost(teamA, teamB, valor);
         if (cost < best - 1e-9) {
           best = cost;
           improved = true;
@@ -265,7 +274,11 @@ function restartsFor(playerCount: number): number {
  * Camina por los repartos vecinos aceptando sólo los que siguen dentro del
  * margen de justicia, y junta los distintos que va encontrando.
  */
-function collectVariants(base: Candidate, threshold: number): Candidate[] {
+function collectVariants(
+  base: Candidate,
+  threshold: number,
+  valor: Valor
+): Candidate[] {
   const teamA = base.teamA.slice();
   const teamB = base.teamB.slice();
   const bench = base.bench;
@@ -293,7 +306,7 @@ function collectVariants(base: Candidate, threshold: number): Candidate[] {
     const j = pick(teamB);
 
     [teamA[i], teamB[j]] = [teamB[j], teamA[i]];
-    if (splitCost(teamA, teamB) <= threshold) {
+    if (splitCost(teamA, teamB, valor) <= threshold) {
       remember();
     } else {
       [teamA[i], teamB[j]] = [teamB[j], teamA[i]];
@@ -321,6 +334,8 @@ export interface OpcionesSorteo {
   bancoPrevio?: Record<string, number>;
   /** Cuántas veces cayó junto cada par, para no repetir siempre las mismas. */
   duplasPrevias?: Record<string, number>;
+  /** La media corregida por resultados, por jugador. Sin esto usa la base. */
+  elo?: Record<string, number>;
   avoid?: TeamSplit | null;
 }
 
@@ -333,8 +348,11 @@ export function buildTeams(
     usarTodos = false,
     bancoPrevio = {},
     duplasPrevias = {},
+    elo = {},
     avoid = null,
   } = opciones;
+
+  const valor: Valor = (p) => elo[p.id] ?? overall(p);
 
   if (players.length < 2) {
     return { teamA: players.slice(0, 1), teamB: [], bench: [] };
@@ -356,8 +374,8 @@ export function buildTeams(
       total - playing,
       bancoPrevio
     );
-    const [teamA, teamB] = greedySplit(shuffle(juegan), topeA, topeB);
-    const cost = localSearch(teamA, teamB);
+    const [teamA, teamB] = greedySplit(shuffle(juegan), topeA, topeB, valor);
+    const cost = localSearch(teamA, teamB, valor);
     const bench = banco;
 
     if (cost < bestCost) {
@@ -366,7 +384,7 @@ export function buildTeams(
     }
   }
 
-  const variants = collectVariants(best!, bestCost + TOLERANCE);
+  const variants = collectVariants(best!, bestCost + TOLERANCE, valor);
 
   const avoidKey = avoid ? signature(avoid.teamA, avoid.teamB) : null;
   const fresh = avoidKey

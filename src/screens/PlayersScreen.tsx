@@ -18,6 +18,7 @@ import { PlusIcon } from '../components/icons';
 import { Aparecer, Presionable } from '../components/motion';
 import { EmptyState, PositionPill, RatingBadge } from '../components/ui';
 import { angulo, colors, degradados, radius, sombra, spacing } from '../theme';
+import { Ajuste } from '../elo';
 import {
   overall,
   Player,
@@ -31,6 +32,8 @@ import {
 
 interface Props {
   players: Player[];
+  /** La media corregida por resultados. Vacío mientras no haya partidos. */
+  ajustes: Record<string, Ajuste>;
   onAdd: () => void;
   onEdit: (player: Player) => void;
 }
@@ -60,11 +63,19 @@ function etiquetaOrden(campo: Campo, orden: Orden): string {
   return desc ? 'Z-A' : 'A-Z';
 }
 
-export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
+export default function PlayersScreen({
+  players,
+  ajustes,
+  onAdd,
+  onEdit,
+}: Props) {
   const [query, setQuery] = useState('');
   /** `null` es "todas": el filtro apagado no es una posición más. */
   const [puesto, setPuesto] = useState<Position | null>(null);
   const [orden, setOrden] = useState<Orden>({ campo: 'media', desc: true });
+
+  /** La media que se muestra y con la que se ordena: la corregida si la hay. */
+  const media = (p: Player) => ajustes[p.id]?.elo ?? overall(p);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -85,7 +96,7 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
       orden.campo === 'media'
         ? // A igual media manda el nombre, si no el orden baila entre
           // renderizados con los que empatan.
-          sentido * (overall(a) - overall(b)) || porNombre(a, b)
+          sentido * (media(a) - media(b)) || porNombre(a, b)
         : sentido * porNombre(a, b)
     );
   }, [players, query, puesto, orden]);
@@ -227,7 +238,20 @@ export default function PlayersScreen({ players, onAdd, onEdit }: Props) {
                 />
               )}
             </View>
-            <RatingBadge value={overall(item)} />
+            <View style={styles.medias}>
+              <RatingBadge value={ajustes[item.id]?.elo ?? overall(item)} />
+              {ajustes[item.id]?.ajuste ? (
+                <Text
+                  style={[
+                    styles.ajuste,
+                    ajustes[item.id].ajuste > 0 ? styles.sube : styles.baja,
+                  ]}
+                >
+                  {ajustes[item.id].ajuste > 0 ? '+' : ''}
+                  {ajustes[item.id].ajuste}
+                </Text>
+              ) : null}
+            </View>
             <View style={styles.cardBody}>
               <View style={styles.cardHeader}>
                 <Text style={styles.name} numberOfLines={1}>
@@ -283,6 +307,10 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
+  medias: { alignItems: 'center', gap: 2 },
+  ajuste: { fontSize: 11, fontFamily: 'Barlow_800ExtraBold', letterSpacing: 0.3 },
+  sube: { color: colors.primary },
+  baja: { color: colors.danger },
   filtrosCaja: { flexGrow: 0, flexShrink: 0 },
   filtros: {
     flexDirection: 'row',

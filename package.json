@@ -37,7 +37,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "prueba:elo": "tsc src/elo.ts src/stats.ts src/types.ts src/balance.ts --ignoreConfig --outDir .tmp-prueba --module commonjs --target es2019 --skipLibCheck && node tools/prueba-elo.mjs"
   },
   "private": true
 }

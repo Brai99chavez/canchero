@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { buildTeams } from './src/balance';
+import { ajustesDe, elosDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
@@ -202,12 +203,21 @@ function Root() {
     [planteles, plan]
   );
 
+
   // Sin planteles no hay adónde entrar, y a uno bloqueado tampoco: puede
   // quedar abierto si venía de Pro o si al importar entró uno más viejo.
   const vistaReal: Vista =
     planteles.length === 0 || !activos.has(activo?.id ?? '') ? 'lista' : vista;
   const players = activo?.jugadores ?? [];
   const partidos = activo?.partidos ?? [];
+  /**
+   * La media corregida por los resultados. Se recalcula del historial, así que
+   * borrar un partido de prueba la deshace sola.
+   */
+  const ajustes = useMemo(
+    () => ajustesDe(players, partidos),
+    [players, partidos]
+  );
 
   /** Aplica un cambio sólo al plantel que se está usando. */
   const editarPlantel = useCallback(
@@ -363,6 +373,7 @@ function Root() {
           usarTodos,
           bancoPrevio: bancoPrevio(partidos),
           duplasPrevias: duplasPrevias(partidos),
+          elo: elosDe(players, partidos),
           avoid,
         }),
         null
@@ -728,6 +739,7 @@ function Root() {
         ) : tab === 'plantel' ? (
           <PlayersScreen
             players={players}
+            ajustes={ajustes}
             onAdd={() => {
               if (!dejaSeguir(puedeAgregarJugador(players.length, plan))) return;
               setEditing(null);
