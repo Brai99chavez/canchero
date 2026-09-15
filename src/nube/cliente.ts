@@ -41,6 +41,16 @@ export function clienteObligatorio() {
   return authClient;
 }
 
+/**
+ * Qué hacer cuando el servidor rechaza la sesión. Lo registra `cuenta.ts`; va
+ * por acá para que este archivo no dependa de aquél y se arme un círculo.
+ */
+let avisarSesionPerdida: (() => void) | null = null;
+
+export function alPerderSesion(f: () => void) {
+  avisarSesionPerdida = f;
+}
+
 function legible(error: unknown): string {
   const mensaje = error instanceof Error ? error.message : String(error);
   if (/network|fetch|timeout|abort/i.test(mensaje)) {
@@ -78,6 +88,7 @@ export async function pedir<T>(
     });
 
     if (respuesta.status === 401) {
+      avisarSesionPerdida?.();
       throw new Error('Se cerró la sesión. Entrá de nuevo.');
     }
     if (!respuesta.ok) {

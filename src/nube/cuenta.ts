@@ -1,5 +1,10 @@
 import { Plan } from '../plan';
-import { authClient, clienteObligatorio, pedir } from './cliente';
+import {
+  alPerderSesion,
+  authClient,
+  clienteObligatorio,
+  pedir,
+} from './cliente';
 
 export interface Sesion {
   id: string;
@@ -115,6 +120,19 @@ export function alCambiarSesion(
   return () => oyentes.delete(escuchar);
 }
 
+/**
+ * Cuando el servidor contesta que la sesión no vale —venció, o la cuenta ya no
+ * existe— hay que soltarla acá también. Si no, la app sigue mostrándose
+ * conectada para siempre con una sesión muerta.
+ */
+alPerderSesion(() => {
+  // Sin cliente no hay sesión que soltar, así que ni se intenta.
+  authClient
+    ?.signOut()
+    .catch(() => {})
+    .finally(() => avisar(null));
+});
+
 export async function sesionActual(): Promise<Sesion | null> {
   if (!authClient) return null;
   const { data } = await authClient.getSession();
@@ -139,9 +157,17 @@ export async function registrarse(email: string, clave: string): Promise<Alta> {
   });
   if (error) throw new Error(enCastellano(error.message ?? 'No se pudo crear la cuenta.'));
 
-  const sesion = data?.user
-    ? { id: data.user.id, email: data.user.email }
-    : null;
+  /*
+   * Lo que decide si quedó adentro es el token, no el usuario. Cuando hace
+   * falta confirmar el mail, el servidor devuelve igual los datos del usuario
+   * —la cuenta se creó— pero con `token: null`. Preguntando por el usuario la
+   * app daba por iniciada una sesión que no existía: te mostraba adentro y no
+   * te decía nunca que tenías que confirmar.
+   */
+  const sesion =
+    data?.token && data?.user
+      ? { id: data.user.id, email: data.user.email }
+      : null;
   if (sesion) avisar(sesion);
   return { sesion, faltaConfirmar: !sesion };
 }
@@ -152,7 +178,10 @@ export async function entrar(email: string, clave: string): Promise<Sesion> {
     password: clave,
   });
   if (error) throw new Error(enCastellano(error.message ?? 'No se pudo entrar.'));
-  if (!data?.user) throw new Error('No se pudo iniciar sesión.');
+  // Mismo criterio que al registrarse: sin token no hay sesión.
+  if (!data?.token || !data?.user) {
+    throw new Error('No se pudo iniciar sesión.');
+  }
 
   const sesion = { id: data.user.id, email: data.user.email };
   avisar(sesion);
