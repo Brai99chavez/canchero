@@ -125,32 +125,6 @@ function construir(
   };
 }
 
-/** Azul y dorada. Es la única con las líneas guía dibujadas. */
-const AZUL = construir(
-  require('../assets/card-jugador-1.png'),
-  400,
-  647,
-  'M 154 8 L 28 82 L 8 88 L 12 560 L 33 574 L 193 634 L 207 634 L 376 ' +
-    '570 L 387 560 L 391 88 L 377 84 L 246 8 Z',
-  '#E9DA88',
-  '#0A1226'
-);
-
-/**
- * Mármol. Fondo claro, así que el texto va oscuro con halo claro. Las stats
- * suben un poco: abajo la plantilla trae impreso "FUT CARDS".
- */
-const MARMOL = construir(
-  require('../assets/card-jugador-3.png'),
-  327,
-  457,
-  'M 129 14 L 43 52 L 26 56 L 33 408 L 41 416 L 53 422 L 153 440 L 173 ' +
-    '440 L 275 422 L 294 408 L 299 56 L 284 52 L 199 14 Z',
-  '#2B2720',
-  '#EDEAE5',
-  { stats: { ...GRILLA.stats, top: 0.665, bottom: 0.825 } }
-);
-
 /**
  * Neón. La plantilla actual: fondo azul oscuro con el marco de esquirlas, sin
  * nada impreso adentro. Como el panel es oscuro, el texto va claro con halo
@@ -193,4 +167,4 @@ export const CARD_TEMPLATES: Record<Tier, CardTemplate> = {
 };
 
 /** Plantillas disponibles, para poder cambiar la de arriba en una línea. */
-export const PLANTILLAS = { AZUL, MARMOL, NEON };
+export const PLANTILLAS = { NEON };

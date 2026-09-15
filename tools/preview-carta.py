@@ -2,9 +2,7 @@
 Dibuja la carta del jugador fuera de la app, para poder ajustar el diseno sin
 tener que compilar y mirar en el celular.
 
-    python tools/preview-carta.py            # la plantilla activa
-    python tools/preview-carta.py AZUL       # una en particular
-    python tools/preview-carta.py MARMOL
+    python tools/preview-carta.py
 
 Deja las imagenes en tools/salida/. La grilla de abajo es la misma que la de
 src/assets.ts: si la tocas aca, tocala alla tambien.
@@ -37,21 +35,6 @@ GRILLA = {
 }
 
 PLANTILLAS = {
-    'AZUL': dict(
-        archivo='card-jugador-1.png', w=400, h=647,
-        ink=(233, 218, 136), halo=(10, 18, 38),
-        clip=[(154, 8), (28, 82), (8, 88), (12, 560), (33, 574), (193, 634),
-              (207, 634), (376, 570), (387, 560), (391, 88), (377, 84), (246, 8)],
-        ajustes={},
-    ),
-    'MARMOL': dict(
-        archivo='card-jugador-3.png', w=327, h=457,
-        ink=(43, 39, 32), halo=(237, 234, 229),
-        clip=[(129, 14), (43, 52), (26, 56), (33, 408), (41, 416), (53, 422),
-              (153, 440), (173, 440), (275, 422), (294, 408), (299, 56),
-              (284, 52), (199, 14)],
-        ajustes={'stats': dict(GRILLA['stats'], top=0.665, bottom=0.825)},
-    ),
     'NEON': dict(
         archivo='card-jugador.png', w=1084, h=1451,
         ink=(242, 246, 255), halo=(8, 19, 46),

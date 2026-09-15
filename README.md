@@ -396,8 +396,7 @@ src/screens/TeamsModal       resultado del sorteo
   título dice de qué plantel se trata.
 
 - **Ver la carta sin compilar**: `python tools/preview-carta.py` la dibuja con
-  la misma grilla y deja las imágenes en `tools/salida/`. Podés pedirle una
-  plantilla puntual (`python tools/preview-carta.py AZUL`). Sirve para ajustar
+  la misma grilla y deja las imágenes en `tools/salida/`. Sirve para ajustar
   posiciones sin ir y volver al celular; si cambiás la grilla en `assets.ts`,
   cambiala también ahí.
 
