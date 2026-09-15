@@ -130,14 +130,24 @@ en `servidor/README.md`. Una vez andando, va su URL en `extra.apiUrl` de
 vive en las variables de entorno de Render y **nunca** en la app, que es un
 archivo que cualquiera se baja y descomprime.
 
-Qué hace hoy (`src/nube/`):
+La pantalla de cuenta tiene dos acciones, **Backup** y **Restore**:
 
-- **Respaldo automático**, un rato después del último cambio. Si falla no
-  interrumpe: se reintenta con el cambio siguiente.
-- **Traer de la nube** reemplaza lo local, con confirmación. No mezcla, porque
-  sin una fecha de modificación por plantel no hay forma de saber cuál de las
-  dos copias es la buena, y adivinar mal se lleva datos cargados a mano. La
-  mezcla de verdad es el paso siguiente.
+- **Backup** sube los planteles a la cuenta. Se hace solo unos segundos después
+  de cada cambio; el botón es para forzarlo. Si falla no interrumpe: se
+  reintenta con el cambio siguiente.
+- **Restore** trae los de la cuenta a este teléfono y **reemplaza** lo local,
+  con confirmación. No mezcla, porque sin una fecha de modificación por plantel
+  no hay forma de saber cuál de las dos copias es la buena, y adivinar mal se
+  lleva datos cargados a mano. La mezcla de verdad es el paso siguiente.
+
+**Cerrar sesión no borra nada del teléfono.** Si quedó algo sin subir, avisa
+antes y ofrece hacer el backup y cerrar en un solo paso. Eso lo sabe comparando
+`firmaDe()` —un hash corto de lo que se subiría— con la firma de la última
+subida que salió bien. Va sobre lo que viaja y no sobre el plantel entero, para
+que elegir una foto, que no se sube, no cuente como cambio pendiente.
+
+Dos cosas más:
+
 - **Borrar marca el plantel como borrado** en vez de sacar la fila: si
   desapareciera, volvería la próxima vez que otro teléfono restaure.
 - **Las fotos no suben**: son archivos de este teléfono y la ruta no significa

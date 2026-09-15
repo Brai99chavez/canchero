@@ -32,8 +32,10 @@ interface Props {
   /** Cuántos planteles hay en el teléfono, para explicar qué se va a subir. */
   cuantosPlanteles: number;
   ultimaCopia: string | null;
+  /** Si hay cambios en el teléfono que todavía no llegaron a la cuenta. */
+  haySinSubir: boolean;
   onClose: () => void;
-  onGuardarAhora: () => Promise<void>;
+  onBackup: () => Promise<void>;
   /** Trae la copia y devuelve cuántos planteles vinieron. */
   onRestaurar: () => Promise<number>;
 }
@@ -45,8 +47,9 @@ export default function CuentaModal({
   sesion,
   cuantosPlanteles,
   ultimaCopia,
+  haySinSubir,
   onClose,
-  onGuardarAhora,
+  onBackup,
   onRestaurar,
 }: Props) {
   const [modo, setModo] = useState<Modo>('entrar');
@@ -99,16 +102,39 @@ export default function CuentaModal({
       }
     });
 
-  const handleSalir = () =>
+  const handleSalir = () => {
+    if (haySinSubir) {
+      preguntar({
+        titulo: 'Tenés cambios sin guardar',
+        mensaje:
+          'Hiciste cambios en tus planteles que todavía no están en la nube. ' +
+          'Si cerrás la sesión ahora, esos cambios quedan sólo en este ' +
+          'teléfono: si lo perdés o reinstalás la app, no hay de dónde ' +
+          'sacarlos. Conviene hacer un backup antes.',
+        confirmar: 'Cerrar igual',
+        peligro: true,
+        alternativa: {
+          label: 'Hacer backup y cerrar',
+          onPress: () =>
+            conAviso(async () => {
+              await onBackup();
+              await salir();
+            }),
+        },
+        onConfirmar: () => conAviso(salir),
+      });
+      return;
+    }
+
     preguntar({
       titulo: 'Cerrar sesión',
       mensaje:
-        'Los planteles siguen en este teléfono. La copia de la nube queda ' +
-        'guardada para cuando vuelvas a entrar.',
+        'Los planteles siguen en este teléfono, con todo lo que tienen. La ' +
+        'copia de la nube queda guardada para cuando vuelvas a entrar.',
       confirmar: 'Cerrar sesión',
-      peligro: true,
       onConfirmar: () => conAviso(salir),
     });
+  };
 
   const handleRestaurar = () =>
     preguntar({
@@ -155,29 +181,43 @@ export default function CuentaModal({
                 {error ? (
                   <Aviso titulo={error.titulo} detalle={error.detalle} />
                 ) : null}
-                <Text style={styles.ayuda}>
-                  {ultimaCopia
-                    ? `Última copia: ${ultimaCopia}.`
-                    : 'Todavía no se guardó ninguna copia en esta sesión.'}{' '}
-                  Se guarda sola cada vez que cambiás algo.
-                </Text>
 
+                {haySinSubir ? (
+                  <Aviso
+                    titulo="Hay cambios sin guardar"
+                    detalle="Tocá BACKUP para subirlos a tu cuenta."
+                  />
+                ) : null}
+
+                <Seccion style={styles.seccion}>Backup</Seccion>
+                <Text style={styles.ayuda}>
+                  Guarda tus planteles en la cuenta. Se hace solo unos segundos
+                  después de cada cambio; el botón es para forzarlo.
+                </Text>
+                <Text style={styles.estado}>
+                  {haySinSubir
+                    ? 'Hay cambios sin subir.'
+                    : ultimaCopia
+                    ? `Guardado a las ${ultimaCopia}.`
+                    : 'Todo al día.'}
+                </Text>
                 <Button
-                  title="Guardar ahora"
-                  onPress={() => conAviso(onGuardarAhora)}
+                  title="Hacer backup"
+                  onPress={() => conAviso(onBackup)}
                   loading={trabajando}
                   style={styles.boton}
                 />
 
-                <Seccion style={styles.seccion}>Teléfono nuevo</Seccion>
+                <Seccion style={styles.seccion}>Restore</Seccion>
                 <Text style={styles.ayuda}>
-                  Traer la copia reemplaza los {cuantosPlanteles}{' '}
+                  Trae los planteles de tu cuenta a este teléfono. Es para
+                  cuando cambiás de aparato o reinstalás la app: reemplaza los{' '}
+                  {cuantosPlanteles}{' '}
                   {cuantosPlanteles === 1 ? 'plantel' : 'planteles'} que tenés
-                  acá por los de la nube. Es para cuando cambiás de teléfono, no
-                  para todos los días.
+                  acá por los de la nube.
                 </Text>
                 <Button
-                  title="Traer de la nube"
+                  title="Restaurar en este teléfono"
                   onPress={handleRestaurar}
                   variant="ghost"
                   style={styles.boton}
@@ -292,6 +332,12 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   seccion: { marginTop: spacing.xl },
   mail: { color: colors.text, fontSize: 16, fontFamily: fuentes.bold },
+  estado: {
+    color: colors.primary,
+    fontSize: 12,
+    fontFamily: fuentes.bold,
+    letterSpacing: 0.3,
+  },
   campoClave: { justifyContent: 'center' },
   // Sitio para el ojo, que va encima y no empuja el texto.
   inputClave: { paddingRight: 46 },

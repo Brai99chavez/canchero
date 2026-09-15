@@ -39,7 +39,7 @@ import {
   sesionActual,
   Sesion,
 } from './src/nube/cuenta';
-import { bajar, marcarBorrado, subir } from './src/nube/sync';
+import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
   idsActivos,
   limites,
@@ -113,6 +113,8 @@ function Root() {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [cuentaVisible, setCuentaVisible] = useState(false);
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
+  /** La firma de lo último que llegó a subir, para saber qué falta. */
+  const [firmaSubida, setFirmaSubida] = useState<string | null>(null);
   // El plan sale del servidor cuando hay cuenta. Sin cuenta, el de siempre.
   const [plan, setPlan] = useState<Plan>(PLAN);
   const { dialogo, avisar } = useDialogo();
@@ -138,6 +140,7 @@ function Root() {
     if (!sesion) {
       setPlan(PLAN);
       setUltimaCopia(null);
+      setFirmaSubida(null);
       return;
     }
     planDeLaCuenta().then(setPlan);
@@ -165,15 +168,28 @@ function Root() {
    * tecleada sería una llamada por letra. Que falle no molesta a nadie —se
    * reintenta con el cambio siguiente— así que no interrumpe con un cartel.
    */
+  const firmaActual = useMemo(() => firmaDe(planteles), [planteles]);
+
   useEffect(() => {
     if (!ready || !sesion || planteles.length === 0) return;
+    if (firmaActual === firmaSubida) return;
     const id = setTimeout(() => {
       subir(planteles)
-        .then(() => setUltimaCopia(new Date()))
+        .then(() => {
+          setUltimaCopia(new Date());
+          setFirmaSubida(firmaActual);
+        })
         .catch(() => {});
     }, 2500);
     return () => clearTimeout(id);
-  }, [planteles, sesion, ready]);
+  }, [planteles, sesion, ready, firmaActual, firmaSubida]);
+
+  /**
+   * Si lo que hay en el teléfono no es lo último que llegó al servidor.
+   * Normalmente el respaldo automático lo deja en falso a los pocos segundos;
+   * queda en verdadero cuando falló, que es justo cuando hay que avisar.
+   */
+  const haySinSubir = Boolean(sesion) && firmaActual !== firmaSubida;
 
   const activo = useMemo(
     () => planteles.find((p) => p.id === activoId) ?? planteles[0],
@@ -573,10 +589,11 @@ function Root() {
     setPlanteles((prev) => [...prev, ...nuevos]);
   }, []);
 
-  const handleGuardarAhora = useCallback(async () => {
+  const handleBackup = useCallback(async () => {
     if (!sesion) return;
     await subir(planteles);
     setUltimaCopia(new Date());
+    setFirmaSubida(firmaDe(planteles));
   }, [planteles, sesion]);
 
   /**
@@ -743,7 +760,8 @@ function Root() {
             : null
         }
         onClose={() => setCuentaVisible(false)}
-        onGuardarAhora={handleGuardarAhora}
+        haySinSubir={haySinSubir}
+        onBackup={handleBackup}
         onRestaurar={handleRestaurar}
       />
 

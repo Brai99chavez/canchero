@@ -28,6 +28,34 @@ function sinFotos(jugadores: Squad['jugadores']) {
   return jugadores.map(({ foto: _foto, ...resto }) => resto);
 }
 
+/**
+ * Un resumen corto de lo que se subiría. Comparando el de ahora con el de la
+ * última subida exitosa se sabe si quedó algo sin guardar, que es lo que hay
+ * que avisar antes de cerrar la sesión.
+ *
+ * Se arma sobre lo mismo que viaja —y no sobre el plantel entero— para que un
+ * cambio que no se sube, como elegir una foto, no cuente como pendiente.
+ */
+export function firmaDe(planteles: Squad[]): string {
+  const crudo = JSON.stringify(planteles.map(aFila));
+  // Hash corto: guardar el JSON entero para compararlo sería cargar en memoria
+  // dos veces todo el plantel sin ninguna ventaja.
+  let h = 5381;
+  for (let i = 0; i < crudo.length; i++) {
+    h = ((h * 33) ^ crudo.charCodeAt(i)) >>> 0;
+  }
+  return `${crudo.length}-${h.toString(36)}`;
+}
+
+function aFila(p: Squad) {
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    llegada: p.llegada,
+    datos: { jugadores: sinFotos(p.jugadores), partidos: p.partidos },
+  };
+}
+
 export async function subir(planteles: Squad[]): Promise<void> {
   // Sin planteles no se sube nada: una app recién instalada no tiene por qué
   // poder vaciar el respaldo antes de que la persona alcance a restaurarlo.
@@ -35,14 +63,7 @@ export async function subir(planteles: Squad[]): Promise<void> {
 
   await pedir('/planteles', {
     metodo: 'PUT',
-    cuerpo: {
-      planteles: planteles.map((p) => ({
-        id: p.id,
-        nombre: p.nombre,
-        llegada: p.llegada,
-        datos: { jugadores: sinFotos(p.jugadores), partidos: p.partidos },
-      })),
-    },
+    cuerpo: { planteles: planteles.map(aFila) },
   });
 }
 

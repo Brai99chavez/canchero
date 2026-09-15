@@ -21,6 +21,12 @@ interface Config {
   peligro?: boolean;
   onConfirmar?: () => void;
   /**
+   * Un tercer camino, para cuando además de hacer o no hacer hay algo mejor
+   * que se puede hacer antes. Con tres botones se apilan: tres en fila no
+   * entran en un teléfono angosto sin partir las palabras.
+   */
+  alternativa?: { label: string; onPress: () => void };
+  /**
    * Qué hacer al cerrarlo. Sirve cuando el aviso es lo último que pasa en una
    * pantalla que después se cierra: cerrarla antes de mostrarlo se llevaría el
    * diálogo puesto, porque vive adentro de esa ventana.
@@ -106,26 +112,45 @@ function Dialogo({
             <Text style={styles.mensaje}>{config.mensaje}</Text>
           ) : null}
 
-          <View style={styles.botones}>
-            {config?.confirmar ? (
-              <>
-                <Button
-                  title="Cancelar"
-                  onPress={onCerrar}
-                  variant="ghost"
-                  style={styles.boton}
-                />
-                <Button
-                  title={config.confirmar}
-                  onPress={handleConfirmar}
-                  variant={config.peligro ? 'danger' : 'primary'}
-                  style={styles.boton}
-                />
-              </>
-            ) : (
-              <Button title="Listo" onPress={onCerrar} style={styles.boton} />
-            )}
-          </View>
+          {config?.alternativa ? (
+            <View style={styles.apilados}>
+              <Button
+                title={config.alternativa.label}
+                onPress={() => {
+                  const accion = config.alternativa?.onPress;
+                  onCerrar();
+                  accion?.();
+                }}
+              />
+              <Button
+                title={config.confirmar ?? 'Seguir'}
+                onPress={handleConfirmar}
+                variant={config.peligro ? 'danger' : 'ghost'}
+              />
+              <Button title="Cancelar" onPress={onCerrar} variant="ghost" />
+            </View>
+          ) : (
+            <View style={styles.botones}>
+              {config?.confirmar ? (
+                <>
+                  <Button
+                    title="Cancelar"
+                    onPress={onCerrar}
+                    variant="ghost"
+                    style={styles.boton}
+                  />
+                  <Button
+                    title={config.confirmar}
+                    onPress={handleConfirmar}
+                    variant={config.peligro ? 'danger' : 'primary'}
+                    style={styles.boton}
+                  />
+                </>
+              ) : (
+                <Button title="Listo" onPress={onCerrar} style={styles.boton} />
+              )}
+            </View>
+          )}
         </Panel>
       </View>
     </Modal>
@@ -153,6 +178,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: spacing.sm,
   },
+  apilados: { gap: spacing.sm, marginTop: spacing.lg },
   botones: {
     flexDirection: 'row',
     gap: spacing.sm,
