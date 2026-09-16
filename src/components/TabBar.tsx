@@ -28,8 +28,8 @@ export type TabKey =
 const TABS: { key: TabKey; label: string; Icon: typeof PeopleIcon }[] = [
   { key: 'plantel', label: 'Plantel', Icon: PeopleIcon },
   { key: 'partido', label: 'Partido', Icon: BallIcon },
-  { key: 'activos', label: 'En juego', Icon: ClockIcon },
-  { key: 'historial', label: 'Jugados', Icon: CheckListIcon },
+  { key: 'activos', label: 'Activos', Icon: ClockIcon },
+  { key: 'historial', label: 'Historial', Icon: CheckListIcon },
   { key: 'tabla', label: 'Tabla', Icon: ChartIcon },
 ];
 
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   texto: {
     color: colors.textMuted,
     // Con cinco pestañas manda el ancho: cuerpo chico y sin espaciado extra,
-    // si no "EN JUEGO" no entra en pantallas angostas.
+    // si no "HISTORIAL" no entra en pantallas angostas.
     fontSize: 9,
     fontFamily: 'Barlow_800ExtraBold',
     letterSpacing: 0.2,

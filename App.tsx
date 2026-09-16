@@ -735,9 +735,9 @@ function Root() {
               : tab === 'partido'
               ? 'Armar partido'
               : tab === 'activos'
-              ? 'En juego'
+              ? 'Activos'
               : tab === 'historial'
-              ? 'Jugados'
+              ? 'Historial'
               : 'Tabla'
           }
           onVolver={() => setVista('lista')}
