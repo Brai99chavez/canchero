@@ -38,11 +38,13 @@ import { comoSeLeeCorto } from '../fechas';
 import {
   guardarPerfil,
   leerPerfil,
+  nombreLibre,
   normalizar,
   Perfil,
   perfilEnMemoria,
   problemaDelUsuario,
 } from '../nube/perfil';
+import { reservarNombre } from '../nube/reservado';
 import { cleanupPhotos, discardPhoto, pickPhoto } from '../photos';
 import { colors, fuentes, spacing } from '../theme';
 
@@ -84,6 +86,12 @@ export default function PerfilScreen({
   const [clave, setClave] = useState('');
   const [trabajando, setTrabajando] = useState(false);
   const [verClave, setVerClave] = useState(false);
+  /** El nombre de usuario que se elige al crear la cuenta. */
+  const [nuevoUsuario, setNuevoUsuario] = useState('');
+  /** Qué dijo el servidor de ese nombre: null mientras no se preguntó. */
+  const [libre, setLibre] = useState<{ libre: boolean; problema?: string } | null>(
+    null
+  );
   const [error, setError] = useState<Explicacion | null>(null);
   const { dialogo, avisar, preguntar } = useDialogo();
 
@@ -199,7 +207,37 @@ export default function PerfilScreen({
     traerPerfil(true).finally(() => setRefrescando(false));
   };
 
-  const valido = email.trim().includes('@') && clave.length >= 8;
+  const nombreNuevo = normalizar(nuevoUsuario);
+  const problemaNombreNuevo =
+    nombreNuevo === '' ? null : problemaDelUsuario(nombreNuevo);
+
+  /*
+   * Se pregunta al servidor mientras se escribe, con una pausa: es la única
+   * forma de enterarse de que está tomado antes de crear la cuenta. El formato
+   * lo revisa la app sola, así que sólo se pregunta lo que no puede saber.
+   */
+  useEffect(() => {
+    if (modo !== 'registro' || problemaNombreNuevo || nombreNuevo.length < 3) {
+      setLibre(null);
+      return;
+    }
+    let vigente = true;
+    const reloj = setTimeout(() => {
+      nombreLibre(nombreNuevo)
+        .then((r) => vigente && setLibre(r))
+        .catch(() => vigente && setLibre(null));
+    }, 500);
+    return () => {
+      vigente = false;
+      clearTimeout(reloj);
+    };
+  }, [modo, nombreNuevo, problemaNombreNuevo]);
+
+  const valido =
+    email.trim().includes('@') &&
+    clave.length >= 8 &&
+    (modo === 'entrar' ||
+      (nombreNuevo.length >= 3 && !problemaNombreNuevo && libre?.libre === true));
 
   async function conAviso(accion: () => Promise<void>) {
     setTrabajando(true);
@@ -223,6 +261,8 @@ export default function PerfilScreen({
     conAviso(async () => {
       const alta = await registrarse(email, clave);
       setClave('');
+      // Queda anotado en el teléfono: recién se puede guardar cuando entre.
+      await reservarNombre(nombreNuevo);
       if (alta.faltaConfirmar) {
         /*
          * No se afirma que se mandó el mail, porque puede no haberse mandado:
@@ -607,6 +647,35 @@ export default function PerfilScreen({
           </Pressable>
         }
       />
+
+      {modo === 'registro' ? (
+        <>
+          <CampoTexto
+            izquierda={<Text style={styles.arroba}>@</Text>}
+            value={nuevoUsuario}
+            onChangeText={(t) => {
+              setNuevoUsuario(t);
+              setError(null);
+            }}
+            placeholder="nombre de usuario"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={20}
+          />
+          {problemaNombreNuevo ?? libre?.problema ? (
+            <Text style={styles.problema}>
+              {problemaNombreNuevo ?? libre?.problema}
+            </Text>
+          ) : libre?.libre ? (
+            <Text style={styles.guardado}>@{nombreNuevo} está libre.</Text>
+          ) : (
+            <Text style={styles.ayuda}>
+              Es con lo que tus amigos te van a encontrar para pasarte un
+              plantel. Lo podés cambiar después.
+            </Text>
+          )}
+        </>
+      ) : null}
 
       <Button
         title={modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}

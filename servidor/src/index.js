@@ -15,7 +15,12 @@ import {
 import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
 import { DIAS_DE_PAPELERA, vaciarPapeleraVieja } from './papelera.js';
 import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
-import { guardarPerfil, leerPerfil } from './perfil.js';
+import {
+  guardarPerfil,
+  leerPerfil,
+  normalizar,
+  problemaDelUsuario,
+} from './perfil.js';
 import { hayLugar, planDe, recortarAlPlan } from './planes.js';
 import {
   borrarFoto,
@@ -163,6 +168,29 @@ app.delete('/dispositivos', async (c) => {
   const cuerpo = await c.req.json().catch(() => null);
   if (typeof cuerpo?.token === 'string') await olvidarDispositivo(cuerpo.token);
   return c.json({ ok: true });
+});
+
+/**
+ * Si un nombre de usuario está libre. Sin sesión, porque hace falta al crear
+ * la cuenta: ahí todavía no hay con qué identificarse.
+ *
+ * Contesta sí o no y nada más — ni la foto, ni el id, ni cuándo se registró.
+ * Lo que se puede averiguar con esto es si un nombre está tomado, que es
+ * justamente lo que un nombre de usuario dice de sí mismo: si lo tuvieras que
+ * adivinar para agregar a alguien, no serviría para nada.
+ */
+app.get('/usuarios/libre', async (c) => {
+  const nombre = normalizar(c.req.query('nombre'));
+  const problema = problemaDelUsuario(nombre);
+  if (problema) return c.json({ libre: false, problema });
+
+  const { rows } = await consultar(
+    `select 1 from perfiles where lower(usuario) = $1`,
+    [nombre]
+  );
+  return rows.length > 0
+    ? c.json({ libre: false, problema: 'Ese nombre ya está tomado.' })
+    : c.json({ libre: true });
 });
 
 /**

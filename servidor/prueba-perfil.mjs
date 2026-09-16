@@ -33,6 +33,7 @@ const ok = (nombre, condicion, detalle) => {
 const titulo = (t) => console.log(`\n— ${t} —`);
 
 const corrida = 1 + Math.floor(Math.random() * 250);
+const sufijo = Date.now().toString(36).slice(-5);
 let numeroDeApp = 0;
 
 const base = new pg.Pool({
@@ -143,6 +144,34 @@ ok('y sin foto', r.json?.foto === null, r.texto);
 ok('y en plan gratis', r.json?.plan === 'gratis', r.texto);
 ok('trae el mail de la cuenta', r.json?.email === uno.email, r.texto);
 
+// ═══════════════════════════════════════ si un nombre está libre
+titulo('si un nombre está libre');
+{
+  const sinSesion = async (nombre) => {
+    const r = await fetch(
+      `${API}/usuarios/libre?nombre=${encodeURIComponent(nombre)}`,
+      { headers: { origin: ORIGEN, 'x-forwarded-for': `198.18.${corrida}.210` } }
+    );
+    return { estado: r.status, json: await r.json().catch(() => null) };
+  };
+
+  // Sin sesión a propósito: hace falta al crear la cuenta, cuando todavía no
+  // hay con qué identificarse.
+  let x = await sinSesion(`nuevo${sufijo}`);
+  ok('se puede preguntar sin sesión', x.estado === 200, JSON.stringify(x.json));
+  ok('y uno que no existe está libre', x.json?.libre === true);
+
+  x = await sinSesion('ab');
+  ok('uno corto no está libre', x.json?.libre === false);
+  ok('y dice por qué', typeof x.json?.problema === 'string');
+
+  x = await sinSesion('admin');
+  ok('uno reservado tampoco', x.json?.libre === false);
+
+  x = await sinSesion(`nuevo${sufijo}`);
+  ok('no devuelve nada más que sí o no', Object.keys(x.json).length <= 2, JSON.stringify(x.json));
+}
+
 // ══════════════════════════════════════════════════ elegir el nombre
 titulo('elegir el nombre');
 r = await uno.pedir('/perfil', { metodo: 'PUT', cuerpo: { usuario: 'ElBrai' } });
@@ -172,6 +201,14 @@ for (const [nombre, porque] of [
 
 r = await uno.pedir('/perfil');
 ok('y ninguno de esos pisó el que ya estaba', r.json?.usuario === 'elbrai', r.texto);
+
+{
+  const r2 = await fetch(`${API}/usuarios/libre?nombre=elbrai`, {
+    headers: { origin: ORIGEN, 'x-forwarded-for': `198.18.${corrida}.211` },
+  });
+  const j = await r2.json();
+  ok('y uno ya tomado figura como no libre', j?.libre === false, JSON.stringify(j));
+}
 
 // ══════════════════════════════════════════════════ dos no pueden llamarse igual
 titulo('dos no pueden llamarse igual');

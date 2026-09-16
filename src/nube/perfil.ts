@@ -1,5 +1,6 @@
 import { Plan } from '../plan';
 import { pedir } from './cliente';
+import { nombreReservado, olvidarNombreReservado } from './reservado';
 
 /**
  * El perfil de la cuenta: el nombre con el que te encuentran y la foto.
@@ -73,6 +74,16 @@ export function perfilEnMemoria(): Perfil | null {
 }
 
 /**
+ * Si un nombre está libre. No hace falta sesión: se usa al crear la cuenta,
+ * cuando todavía no hay con qué identificarse.
+ */
+export function nombreLibre(
+  nombre: string
+): Promise<{ libre: boolean; problema?: string }> {
+  return pedir(`/usuarios/libre?nombre=${encodeURIComponent(normalizar(nombre))}`);
+}
+
+/**
  * El perfil. Si ya se trajo antes, eso mismo; con `refrescar` se vuelve a
  * preguntar, que es lo que hace el tirón hacia abajo de la pantalla.
  */
@@ -103,6 +114,38 @@ export function leerPerfil(refrescar = false): Promise<Perfil> {
 export function olvidarPerfil(): void {
   enMemoria = null;
   enVuelo = null;
+}
+
+/**
+ * Guarda el nombre que se eligió al registrarse, si quedó alguno anotado.
+ *
+ * Corre la primera vez que se entra. Si en el medio alguien lo tomó, se
+ * descarta y la app pide otro: es lo que pasaba antes siempre, y ahora sólo en
+ * ese caso.
+ */
+export async function usarNombreReservado(): Promise<Perfil | null> {
+  const guardado = await nombreReservado();
+  if (!guardado) return null;
+
+  try {
+    const perfil = await leerPerfil();
+    // Si ya tiene nombre, el anotado es de otra vez: no se pisa.
+    if (perfil.usuario) {
+      await olvidarNombreReservado();
+      return perfil;
+    }
+    const salida = await guardarPerfil({ usuario: guardado });
+    await olvidarNombreReservado();
+    return salida;
+  } catch {
+    /*
+     * Se olvida igual. Si falló porque lo tomó otro, insistir no va a cambiar
+     * nada; y si falló por falta de señal, pedirlo en Perfil es mejor que
+     * reintentar en silencio algo que la persona no sabe que está pasando.
+     */
+    await olvidarNombreReservado();
+    return null;
+  }
 }
 
 /**

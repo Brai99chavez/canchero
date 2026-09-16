@@ -62,7 +62,7 @@ import {
   pendientes,
   rechazarEnvio,
 } from './src/nube/envios';
-import { leerPerfil } from './src/nube/perfil';
+import { leerPerfil, usarNombreReservado } from './src/nube/perfil';
 import { subirFotosPendientes } from './src/nube/fotos';
 import { EstadoSync, sincronizar, sinSubir } from './src/nube/sync';
 import {
@@ -247,7 +247,13 @@ function Root() {
      * equivocarse: mostrar los límites de más es un cartel, dar Pro de más es
      * regalar el producto.
      */
-    leerPerfil()
+    /*
+     * `usarNombreReservado` primero: si al registrarse se eligió un nombre, se
+     * guarda ahora, que es la primera vez que hay sesión para hacerlo. Si no
+     * había ninguno anotado no pide nada y sigue de largo.
+     */
+    usarNombreReservado()
+      .then((puesto) => puesto ?? leerPerfil())
       .then((perfil) => {
         setPlan(perfil.plan === 'pro' ? 'pro' : 'gratis');
         setMiUsuario(perfil.usuario);
