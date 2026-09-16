@@ -1,5 +1,6 @@
 import { expoClient } from '@better-auth/expo/client';
 import { createAuthClient } from 'better-auth/client';
+import { oneTimeTokenClient } from 'better-auth/client/plugins';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
@@ -32,7 +33,16 @@ export const hayNube = Boolean(API);
 export const authClient = hayNube
   ? createAuthClient({
       baseURL: API,
-      plugins: [expoClient({ scheme: 'canchero', storage: SecureStore })],
+      plugins: [
+        expoClient({ scheme: 'canchero', storage: SecureStore }),
+        /*
+         * Para entrar sola después de confirmar el mail. Eso pasa en el
+         * navegador del teléfono, así que la sesión queda del lado del
+         * navegador; el servidor manda un código de un solo uso en la vuelta y
+         * esto lo canjea por la sesión de acá.
+         */
+        oneTimeTokenClient(),
+      ],
     })
   : null;
 

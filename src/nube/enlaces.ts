@@ -18,6 +18,26 @@ export interface Recuperacion {
   error: string | null;
 }
 
+/** Lo que trae la vuelta de confirmar el mail. */
+export interface Confirmacion {
+  /** El código de un solo uso para entrar. Null si el link ya no servía. */
+  codigo: string | null;
+  error: string | null;
+}
+
+function destinoDe(url: string): { destino: string; params: Record<string, unknown> } {
+  const { path, hostname, queryParams } = Linking.parse(url);
+  return {
+    destino: (path ?? hostname ?? '')
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/^--\//, ''),
+    params: (queryParams ?? {}) as Record<string, unknown>,
+  };
+}
+
+const uno = (valor: unknown) =>
+  typeof valor === 'string' && valor.length > 0 ? valor : null;
+
 function leer(url: string): Recuperacion | null {
   const { path, hostname, queryParams } = Linking.parse(url);
   /*
@@ -82,4 +102,31 @@ export function alRecuperar(avisar: (dato: Recuperacion) => void): () => void {
  */
 export function urlDeRecuperacion(): string {
   return Linking.createURL('recuperar');
+}
+
+/**
+ * Avisa cuando se vuelve de confirmar el mail.
+ *
+ * Igual que con la recuperación, hacen falta las dos formas: si la app estaba
+ * cerrada el link ya se consumió antes de que esto corriera y sólo lo cuenta
+ * `getInitialURL`; si estaba abierta, llega por el evento.
+ */
+export function alConfirmar(avisar: (dato: Confirmacion) => void): () => void {
+  let vivo = true;
+
+  const mirar = (url: string) => {
+    const { destino, params } = destinoDe(url);
+    if (destino !== 'verificado') return;
+    avisar({ codigo: uno(params.codigo), error: uno(params.error) });
+  };
+
+  Linking.getInitialURL().then((url) => {
+    if (vivo && url) mirar(url);
+  });
+  const sub = Linking.addEventListener('url', ({ url }) => mirar(url));
+
+  return () => {
+    vivo = false;
+    sub.remove();
+  };
 }

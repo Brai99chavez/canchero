@@ -1,5 +1,6 @@
 import { olvidarTelefono } from './avisos';
 import { urlDeRecuperacion } from './enlaces';
+import { borrarTodo } from '../storage';
 import { olvidarPerfil } from './perfil';
 import { alPerderSesion, authClient, clienteObligatorio } from './cliente';
 
@@ -276,6 +277,28 @@ export async function reenviarConfirmacion(email: string): Promise<void> {
   }
 }
 
+/**
+ * Entra con el código que trajo la vuelta de confirmar el mail.
+ *
+ * Confirmar pasa en el navegador del teléfono, así que la sesión que se crea
+ * ahí no le sirve a la app. El servidor manda en la vuelta un código de un
+ * solo uso y esto lo canjea: la sesión queda guardada acá y la persona entra
+ * sin escribir la contraseña de nuevo.
+ */
+export async function entrarConCodigo(codigo: string): Promise<Sesion> {
+  const { data, error } = await clienteObligatorio().oneTimeToken.verify({
+    token: codigo,
+  });
+  if (error || !data?.user) {
+    throw new Error(
+      enCastellano(error?.message ?? 'Ese link de confirmación ya no sirve.')
+    );
+  }
+  const sesion = { id: data.user.id, email: data.user.email };
+  avisar(sesion);
+  return sesion;
+}
+
 export async function salir(): Promise<void> {
   // Primero se desanota el teléfono: después de cerrar la sesión el servidor
   // ya no sabe quién es y no lo dejaría hacerlo. Sin esto, al entrar otra
@@ -284,6 +307,12 @@ export async function salir(): Promise<void> {
   await olvidarTelefono();
   await clienteObligatorio().signOut();
   olvidarPerfil();
+  /*
+   * Y se borra lo que hay en el teléfono. Está todo en la cuenta, así que no
+   * se pierde nada; dejarlo era lo que hacía que los planteles de uno
+   * aparecieran en la cuenta del que entrara después.
+   */
+  await borrarTodo();
   avisar(null);
 }
 

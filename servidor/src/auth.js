@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { oneTimeToken } from 'better-auth/plugins';
 import { expo } from '@better-auth/expo';
 import { pool } from './db.js';
 import { mailDeConfirmacion, mailDeRecuperacion } from './mails.js';
@@ -42,8 +43,18 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
-      await mailDeConfirmacion(user.email, url);
+    /*
+     * El link no va al endpoint de Better Auth sino al nuestro: el de él
+     * termina redirigiendo al `/` del servidor, que devuelve un JSON, y eso es
+     * lo que veía la persona después de confirmar. El nuestro hace lo mismo y
+     * además devuelve a la app con la sesión puesta.
+     */
+    sendVerificationEmail: async ({ user, token }) => {
+      const base = (process.env.BASE_URL ?? '').replace(/\/+$/, '');
+      await mailDeConfirmacion(
+        user.email,
+        `${base}/verificar?token=${encodeURIComponent(token)}`
+      );
     },
     /** El mail sale al registrarse, sin que la app tenga que pedirlo aparte. */
     sendOnSignUp: true,
@@ -53,7 +64,14 @@ export const auth = betterAuth({
 
   // La app no es un sitio web: no hay cookies ni dominio, el token viaja en el
   // header. Este plugin es el que habilita ese modo y el esquema canchero://.
-  plugins: [expo()],
+  /*
+   * `oneTimeToken` es lo que deja entregarle una sesión ya iniciada a la app.
+   * Hace falta al confirmar el mail: eso pasa en el navegador del teléfono, no
+   * adentro de la app, así que la sesión que se crea ahí queda del lado del
+   * navegador. Con esto el servidor arma un código de un solo uso, la app lo
+   * canjea y entra sola.
+   */
+  plugins: [expo(), oneTimeToken()],
 
   /**
    * De dónde se aceptan pedidos. `canchero://` es el esquema de la app

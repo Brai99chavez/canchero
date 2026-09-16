@@ -37,6 +37,57 @@ const app = new Hono();
  */
 app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
 
+/** A dónde vuelve el que confirmó su mail. Lo abre la app por su esquema. */
+const VUELTA = 'canchero://verificado';
+
+/**
+ * Confirmar el mail y volver a la app, ya adentro.
+ *
+ * Esto pasa en el navegador del teléfono y no en la app, así que la sesión que
+ * se crea al confirmar queda del lado del navegador. Para que la app entre
+ * sola, acá se arma un código de un solo uso y se lo manda en la vuelta: la
+ * app lo canjea por la sesión y listo.
+ *
+ * Antes el link de Better Auth terminaba redirigiendo al `/` del servidor, que
+ * contesta el JSON de salud. Eso es lo que veía la persona después de tocar
+ * "confirmar mi cuenta".
+ */
+app.get('/verificar', async (c) => {
+  const token = c.req.query('token');
+  if (!token) return c.redirect(`${VUELTA}?error=falta`);
+
+  try {
+    // Se reusa el handler de Better Auth en vez de repetir lo que hace: es el
+    // que sabe validar el token, marcar el mail y abrir la sesión.
+    const base = (process.env.BASE_URL ?? '').replace(/\/+$/, '');
+    const respuesta = await auth.handler(
+      new Request(
+        `${base}/api/auth/verify-email?token=${encodeURIComponent(token)}`,
+        { headers: { origin: base } }
+      )
+    );
+
+    const galletitas = respuesta.headers.getSetCookie
+      ? respuesta.headers.getSetCookie()
+      : [respuesta.headers.get('set-cookie')].filter(Boolean);
+    const sesion = galletitas
+      .map((x) => x.split(';')[0])
+      .find((x) => x.includes('session_token='));
+
+    if (!sesion) {
+      // Token vencido o ya usado: se vuelve igual, y la app lo explica.
+      return c.redirect(`${VUELTA}?error=vencido`);
+    }
+
+    const { token: codigo } = await auth.api.generateOneTimeToken({
+      headers: { cookie: sesion },
+    });
+    return c.redirect(`${VUELTA}?codigo=${encodeURIComponent(codigo)}`);
+  } catch {
+    return c.redirect(`${VUELTA}?error=vencido`);
+  }
+});
+
 /**
  * Render pega acá para saber si el servicio está vivo, y de paso dice qué
  * tiene configurado. Son booleanos de configuración, no secretos, y evitan

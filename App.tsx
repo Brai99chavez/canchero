@@ -47,10 +47,12 @@ import TeamsModal from './src/screens/TeamsModal';
 import { hayNube } from './src/nube/cliente';
 import {
   alCambiarSesion,
+  entrarConCodigo,
+  explicar,
   sesionActual,
   Sesion,
 } from './src/nube/cuenta';
-import { alRecuperar, Recuperacion } from './src/nube/enlaces';
+import { alConfirmar, alRecuperar, Recuperacion } from './src/nube/enlaces';
 import { Amigo, listarAmigos } from './src/nube/amigos';
 import {
   alLlegarNovedad,
@@ -188,6 +190,8 @@ function Root() {
     hasta: null,
   });
   const [sincronizando, setSincronizando] = useState(false);
+  /** De quién es lo que hay guardado en este teléfono. */
+  const [duenoLocal, setDuenoLocal] = useState<string | null>(null);
   /**
    * Los planteles borrados acá que todavía siguen en la nube. Viajan con el
    * backup y no en el momento de borrar, por lo mismo: un borrado sin querer
@@ -196,7 +200,7 @@ function Root() {
   const [borradosPendientes, setBorrados] = useState<string[]>([]);
   // El plan sale del servidor cuando hay cuenta. Sin cuenta, el de siempre.
   const [plan, setPlan] = useState<Plan>(PLAN);
-  const { dialogo, preguntar } = useDialogo();
+  const { dialogo, avisar, preguntar } = useDialogo();
 
   /** Avisa si la acción no entra en el plan y dice si se puede seguir. */
   const dejaSeguir = useCallback(
@@ -231,6 +235,36 @@ function Root() {
     if (!hayNube) return;
     return alRecuperar(setRecuperacion);
   }, []);
+
+  /*
+   * La vuelta de confirmar el mail. Trae un código de un solo uso que se
+   * canjea por la sesión: así se entra sin volver a escribir la contraseña,
+   * que es lo que uno espera después de tocar el link del mail.
+   */
+  useEffect(() => {
+    if (!hayNube) return;
+    return alConfirmar((dato) => {
+      if (!dato.codigo) {
+        avisar(
+          'Ese link ya no sirve',
+          'Se usó una vez o venció. Entrá con tu mail y tu contraseña, o pedí ' +
+            'uno nuevo desde "no me llegó el mail de confirmación".'
+        );
+        return;
+      }
+      entrarConCodigo(dato.codigo)
+        .then(() =>
+          avisar(
+            'Cuenta confirmada',
+            'Listo, ya estás adentro. Lo único que falta es elegir tu nombre ' +
+              'de usuario, si todavía no lo hiciste.'
+          )
+        )
+        .catch((problema) =>
+          avisar('No se pudo confirmar', explicar(problema).detalle)
+        );
+    });
+  }, [avisar]);
 
   useEffect(() => {
     if (!sesion) {
@@ -356,6 +390,7 @@ function Root() {
       setPredeterminadoId(guardado.predeterminadoId);
       setBorrados(guardado.borrados);
       setEstadoSync({ subido: guardado.subido, hasta: guardado.hasta });
+      setDuenoLocal(guardado.dueno);
       setVista(guardado.predeterminadoId ? 'plantel' : 'lista');
       setReady(true);
     });
@@ -371,6 +406,7 @@ function Root() {
       borrados: borradosPendientes,
       subido: estadoSync.subido,
       hasta: estadoSync.hasta,
+      dueno: duenoLocal,
     });
   }, [
     planteles,
@@ -378,6 +414,7 @@ function Root() {
     predeterminadoId,
     borradosPendientes,
     estadoSync,
+    duenoLocal,
     ready,
   ]);
 
@@ -883,6 +920,30 @@ function Root() {
     );
   }, []);
 
+  /*
+   * Si lo guardado es de otra cuenta, se descarta antes de tocar nada. Pasa
+   * cuando alguien cierra sesión y entra otro: lo de acá es del anterior y
+   * subirlo se lo regalaría al que entró. Está todo en la cuenta del dueño, así
+   * que no se pierde nada.
+   *
+   * Va antes que la sincronización a propósito, para que nunca llegue a correr
+   * con datos ajenos en la mano.
+   */
+  useEffect(() => {
+    if (!ready || !sesion) return;
+    if (duenoLocal === sesion.id) return;
+
+    if (duenoLocal !== null) {
+      setPlanteles([]);
+      setActivoId('');
+      setPredeterminadoId(null);
+      setBorrados([]);
+      setEstadoSync({ subido: {}, hasta: null });
+      setVista('lista');
+    }
+    setDuenoLocal(sesion.id);
+  }, [ready, sesion, duenoLocal]);
+
   /**
    * Sube lo que falta y trae lo que cambió.
    *
@@ -896,6 +957,8 @@ function Root() {
    */
   const sincronizarAhora = useCallback(async () => {
     if (!sesion || sincronizando) return;
+    // Doble llave: si lo de acá todavía figura de otra cuenta, no se sube nada.
+    if (duenoLocal !== sesion.id) return;
     setSincronizando(true);
     try {
       const salida = await sincronizar(planteles, borradosPendientes, estadoSync);
@@ -911,7 +974,7 @@ function Root() {
     } finally {
       setSincronizando(false);
     }
-  }, [sesion, sincronizando, planteles, borradosPendientes, estadoSync]);
+  }, [sesion, sincronizando, planteles, borradosPendientes, estadoSync, duenoLocal]);
 
   /*
    * El disparador: cualquier cambio en los planteles o en lo borrado deja la

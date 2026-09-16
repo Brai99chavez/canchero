@@ -42,6 +42,15 @@ export interface Guardado {
   subido: Record<string, string>;
   /** Hasta cuándo se leyó del servidor. El corte lo pone él, no el teléfono. */
   hasta: string | null;
+  /**
+   * De quién es todo esto.
+   *
+   * Sin esto, cerrar sesión dejaba los planteles en el teléfono y la siguiente
+   * cuenta que entraba se los subía como propios: los planteles de uno
+   * aparecían en la cuenta del otro. Ahora, si el dueño no coincide con quien
+   * entró, lo guardado se descarta y se trae lo de esa cuenta.
+   */
+  dueno: string | null;
 }
 
 export function newId(): string {
@@ -247,6 +256,7 @@ export async function loadPlanteles(): Promise<Guardado> {
               ? parsed.subido
               : {},
           hasta: typeof parsed?.hasta === 'string' ? parsed.hasta : null,
+          dueno: typeof parsed?.dueno === 'string' ? parsed.dueno : null,
           borrados: Array.isArray(parsed?.borrados)
             ? parsed.borrados.filter((x: unknown) => typeof x === 'string')
             : [],
@@ -264,6 +274,7 @@ export async function loadPlanteles(): Promise<Guardado> {
         borrados: [],
         subido: {},
         hasta: null,
+        dueno: null,
       };
       await savePlanteles(guardado);
       return guardado;
@@ -282,6 +293,7 @@ export async function loadPlanteles(): Promise<Guardado> {
     borrados: [],
     subido: {},
     hasta: null,
+    dueno: null,
   };
 }
 
