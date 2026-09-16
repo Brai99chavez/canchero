@@ -4,19 +4,48 @@
  *
  *     npm run prueba
  *
- * Crea cuentas de mentira con mails @canchero.test y planteles de juguete. Si
- * algo falla a mitad de camino quedan dando vueltas; se limpian con:
+ * Crea cuentas de mentira con mails @canchero.test y planteles de juguete, y
+ * las borra al terminar.
  *
- *     delete from "user" where email like '%@canchero.test';
- *
- * Apunta a localhost; para probar lo que está en Render, cambiá API.
+ * Apunta a localhost; para probar lo que está en Render, PRUEBA_API.
  */
-const API = 'http://localhost:3000';
+import pg from 'pg';
+const API = process.env.PRUEBA_API ?? 'http://localhost:3000';
 const mail = `prueba-${Date.now()}@canchero.test`;
 const clave = 'unaClaveLarga123';
 let cookie = '';
 
-const ok = (n, c) => console.log(`${c ? 'OK  ' : 'MAL '} ${n}`);
+let fallos = 0;
+const ok = (n, c) => {
+  if (!c) fallos++;
+  console.log(`${c ? 'OK  ' : 'MAL '} ${n}`);
+};
+
+const base = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: true },
+  max: 2,
+});
+
+/**
+ * Registrarse ya no deja adentro: el servidor pide confirmar el mail. Para lo
+ * que prueba este archivo —planteles, upsert, que una cuenta no vea lo de la
+ * otra— sólo hace falta una cuenta que pueda entrar, así que se confirma por
+ * la base. El circuito del mail lo recorre entero prueba-cuentas.mjs.
+ */
+async function nuevaCuenta(email) {
+  await pedir('/api/auth/sign-up/email', {
+    metodo: 'POST',
+    cuerpo: { email, password: clave, name: 'Prueba' },
+  });
+  await base.query('update "user" set "emailVerified" = true where email = $1', [
+    email,
+  ]);
+  return pedir('/api/auth/sign-in/email', {
+    metodo: 'POST',
+    cuerpo: { email, password: clave },
+  });
+}
 
 async function pedir(camino, opciones = {}) {
   const r = await fetch(API + camino, {
@@ -30,8 +59,12 @@ async function pedir(camino, opciones = {}) {
     },
     body: opciones.cuerpo ? JSON.stringify(opciones.cuerpo) : undefined,
   });
-  const set = r.headers.get('set-cookie');
-  if (set) cookie = set.split(';')[0];
+  const set = r.headers.getSetCookie ? r.headers.getSetCookie() : [];
+  for (const cruda of set) {
+    const par = cruda.split(';')[0];
+    // `__Secure-` adelante cuando va por HTTPS; pelado en localhost.
+    if (par.includes('better-auth.session_token=')) cookie = par;
+  }
   const texto = await r.text();
   let cuerpo = null;
   try { cuerpo = JSON.parse(texto); } catch {}
@@ -42,12 +75,9 @@ async function pedir(camino, opciones = {}) {
 let r = await pedir('/planteles');
 ok('sin sesion -> 401', r.estado === 401);
 
-// 2. Registro.
-r = await pedir('/api/auth/sign-up/email', {
-  metodo: 'POST',
-  cuerpo: { email: mail, password: clave, name: 'Prueba' },
-});
-ok('registro', r.estado === 200 && !!r.cuerpo?.user?.id);
+// 2. Registro y entrada.
+r = await nuevaCuenta(mail);
+ok('registro y login', r.estado === 200 && !!r.cuerpo?.token);
 if (r.estado !== 200) console.log('   ->', r.texto.slice(0, 300));
 
 // 3. Perfil: la cuenta nueva arranca gratis.
@@ -92,10 +122,8 @@ r = await pedir('/planteles');
 ok('borrar saca de la lista', r.cuerpo?.planteles?.length === 1);
 
 // 9. Los planteles de otro no se ven.
-const mio = cookie;
 cookie = '';
-await pedir('/api/auth/sign-up/email', { metodo: 'POST',
-  cuerpo: { email: `otro-${Date.now()}@canchero.test`, password: clave, name: 'Otro' } });
+await nuevaCuenta(`otro-${Date.now()}@canchero.test`);
 r = await pedir('/planteles');
 ok('otra cuenta no ve lo mio', r.cuerpo?.planteles?.length === 0);
 
@@ -116,12 +144,17 @@ r = await pedir('/api/auth/sign-up/email', { metodo: 'POST',
   cuerpo: { email: `corta-${Date.now()}@canchero.test`, password: 'corta', name: 'X' } });
 ok('clave corta rechazada', r.estado >= 400);
 
-// Las cuentas de prueba no tienen por qué quedar con datos adentro.
-cookie = '';
-await pedir('/api/auth/sign-in/email', {
-  metodo: 'POST',
-  cuerpo: { email: mail, password: clave },
-});
-await pedir('/planteles/p1', { metodo: 'DELETE' });
+// Las cuentas que inventó esta prueba se van con todo lo que tienen adentro:
+// los planteles cuelgan de la cuenta por clave foránea.
+try {
+  const { rowCount } = await base.query(
+    `delete from "user" where email like '%@canchero.test'`
+  );
+  ok(`se borraron las ${rowCount} cuentas de prueba`, true);
+} finally {
+  await base.end();
+}
+
 console.log('');
-console.log('listo.');
+console.log(fallos === 0 ? 'listo, todo en verde.' : `${fallos} fallaron.`);
+process.exit(fallos === 0 ? 0 : 1);

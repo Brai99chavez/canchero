@@ -42,8 +42,17 @@ ok('subieron las tres', (await cuantas(usuario)) === 2 && (await cuantas(otro)) 
 let n = await limpiarHuerfanas(usuario, [usada.publica]);
 ok('el margen protege lo recien subido', n === 0 && (await cuantas(usuario)) === 2);
 
-// Sin margen: se va la huerfana y queda la que esta en uso.
-n = await limpiarHuerfanas(usuario, [usada.publica], 0);
+/*
+ * Margen negativo, y no cero, para pedir que barra tambien lo recien subido.
+ *
+ * Con cero el limite es la hora de esta maquina, y el reloj de R2 puede ir
+ * unos segundos adelantado: la foto queda fechada en el futuro, nunca entra
+ * en el barrido y la prueba fallaba sin que hubiera nada roto. En produccion
+ * el margen son 15 minutos, asi que unos segundos de diferencia no cambian
+ * nada; es esta prueba la que necesita que el margen no exista.
+ */
+const SIN_MARGEN = -1;
+n = await limpiarHuerfanas(usuario, [usada.publica], SIN_MARGEN);
 ok('borra la huerfana', n === 1);
 ok('deja la que esta en uso', (await cuantas(usuario)) === 1);
 
@@ -51,11 +60,11 @@ ok('deja la que esta en uso', (await cuantas(usuario)) === 1);
 ok('no toca las del vecino', (await cuantas(otro)) === 1);
 
 // Sin nada referenciado, se van todas las de esa cuenta.
-n = await limpiarHuerfanas(usuario, [], 0);
+n = await limpiarHuerfanas(usuario, [], SIN_MARGEN);
 ok('sin referencias no queda ninguna', n === 1 && (await cuantas(usuario)) === 0);
 
 // Limpieza de la prueba.
-await limpiarHuerfanas(otro, [], 0);
+await limpiarHuerfanas(otro, [], SIN_MARGEN);
 ok('vecino limpiado', (await cuantas(otro)) === 0);
 console.log('');
 console.log('listo.');
