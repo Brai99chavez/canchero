@@ -83,10 +83,6 @@ export function Barra<K extends string>({
   }, [indice, deslizar]);
 
   const anchoTab = ancho / items.length;
-  // En las de los extremos, la pastilla acompaña la curva de la barra en vez
-  // de quedar cortada contra ella.
-  const primera = indice === 0;
-  const ultima = indice === items.length - 1;
 
   return (
     <View style={styles.contenedor}>
@@ -98,8 +94,6 @@ export function Barra<K extends string>({
           <Animated.View
             style={[
               styles.pastilla,
-              primera && styles.pastillaIzquierda,
-              ultima && styles.pastillaDerecha,
               {
                 width: anchoTab - 8,
                 transform: [
@@ -230,16 +224,16 @@ const styles = StyleSheet.create({
     left: 0,
     overflow: 'hidden',
     transform: [{ skewX: angulo.inclinacion }],
-  },
-  // El radio de la barra menos su relleno: así la curva de adentro queda
-  // concéntrica con la de afuera en vez de parecer otra curva.
-  pastillaIzquierda: {
-    borderTopLeftRadius: radius.lg - 4,
-    borderBottomLeftRadius: radius.lg - 4,
-  },
-  pastillaDerecha: {
-    borderTopRightRadius: radius.lg - 4,
-    borderBottomRightRadius: radius.lg - 4,
+    /*
+     * Las cuatro esquinas redondeadas, siempre. Antes sólo se redondeaban las
+     * de los extremos, para que ahí la curva quedara concéntrica con la de la
+     * barra; en el medio la pastilla era un rectángulo y quedaba dura al lado
+     * de todo lo demás, que es curvo.
+     *
+     * El radio es el de la barra menos su relleno: en los extremos sigue
+     * quedando concéntrica, y en el medio ahora acompaña.
+     */
+    borderRadius: radius.lg - 4,
   },
   celda: { flex: 1 },
   item: {

@@ -1,12 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ajuste, mediaDe } from '../elo';
 import { Objetivo } from '../components/Guia';
 import Opcion from '../components/Opcion';
@@ -51,10 +44,43 @@ export default function MatchScreen({
   const needed = format * 2;
   const count = selectedIds.length;
 
+  /*
+   * El formato y "repartir a todos" son la misma decisión: cuántos por lado.
+   * Antes eran un selector arriba y un interruptor abajo que lo invalidaba sin
+   * decirlo —elegías Fútbol 5, prendías el interruptor y jugaban 12 contra 12—
+   * y lo único que avisaba era que el selector se veía apagado. Ahora es una
+   * fila sola: se elige una cosa, y esa es la que manda.
+   */
+  const elegir = (opcion: Format | 'todos') => {
+    if (opcion === 'todos') {
+      onUsarTodosChange(true);
+      return;
+    }
+    // El formato se recuerda: si después vuelve a Fútbol 5, sigue siendo el
+    // que había elegido.
+    onUsarTodosChange(false);
+    onFormatChange(opcion);
+  };
+
   const sorted = useMemo(
     () => players.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
     [players]
   );
+
+  /*
+   * El formato que llenaría dos equipos completos con los que están marcados.
+   * Se ofrece, no se aplica: que la app te cambie la elección mientras estás
+   * marcando gente molesta, y además a veces se equivoca. Doce personas que
+   * juegan fútbol 5 con dos suplentes no quieren fútbol 7, quieren banco —y
+   * eso la app no lo puede saber, pero la persona sí.
+   */
+  const sugerido = useMemo(() => {
+    const entran = FORMATS.filter((f) => f * 2 <= count);
+    return entran.length > 0 ? entran[entran.length - 1] : null;
+  }, [count]);
+
+  const sugerencia =
+    !usarTodos && sugerido !== null && sugerido !== format ? sugerido : null;
 
   const porLado = Math.floor(count / 2);
   const hint =
@@ -62,8 +88,8 @@ export default function MatchScreen({
       ? 'Elegí al menos 2 jugadores'
       : usarTodos
       ? count % 2 === 0
-        ? `Dos equipos de ${porLado}, sin suplentes`
-        : `Equipos de ${porLado + 1} y ${porLado}, sin suplentes`
+        ? `Juegan todos: dos equipos de ${porLado}`
+        : `Juegan todos: ${porLado + 1} contra ${porLado}`
       : count < needed
       ? `Faltan ${needed - count} para dos equipos completos (se arma igual con ${porLado} por lado)`
       : count === needed
@@ -80,37 +106,28 @@ export default function MatchScreen({
         </Presionable>
       ) : null}
 
-      <View
-        style={[
-          styles.formatRow,
-          styles.formatRowPrimera,
-          usarTodos && styles.formatRowApagada,
-        ]}
-      >
+      <Text style={styles.rotulo}>Cuántos por lado</Text>
+      <View style={[styles.formatRow, styles.formatRowPrimera]}>
         {FORMATS.map((f) => (
           <Opcion
             key={f}
-            label={`Fútbol ${f}`}
+            label={String(f)}
             detalle={`${f} vs ${f}`}
-            activa={f === format}
-            onPress={() => onFormatChange(f)}
+            activa={!usarTodos && f === format}
+            onPress={() => elegir(f)}
           />
         ))}
-      </View>
-
-      <View style={styles.todosRow}>
-        <View style={styles.todosTexto}>
-          <Text style={styles.todosTitulo}>Repartir a todos</Text>
-          <Text style={styles.todosAyuda}>
-            Divide a los convocados en dos equipos sin importar el formato. Con
-            número impar, un equipo queda con uno más.
-          </Text>
-        </View>
-        <Switch
-          value={usarTodos}
-          onValueChange={onUsarTodosChange}
-          trackColor={{ false: colors.surfaceAlt, true: colors.primaryDark }}
-          thumbColor={usarTodos ? colors.primary : colors.textMuted}
+        <Opcion
+          label="Todos"
+          detalle={
+            usarTodos && count >= 2
+              ? count % 2 === 0
+                ? `${porLado} vs ${porLado}`
+                : `${porLado + 1} vs ${porLado}`
+              : 'sin banco'
+          }
+          activa={usarTodos}
+          onPress={() => elegir('todos')}
         />
       </View>
 
@@ -128,6 +145,19 @@ export default function MatchScreen({
           <Text style={styles.link}>{count > 0 ? 'Limpiar' : 'Todos'}</Text>
         </Pressable>
       </View>
+
+      {sugerencia !== null ? (
+        <Pressable
+          onPress={() => elegir(sugerencia)}
+          style={styles.sugerencia}
+          hitSlop={6}
+        >
+          <Text style={styles.sugerenciaTexto}>
+            Son {count}: alcanzan para fútbol {sugerencia}.{' '}
+            <Text style={styles.sugerenciaAccion}>Cambiar</Text>
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Objetivo paso="convocar" style={styles.lista}>
       <FlatList
@@ -197,6 +227,31 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
+  sugerencia: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  sugerenciaTexto: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: 'Barlow_400Regular',
+    lineHeight: 17,
+  },
+  // Subrayado y en el color de la app: sin eso no se ve que se puede tocar.
+  sugerenciaAccion: {
+    color: colors.primary,
+    fontFamily: 'Barlow_800ExtraBold',
+    textDecorationLine: 'underline',
+  },
+  rotulo: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 6,
+  },
   formatChip: {
     flex: 1,
     paddingVertical: spacing.md,
@@ -229,27 +284,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     transform: [{ skewX: angulo.derecho }],
   },
-  formatRowApagada: { opacity: 0.45 },
-  todosRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  todosTexto: { flex: 1 },
-  todosTitulo: {
-    color: colors.text,
-    fontSize: 14,
-    fontFamily: 'Barlow_700Bold',
-    marginBottom: 2,
-  },
-  todosAyuda: { color: colors.textMuted, fontSize: 11, fontFamily: 'Barlow_400Regular', lineHeight: 15 },
   formatText: {
     color: colors.text,
     fontFamily: 'Anton_400Regular',

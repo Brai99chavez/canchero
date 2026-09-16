@@ -9,7 +9,7 @@ import {
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
-import { resumenDe, Signo, tieneResultado, winrate } from '../stats';
+import { reparto, resumenDe, Signo, tieneResultado, winrate } from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
 import { Partido, Player } from '../types';
@@ -216,7 +216,9 @@ export default function HistoryScreen({
               >
                 <View style={styles.partidoCabecera}>
                   <Text style={styles.fecha}>{fechaCorta(item.fecha)}</Text>
-                  <Text style={styles.formato}>Fútbol {item.formato}</Text>
+                  <Text style={styles.formato}>
+                    {reparto(item.equipoA.length, item.equipoB.length)}
+                  </Text>
                   {cargado ? (
                     <Text style={styles.marcador}>
                       {item.golesA} - {item.golesB}

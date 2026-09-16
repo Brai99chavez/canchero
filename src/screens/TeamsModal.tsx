@@ -1,4 +1,5 @@
 import * as Sharing from 'expo-sharing';
+import { reparto } from '../stats';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
@@ -32,7 +33,6 @@ import {
 interface Props {
   visible: boolean;
   split: TeamSplit | null;
-  format: Format;
   plantel: string;
   /** La media corregida por resultados, por jugador. */
   medias: Record<string, number>;
@@ -178,11 +178,11 @@ function TeamPitch({
   );
 }
 
-function buildShareText(split: TeamSplit, format: Format): string {
+function buildShareText(split: TeamSplit): string {
   // Sin el puntaje de cada uno, por lo mismo que la imagen: esto va al grupo.
   const line = (p: Player) => `• ${p.nombre} (${p.posicion})`;
   const parts = [
-    `Fútbol ${format} — equipos armados`,
+    `${reparto(split.teamA.length, split.teamB.length)} — equipos armados`,
     '',
     `EQUIPO A — media ${teamOverall(split.teamA)}`,
     ...split.teamA.map(line),
@@ -199,7 +199,6 @@ function buildShareText(split: TeamSplit, format: Format): string {
 export default function TeamsModal({
   visible,
   split,
-  format,
   plantel,
   medias,
   guardado,
@@ -242,7 +241,7 @@ export default function TeamsModal({
   async function compartirTexto() {
     if (!split) return;
     try {
-      await Share.share({ message: buildShareText(split, format) });
+      await Share.share({ message: buildShareText(split) });
     } catch {
       // El usuario canceló el diálogo de compartir.
     }
@@ -372,7 +371,7 @@ export default function TeamsModal({
         {/* Fuera de pantalla, pero renderizada: es lo que se captura. */}
         <View style={styles.estampa} pointerEvents="none">
           <View ref={estampa} collapsable={false}>
-            <ShareCard split={split} format={format} plantel={plantel} />
+            <ShareCard split={split} plantel={plantel} />
           </View>
         </View>
 

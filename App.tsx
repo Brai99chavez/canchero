@@ -1073,7 +1073,6 @@ function Root() {
       <TeamsModal
         visible={teamsVisible}
         split={split}
-        format={format}
         plantel={activo?.nombre ?? 'Plantel'}
         medias={medias}
         guardado={guardadoId !== null}

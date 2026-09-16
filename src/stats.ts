@@ -1,6 +1,21 @@
 import { Actuacion, Partido } from './types';
 
 /** Un partido cuenta para estadísticas recién cuando tiene resultado. */
+/**
+ * Cómo se jugó, en una línea: "5 vs 5", "12 vs 12", "6 vs 5".
+ *
+ * Sale de los equipos que se armaron de verdad y no del formato elegido. Con
+ * "repartir a todos" el formato deja de querer decir nada: elegís Fútbol 5,
+ * convocás 24 y juegan 12 contra 12, pero el partido quedaba anotado como
+ * "Fútbol 5". Y con formato 5 y nueve personas, los equipos son de 5 y 4, que
+ * tampoco es Fútbol 5.
+ *
+ * Los datos para esto ya estaban guardados: son los jugadores de cada equipo.
+ */
+export function reparto(a: number, b: number): string {
+  return `${a} vs ${b}`;
+}
+
 export function tieneResultado(p: Partido): boolean {
   return p.golesA !== null && p.golesB !== null;
 }

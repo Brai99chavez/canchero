@@ -1,4 +1,5 @@
 import React from 'react';
+import { reparto } from '../stats';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 import {
@@ -51,11 +52,9 @@ function Columna({
 
 export default function ShareCard({
   split,
-  format,
   plantel,
 }: {
   split: TeamSplit;
-  format: Format;
   plantel: string;
 }) {
   const fecha = new Date().toLocaleDateString('es-AR', {
@@ -66,7 +65,11 @@ export default function ShareCard({
 
   return (
     <View style={styles.contenedor}>
-      <Text style={styles.titulo}>Fútbol {format}</Text>
+      {/* Lo que se jugó, no el formato elegido: con "repartir a todos"
+          los equipos no tienen nada que ver con el rótulo. */}
+      <Text style={styles.titulo}>
+        {reparto(split.teamA.length, split.teamB.length)}
+      </Text>
       <Text style={styles.subtitulo}>
         {plantel} · {fecha}
       </Text>
