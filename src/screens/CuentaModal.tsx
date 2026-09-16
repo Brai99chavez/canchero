@@ -71,7 +71,7 @@ export default function CuentaModal({
   onRestaurar,
 }: Props) {
   const [modo, setModo] = useState<Modo>('entrar');
-  const [pestania, setPestania] = useState<Pestania>('respaldo');
+  const [pestania, setPestania] = useState<Pestania>('perfil');
   const [email, setEmail] = useState('');
   const [clave, setClave] = useState('');
   const [trabajando, setTrabajando] = useState(false);
@@ -121,7 +121,7 @@ export default function CuentaModal({
       setTrabajando(false);
       setVerClave(false);
       setError(null);
-      setPestania('respaldo');
+      setPestania('perfil');
       return;
     }
     // Al cerrar sin guardar, la foto elegida no le sirve a nadie.
@@ -180,7 +180,8 @@ export default function CuentaModal({
         avisar(
           'Revisá tu mail',
           `Te mandamos un link a ${email.trim()} para confirmar la cuenta. ` +
-            'Tocalo y después entrá desde acá. Fijate también en spam.'
+            'Tocalo y después entrá desde acá: lo último que falta es elegir ' +
+            'tu nombre de usuario. Fijate también en spam.'
         );
         setModo('entrar');
       }
@@ -342,6 +343,20 @@ export default function CuentaModal({
         <Aviso titulo={errorPerfil.titulo} detalle={errorPerfil.detalle} />
       ) : null}
 
+      {/*
+        Al registrarse todavía no hay sesión —falta confirmar el mail— y sin
+        sesión no hay dónde guardar el nombre. Así que se pide acá, que es el
+        primer momento en que se puede: la primera vez que entra, esta pantalla
+        es la que abre.
+      */}
+      {perfil !== null && !perfil.usuario ? (
+        <Aviso
+          tono="pendiente"
+          titulo="Elegí tu nombre de usuario"
+          detalle="Es con lo que tus amigos te van a encontrar para pasarte un plantel. Podés cambiarlo cuando quieras."
+        />
+      ) : null}
+
       {perfil === null ? (
         <Text style={styles.cargando}>Trayendo tu perfil…</Text>
       ) : (
@@ -426,6 +441,17 @@ export default function CuentaModal({
             El mail no lo ve nadie: es sólo para entrar y para recuperar la
             cuenta si te olvidás la contraseña.
           </Text>
+
+          {error ? (
+            <Aviso titulo={error.titulo} detalle={error.detalle} />
+          ) : null}
+
+          <Button
+            title="Cerrar sesión"
+            onPress={handleSalir}
+            variant="ghost"
+            style={styles.salir}
+          />
         </>
       )}
     </>
@@ -433,9 +459,6 @@ export default function CuentaModal({
 
   const vistaRespaldo = (
     <>
-      <Seccion>Sesión iniciada</Seccion>
-      <Text style={styles.mail}>{sesion?.email}</Text>
-
       {error ? <Aviso titulo={error.titulo} detalle={error.detalle} /> : null}
 
       {haySinSubir ? (
@@ -445,7 +468,7 @@ export default function CuentaModal({
         />
       ) : null}
 
-      <Seccion style={styles.seccion}>Backup</Seccion>
+      <Seccion>Backup</Seccion>
       <Text style={styles.ayuda}>
         Guarda tus planteles en la cuenta. Se hace sólo cuando tocás el botón:
         si se guardara solo, borrar un plantel sin querer se llevaría puesta la
@@ -483,13 +506,6 @@ export default function CuentaModal({
         Las fotos de los jugadores viajan con el backup. El resto del plantel va
         entero.
       </Text>
-
-      <Button
-        title="Cerrar sesión"
-        onPress={handleSalir}
-        variant="ghost"
-        style={styles.salir}
-      />
     </>
   );
 

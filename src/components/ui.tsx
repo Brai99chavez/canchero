@@ -128,18 +128,28 @@ export function Button({
  * El detalle no es decoración: decir "mail o contraseña incorrectos" sin
  * agregar qué hacer deja a la persona probando lo mismo de nuevo.
  */
+/**
+ * Un cartel dentro de la pantalla.
+ *
+ * El tono cambia el borde y no el texto: rojo cuando algo salió mal, y del
+ * color de la app cuando es algo que falta hacer. Pedirle a alguien que elija
+ * su nombre de usuario con el mismo rojo que un error es decirle que se
+ * equivocó cuando todavía no hizo nada.
+ */
 export function Aviso({
   titulo,
   detalle,
+  tono = 'error',
 }: {
   titulo: string;
   detalle?: string;
+  tono?: 'error' | 'pendiente';
 }) {
   return (
     <Panel
       style={styles.aviso}
       degradado={degradados.panelTenue}
-      borde={colors.danger}
+      borde={tono === 'error' ? colors.danger : colors.primary}
       grosor={1.5}
       esquinas={DIAGONAL}
     >
