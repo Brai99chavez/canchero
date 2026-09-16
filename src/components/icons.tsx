@@ -111,6 +111,15 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** Globo de diálogo: los amigos y lo que se dijeron. */
+export function ChatIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M21 11.5a8 8 0 01-8.5 8 9 9 0 01-3.6-.7L4 20.5l1.7-4.4A8 8 0 013 11.5a8 8 0 018.5-8 8 8 0 019.5 8z" />
+    </Trazo>
+  );
+}
+
 /** Avión de papel: mandarle el plantel a otro. */
 export function SendIcon(props: IconProps) {
   return (

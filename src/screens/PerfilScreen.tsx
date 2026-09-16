@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,10 +10,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { SILUETA } from '../assets';
 import { Seccion } from '../components/Banner';
-import HeaderModal from '../components/HeaderModal';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
@@ -40,14 +37,12 @@ import { cleanupPhotos, discardPhoto, pickPhoto } from '../photos';
 import { colors, fuentes, radius, spacing } from '../theme';
 
 interface Props {
-  visible: boolean;
   sesion: Sesion | null;
   /** Cuántos planteles hay en el teléfono, para explicar qué se va a subir. */
   cuantosPlanteles: number;
   ultimaCopia: string | null;
   /** Si hay cambios en el teléfono que todavía no llegaron a la cuenta. */
   haySinSubir: boolean;
-  onClose: () => void;
   onBackup: () => Promise<void>;
   /** Trae la copia y devuelve cuántos planteles vinieron. */
   onRestaurar: () => Promise<number>;
@@ -60,13 +55,18 @@ type Pestania = 'respaldo' | 'perfil';
 /** El id con el que se guardan las copias locales de la foto de perfil. */
 const FOTO_PERFIL = 'perfil';
 
-export default function CuentaModal({
-  visible,
+/**
+ * La sección Perfil: quién sos y qué se guarda de lo tuyo.
+ *
+ * Adentro hay dos mitades, porque son dos cosas distintas: Perfil es "yo" —la
+ * foto, el nombre con el que te encuentran— y Respaldo es "mis datos". Abre en
+ * Perfil, que es lo que se mira y se toca; el respaldo se usa de vez en cuando.
+ */
+export default function PerfilScreen({
   sesion,
   cuantosPlanteles,
   ultimaCopia,
   haySinSubir,
-  onClose,
   onBackup,
   onRestaurar,
 }: Props) {
@@ -115,22 +115,12 @@ export default function CuentaModal({
     []
   );
 
-  useEffect(() => {
-    if (visible) {
-      setClave('');
-      setTrabajando(false);
-      setVerClave(false);
-      setError(null);
-      setPestania('perfil');
-      return;
-    }
-    // Al cerrar sin guardar, la foto elegida no le sirve a nadie.
-    ponerFotoPendiente(undefined);
-  }, [visible, ponerFotoPendiente]);
+  // Al irse de la sección, la foto elegida y sin guardar no le sirve a nadie.
+  useEffect(() => () => ponerFotoPendiente(undefined), [ponerFotoPendiente]);
 
   /** Trae el perfil al abrir con la sesión puesta, y al iniciarla. */
   useEffect(() => {
-    if (!visible || !sesion) {
+    if (!sesion) {
       setPerfil(null);
       return;
     }
@@ -150,7 +140,7 @@ export default function CuentaModal({
     return () => {
       vigente = false;
     };
-  }, [visible, sesion, ponerFotoPendiente]);
+  }, [sesion, ponerFotoPendiente]);
 
   const valido = email.trim().includes('@') && clave.length >= 8;
 
@@ -253,14 +243,14 @@ export default function CuentaModal({
       onConfirmar: () =>
         conAviso(async () => {
           const cuantos = await onRestaurar();
-          if (cuantos === 0) {
-            avisar(
-              'No hay nada guardado',
-              'Tu cuenta todavía no tiene planteles.'
-            );
-            return;
-          }
-          onClose();
+          avisar(
+            cuantos === 0 ? 'No hay nada guardado' : 'Listo',
+            cuantos === 0
+              ? 'Tu cuenta todavía no tiene planteles.'
+              : `Vinieron ${cuantos} ${
+                  cuantos === 1 ? 'plantel' : 'planteles'
+                }. Están en la pestaña Planteles.`
+          );
         }),
     });
 
@@ -588,60 +578,60 @@ export default function CuentaModal({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <HeaderModal
-            titulo="Cuenta"
-            izquierda={{ label: 'Cerrar', onPress: onClose }}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Text style={styles.titulo}>{sesion ? 'TU CUENTA' : 'CUENTA'}</Text>
+
+      {/* Sin sesión no hay nada que separar: es una sola pantalla. */}
+      {sesion ? (
+        <View style={styles.pestanias}>
+          <Opcion
+            label="Perfil"
+            activa={pestania === 'perfil'}
+            onPress={() => setPestania('perfil')}
           />
+          <Opcion
+            label="Respaldo"
+            activa={pestania === 'respaldo'}
+            onPress={() => setPestania('respaldo')}
+          />
+        </View>
+      ) : null}
 
-          {/* Sin sesión no hay nada que separar: es una sola pantalla. */}
-          {sesion ? (
-            <View style={styles.pestanias}>
-              <Opcion
-                label="Respaldo"
-                activa={pestania === 'respaldo'}
-                onPress={() => setPestania('respaldo')}
-              />
-              <Opcion
-                label="Perfil"
-                activa={pestania === 'perfil'}
-                onPress={() => setPestania('perfil')}
-              />
-            </View>
-          ) : null}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {!sesion
+          ? vistaEntrar
+          : pestania === 'respaldo'
+          ? vistaRespaldo
+          : vistaPerfil}
+      </ScrollView>
 
-          <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-          >
-            {!sesion
-              ? vistaEntrar
-              : pestania === 'respaldo'
-              ? vistaRespaldo
-              : vistaPerfil}
-          </ScrollView>
-        </KeyboardAvoidingView>
-
-        {dialogo}
-      </SafeAreaView>
-    </Modal>
+      {dialogo}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
+  container: { flex: 1 },
+  titulo: {
+    color: colors.text,
+    fontSize: 22,
+    fontFamily: fuentes.display,
+    letterSpacing: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   pestanias: {
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   seccion: { marginTop: spacing.xl },
   mail: { color: colors.text, fontSize: 16, fontFamily: fuentes.bold },

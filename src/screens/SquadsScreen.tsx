@@ -6,12 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  GearIcon,
-  ImportIcon,
-  PlusIcon,
-  UserIcon,
-} from '../components/icons';
+import { GearIcon, ImportIcon, PlusIcon } from '../components/icons';
 import Panel, {
   DIAGONAL,
   FondoDegradado,
@@ -37,12 +32,6 @@ interface Props {
   motivoBloqueo: string;
   /** La línea de Pro, aparte para poder resaltarla. */
   avisoPro: string;
-  /**
-   * La sesión abierta, `null` si no entró, o `undefined` si esta copia de la
-   * app no tiene nube configurada — ahí el botón de cuenta ni aparece.
-   */
-  sesion?: { email: string } | null;
-  onCuenta: () => void;
   predeterminadoId: string | null;
   onAbrir: (id: string) => void;
   onConfig: (id: string) => void;
@@ -67,8 +56,6 @@ export default function SquadsScreen({
   activos,
   motivoBloqueo,
   avisoPro,
-  sesion,
-  onCuenta,
   predeterminadoId,
   onAbrir,
   onConfig,
@@ -146,19 +133,6 @@ export default function SquadsScreen({
           </Text>
         </View>
         <View style={styles.acciones}>
-          {sesion !== undefined ? (
-            <Presionable
-              onPress={onCuenta}
-              style={styles.iconoBoton}
-              accessibilityLabel={sesion ? 'Tu cuenta' : 'Entrar a tu cuenta'}
-            >
-              <FondoDegradado colores={degradados.panel} />
-              <UserIcon
-                color={sesion ? colors.primary : colors.textMuted}
-                size={20}
-              />
-            </Presionable>
-          ) : null}
           <Presionable
             onPress={() => hayLugar() && setImportarVisible(true)}
             style={styles.iconoBoton}

@@ -9,13 +9,15 @@ import {
   tiempos,
 } from '../theme';
 import { FondoDegradado } from './Angular';
-import { Objetivo } from './Guia';
+import { Objetivo, PasoGuia } from './Guia';
 import {
   BallIcon,
   ChartIcon,
+  ChatIcon,
   CheckListIcon,
   ClockIcon,
   PeopleIcon,
+  UserIcon,
 } from './icons';
 
 export type TabKey =
@@ -25,9 +27,22 @@ export type TabKey =
   | 'historial'
   | 'tabla';
 
-const TABS: { key: TabKey; label: string; Icon: typeof PeopleIcon }[] = [
+/** Las tres secciones de arriba de todo, antes de entrar a un plantel. */
+export type SeccionKey = 'perfil' | 'planteles' | 'amigos';
+
+export interface Pestania<K extends string> {
+  key: K;
+  label: string;
+  Icon: typeof PeopleIcon;
+  /** Si es un hito de la guía, cuál. */
+  paso?: PasoGuia;
+  /** Un número encima del ícono: lo que hay sin mirar. */
+  pendientes?: number;
+}
+
+const TABS: Pestania<TabKey>[] = [
   { key: 'plantel', label: 'Plantel', Icon: PeopleIcon },
-  { key: 'partido', label: 'Partido', Icon: BallIcon },
+  { key: 'partido', label: 'Partido', Icon: BallIcon, paso: 'ir-a-partido' },
   { key: 'activos', label: 'Activos', Icon: ClockIcon },
   { key: 'historial', label: 'Historial', Icon: CheckListIcon },
   { key: 'tabla', label: 'Tabla', Icon: ChartIcon },
@@ -36,16 +51,26 @@ const TABS: { key: TabKey; label: string; Icon: typeof PeopleIcon }[] = [
 /**
  * Barra inferior con una pastilla que se desliza hasta la pestaña activa.
  * El ancho se mide al vuelo, así no hay que asumir el tamaño de pantalla.
+ *
+ * Sirve para las dos barras de la app —las secciones de arriba y las pestañas
+ * de adentro de un plantel— porque son la misma cosa con otros rótulos. Una
+ * segunda copia con tres items en vez de cinco se iba a despegar de ésta al
+ * primer retoque.
  */
-export default function TabBar({
+export function Barra<K extends string>({
+  items,
   activa,
   onChange,
 }: {
-  activa: TabKey;
-  onChange: (tab: TabKey) => void;
+  items: Pestania<K>[];
+  activa: K;
+  onChange: (tab: K) => void;
 }) {
   const [ancho, setAncho] = useState(0);
-  const indice = TABS.findIndex((t) => t.key === activa);
+  const indice = Math.max(
+    items.findIndex((t) => t.key === activa),
+    0
+  );
   const deslizar = useRef(new Animated.Value(indice)).current;
 
   useEffect(() => {
@@ -57,11 +82,11 @@ export default function TabBar({
     }).start();
   }, [indice, deslizar]);
 
-  const anchoTab = ancho / TABS.length;
+  const anchoTab = ancho / items.length;
   // En las de los extremos, la pastilla acompaña la curva de la barra en vez
   // de quedar cortada contra ella.
   const primera = indice === 0;
-  const ultima = indice === TABS.length - 1;
+  const ultima = indice === items.length - 1;
 
   return (
     <View style={styles.contenedor}>
@@ -80,8 +105,8 @@ export default function TabBar({
                 transform: [
                   {
                     translateX: deslizar.interpolate({
-                      inputRange: TABS.map((_, i) => i),
-                      outputRange: TABS.map((_, i) => i * anchoTab + 4),
+                      inputRange: items.map((_, i) => i),
+                      outputRange: items.map((_, i) => i * anchoTab + 4),
                     }),
                   },
                 ],
@@ -92,17 +117,27 @@ export default function TabBar({
           </Animated.View>
         ) : null}
 
-        {TABS.map((tab) => {
+        {items.map((tab) => {
           const activo = tab.key === activa;
           const boton = (
-            <Pressable
-              onPress={() => onChange(tab.key)}
-              style={styles.item}
-            >
-              <tab.Icon
-                color={activo ? colors.sobreAcento : colors.textMuted}
-                size={19}
-              />
+            <Pressable onPress={() => onChange(tab.key)} style={styles.item}>
+              <View>
+                <tab.Icon
+                  color={activo ? colors.sobreAcento : colors.textMuted}
+                  size={19}
+                />
+                {/*
+                  El globito va sobre el ícono y no al lado del rótulo: al lado
+                  empujaría el texto y las pestañas dejarían de medir igual.
+                */}
+                {tab.pendientes ? (
+                  <View style={styles.globo}>
+                    <Text style={styles.globoTexto}>
+                      {tab.pendientes > 9 ? '9+' : tab.pendientes}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text
                 style={[styles.texto, activo && styles.textoActivo]}
                 numberOfLines={1}
@@ -111,9 +146,8 @@ export default function TabBar({
               </Text>
             </Pressable>
           );
-          // La de Partido es un objetivo de la guía; las otras no.
-          return tab.key === 'partido' ? (
-            <Objetivo key={tab.key} paso="ir-a-partido" style={styles.celda}>
+          return tab.paso ? (
+            <Objetivo key={tab.key} paso={tab.paso} style={styles.celda}>
               {boton}
             </Objetivo>
           ) : (
@@ -125,6 +159,39 @@ export default function TabBar({
       </View>
     </View>
   );
+}
+
+/** Las pestañas de adentro de un plantel. */
+export default function TabBar({
+  activa,
+  onChange,
+}: {
+  activa: TabKey;
+  onChange: (tab: TabKey) => void;
+}) {
+  return <Barra items={TABS} activa={activa} onChange={onChange} />;
+}
+
+/**
+ * Las secciones de arriba de todo. Planteles va al medio y es la que abre: es
+ * a lo que se entra a la app, las otras dos son de vez en cuando.
+ */
+export function NavPrincipal({
+  activa,
+  onChange,
+  pendientes,
+}: {
+  activa: SeccionKey;
+  onChange: (seccion: SeccionKey) => void;
+  /** Solicitudes y mensajes sin mirar, para el globito de Amigos. */
+  pendientes: number;
+}) {
+  const items: Pestania<SeccionKey>[] = [
+    { key: 'perfil', label: 'Perfil', Icon: UserIcon },
+    { key: 'planteles', label: 'Planteles', Icon: PeopleIcon },
+    { key: 'amigos', label: 'Amigos', Icon: ChatIcon, pendientes },
+  ];
+  return <Barra items={items} activa={activa} onChange={onChange} />;
 }
 
 const styles = StyleSheet.create({
@@ -170,6 +237,23 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingVertical: 8,
     paddingHorizontal: 2,
+  },
+  globo: {
+    position: 'absolute',
+    top: -5,
+    right: -9,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  globoTexto: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontFamily: 'Barlow_800ExtraBold',
   },
   texto: {
     color: colors.textMuted,

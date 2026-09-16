@@ -18,11 +18,13 @@ import AppHeader from './src/components/AppHeader';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
-import TabBar from './src/components/TabBar';
+import TabBar, { NavPrincipal, SeccionKey } from './src/components/TabBar';
 import { planteesDesde } from './src/backup';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
 import Cargando from './src/screens/Cargando';
-import CuentaModal from './src/screens/CuentaModal';
+import AmigosScreen from './src/screens/AmigosScreen';
+import ChatScreen from './src/screens/ChatScreen';
+import PerfilScreen from './src/screens/PerfilScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import MatchResultModal from './src/screens/MatchResultModal';
 import MatchScreen from './src/screens/MatchScreen';
@@ -43,12 +45,14 @@ import {
   Sesion,
 } from './src/nube/cuenta';
 import { alRecuperar, Recuperacion } from './src/nube/enlaces';
+import { Amigo, listarAmigos } from './src/nube/amigos';
 import {
   aceptarEnvio,
   Envio,
   pendientes,
   rechazarEnvio,
 } from './src/nube/envios';
+import { leerPerfil } from './src/nube/perfil';
 import { subirFotosPendientes } from './src/nube/fotos';
 import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
@@ -137,7 +141,19 @@ function Root() {
   const [resultadoId, setResultadoId] = useState<string | null>(null);
   const [guia, setGuia] = useState<EstadoGuia>({ activa: false, vistos: [] });
   const [sesion, setSesion] = useState<Sesion | null>(null);
-  const [cuentaVisible, setCuentaVisible] = useState(false);
+  /** En cuál de las tres secciones está. Planteles es a lo que se entra. */
+  const [seccion, setSeccion] = useState<SeccionKey>('planteles');
+  const [amigos, setAmigos] = useState<Amigo[]>([]);
+  const [cargandoAmigos, setCargandoAmigos] = useState(false);
+  /** Con quién está abierta la conversación, si hay alguna. */
+  const [chatCon, setChatCon] = useState<string | null>(null);
+  /**
+   * Sube cuando llega un aviso de que hay algo nuevo. Es lo que dispara
+   * recargar la conversación abierta, en lugar de un reloj.
+   */
+  const [refrescos, setRefrescos] = useState(0);
+  /** Mi nombre de usuario, o null si todavía no elegí uno. */
+  const [miUsuario, setMiUsuario] = useState<string | null>(null);
   /** Lo que trajo el link del mail para cambiar la contraseña. */
   const [recuperacion, setRecuperacion] = useState<Recuperacion | null>(null);
   /** Los planteles que otros te mandaron y todavía no aceptaste ni rechazaste. */
@@ -197,6 +213,9 @@ function Root() {
       return;
     }
     planDeLaCuenta().then(setPlan);
+    leerPerfil()
+      .then((p) => setMiUsuario(p.usuario))
+      .catch(() => setMiUsuario(null));
   }, [sesion]);
 
   /**
@@ -216,6 +235,44 @@ function Root() {
   }, [sesion]);
 
   useEffect(revisarEnvios, [revisarEnvios]);
+
+  /**
+   * Los amigos y lo que está sin leer. Se piden al entrar y después de cada
+   * acción, nunca en un reloj: la base se suspende sola cuando nadie la usa, y
+   * consultarla cada tantos segundos la mantendría despierta al pedo.
+   */
+  const revisarAmigos = useCallback(async () => {
+    if (!sesion) {
+      setAmigos([]);
+      return;
+    }
+    setCargandoAmigos(true);
+    try {
+      setAmigos(await listarAmigos());
+    } catch {
+      // Sin señal la lista queda como estaba: no hay nada que decirle al
+      // usuario que no vea solo cuando vuelva a tener internet.
+    } finally {
+      setCargandoAmigos(false);
+    }
+  }, [sesion]);
+
+  useEffect(() => {
+    revisarAmigos();
+  }, [revisarAmigos, refrescos]);
+
+  /** Lo que espera algo tuyo: solicitudes por responder y mensajes sin leer. */
+  const pendientesDeAmigos = useMemo(
+    () =>
+      amigos.reduce(
+        (acc, a) =>
+          acc +
+          (a.estado === 'pendiente' && !a.loPediYo ? 1 : 0) +
+          (a.estado === 'aceptada' ? a.sinLeer : 0),
+        0
+      ),
+    [amigos]
+  );
 
   useEffect(() => {
     const reloj = setTimeout(() => setTiempoCumplido(true), CARGA_MINIMA);
@@ -823,10 +880,35 @@ function Root() {
       ) : null}
 
       <Aparecer
-        llave={vistaReal === 'lista' ? 'lista' : `${activoId}-${tab}`}
+        llave={vistaReal === 'lista' ? seccion : `${activoId}-${tab}`}
         style={styles.screen}
       >
-        {vistaReal === 'lista' ? (
+        {vistaReal === 'lista' && seccion === 'perfil' ? (
+          <PerfilScreen
+            sesion={sesion}
+            cuantosPlanteles={planteles.length}
+            ultimaCopia={
+              ultimaCopia
+                ? ultimaCopia.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : null
+            }
+            haySinSubir={haySinSubir}
+            onBackup={handleBackup}
+            onRestaurar={handleRestaurar}
+          />
+        ) : vistaReal === 'lista' && seccion === 'amigos' ? (
+          <AmigosScreen
+            amigos={amigos}
+            cargando={cargandoAmigos}
+            tengoUsuario={Boolean(miUsuario)}
+            onRecargar={revisarAmigos}
+            onAbrir={setChatCon}
+            onIrAPerfil={() => setSeccion('perfil')}
+          />
+        ) : vistaReal === 'lista' ? (
           <SquadsScreen
             planteles={planteles}
             predeterminadoId={predeterminadoId}
@@ -836,11 +918,9 @@ function Root() {
             activos={activos}
             motivoBloqueo={motivoBloqueado(plan)}
             avisoPro={AVISO_PRO}
-            sesion={hayNube ? sesion : undefined}
             envios={envios}
             onAceptarEnvio={handleAceptarEnvio}
             onRechazarEnvio={handleRechazarEnvio}
-            onCuenta={() => setCuentaVisible(true)}
             onNuevo={() => {
               if (hayLugar()) setNuevoVisible(true);
             }}
@@ -892,7 +972,20 @@ function Root() {
         )}
       </Aparecer>
 
-      {vistaReal === 'plantel' ? <TabBar activa={tab} onChange={setTab} /> : null}
+      {/*
+        Adentro de un plantel manda la barra del plantel; afuera, la de las
+        secciones. Nunca las dos: dos barras iguales una encima de la otra no
+        se entienden.
+      */}
+      {vistaReal === 'plantel' ? (
+        <TabBar activa={tab} onChange={setTab} />
+      ) : (
+        <NavPrincipal
+          activa={seccion}
+          onChange={setSeccion}
+          pendientes={pendientesDeAmigos}
+        />
+      )}
 
       <PlayerFormModal
         visible={formVisible}
@@ -925,29 +1018,19 @@ function Root() {
         onClose={() => setRecuperacion(null)}
         onListo={() => {
           setRecuperacion(null);
-          setCuentaVisible(true);
+          setSeccion('perfil');
         }}
       />
 
-      <CuentaModal
-        visible={cuentaVisible}
-        sesion={sesion}
-        cuantosPlanteles={planteles.length}
-        ultimaCopia={
-          ultimaCopia
-            ? ultimaCopia.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : null
-        }
+      <ChatScreen
+        con={chatCon}
+        refrescos={refrescos}
         onClose={() => {
-          setCuentaVisible(false);
-          revisarEnvios();
+          setChatCon(null);
+          revisarAmigos();
         }}
-        haySinSubir={haySinSubir}
-        onBackup={handleBackup}
-        onRestaurar={handleRestaurar}
+        onAceptar={handleAceptarEnvio}
+        onRechazar={handleRechazarEnvio}
       />
 
       {dialogo}
