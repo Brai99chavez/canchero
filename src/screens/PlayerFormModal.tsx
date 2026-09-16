@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZonaGuia } from '../components/Guia';
 import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
+import CierraTeclado from '../components/Teclado';
 import { SILUETA } from '../assets';
 import Opcion from '../components/Opcion';
 import PlayerCard, { ResumenCarta } from '../components/PlayerCard';
@@ -181,198 +182,200 @@ export default function PlayerFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* El modal es otra ventana: necesita su propia capa de foco. */}
-        <ZonaGuia>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <HeaderModal
-            titulo={
-              !editing
-                ? 'Jugador'
-                : player
-                ? 'Editar jugador'
-                : 'Nuevo jugador'
-            }
-            izquierda={{
-              label: editing ? 'Cancelar' : 'Cerrar',
-              onPress: editing ? handleCancel : onClose,
-            }}
-            derecha={{
-              label: editing ? 'Guardar' : 'Editar',
-              onPress: editing ? handleSave : () => setEditing(true),
-            }}
-          />
+      <CierraTeclado>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          {/* El modal es otra ventana: necesita su propia capa de foco. */}
+          <ZonaGuia>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <HeaderModal
+              titulo={
+                !editing
+                  ? 'Jugador'
+                  : player
+                  ? 'Editar jugador'
+                  : 'Nuevo jugador'
+              }
+              izquierda={{
+                label: editing ? 'Cancelar' : 'Cerrar',
+                onPress: editing ? handleCancel : onClose,
+              }}
+              derecha={{
+                label: editing ? 'Guardar' : 'Editar',
+                onPress: editing ? handleSave : () => setEditing(true),
+              }}
+            />
 
-          {!editing && player ? (
-            <ScrollView contentContainerStyle={styles.cardContent}>
-              <PlayerCard
-                player={player}
-                media={ajuste?.elo}
-                resumen={resumen}
-              />
-
-              {/*
-                La explicación que faltaba la vez anterior: un número que se
-                mueve solo y no dice por qué termina desconfiando a cualquiera.
-              */}
-              {ajuste && ajuste.ajuste !== 0 ? (
-                <Text style={styles.explicacion}>
-                  <Text style={ajuste.ajuste > 0 ? styles.sube : styles.baja}>
-                    {ajuste.ajuste > 0 ? 'Rinde por encima' : 'Rinde por debajo'}
-                    {' '}de su media
-                  </Text>
-                  {`: ${ajuste.base} → ${ajuste.elo} según los resultados de ` +
-                    `sus ${ajuste.partidos} partidos. La media que cargaste ` +
-                    `sigue siendo ${ajuste.base} y la ves al editarlo.`}
-                </Text>
-              ) : ajuste && ajuste.partidos > 0 ? (
-                <Text style={styles.explicacion}>
-                  {ajuste.tope === 0
-                    ? `Con ${ajuste.partidos} ${
-                        ajuste.partidos === 1 ? 'partido' : 'partidos'
-                      } todavía no alcanza para corregir su media. Hacen falta 5.`
-                    : 'Sus resultados coinciden con la media que le cargaste.'}
-                </Text>
-              ) : null}
-              <Button
-                title="Editar jugador"
-                onPress={() => setEditing(true)}
-                style={styles.cardButton}
-              />
-              {onDelete ? (
-                <Button
-                  title="Borrar jugador"
-                  variant="danger"
-                  onPress={handleDelete}
-                  style={styles.cardButtonGhost}
+            {!editing && player ? (
+              <ScrollView contentContainerStyle={styles.cardContent}>
+                <PlayerCard
+                  player={player}
+                  media={ajuste?.elo}
+                  resumen={resumen}
                 />
-              ) : null}
-            </ScrollView>
-          ) : (
-            <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.identityRow}>
-                <Pressable onPress={handlePickPhoto} style={styles.fotoFrame}>
-                  {foto ? (
-                    <Image
-                      source={{ uri: foto }}
-                      style={styles.fotoPreview}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Image
-                      source={SILUETA}
-                      style={styles.siluetaChica}
-                      resizeMode="contain"
-                    />
-                  )}
-                </Pressable>
 
-                <View style={styles.identityFields}>
-                  <TextInput
-                      value={nombre}
-                      onChangeText={setNombre}
-                      placeholder="Nombre"
-                      placeholderTextColor={colors.textMuted}
-                      style={styles.input}
-                    autoCapitalize="words"
+                {/*
+                  La explicación que faltaba la vez anterior: un número que se
+                  mueve solo y no dice por qué termina desconfiando a cualquiera.
+                */}
+                {ajuste && ajuste.ajuste !== 0 ? (
+                  <Text style={styles.explicacion}>
+                    <Text style={ajuste.ajuste > 0 ? styles.sube : styles.baja}>
+                      {ajuste.ajuste > 0 ? 'Rinde por encima' : 'Rinde por debajo'}
+                      {' '}de su media
+                    </Text>
+                    {`: ${ajuste.base} → ${ajuste.elo} según los resultados de ` +
+                      `sus ${ajuste.partidos} partidos. La media que cargaste ` +
+                      `sigue siendo ${ajuste.base} y la ves al editarlo.`}
+                  </Text>
+                ) : ajuste && ajuste.partidos > 0 ? (
+                  <Text style={styles.explicacion}>
+                    {ajuste.tope === 0
+                      ? `Con ${ajuste.partidos} ${
+                          ajuste.partidos === 1 ? 'partido' : 'partidos'
+                        } todavía no alcanza para corregir su media. Hacen falta 5.`
+                      : 'Sus resultados coinciden con la media que le cargaste.'}
+                  </Text>
+                ) : null}
+                <Button
+                  title="Editar jugador"
+                  onPress={() => setEditing(true)}
+                  style={styles.cardButton}
+                />
+                {onDelete ? (
+                  <Button
+                    title="Borrar jugador"
+                    variant="danger"
+                    onPress={handleDelete}
+                    style={styles.cardButtonGhost}
                   />
-                  <View style={styles.fotoLinks}>
-                    <Pressable onPress={handlePickPhoto} hitSlop={8}>
-                      <Text style={styles.fotoLink}>
-                        {foto ? 'Cambiar foto' : 'Elegir foto'}
-                      </Text>
-                    </Pressable>
+                ) : null}
+              </ScrollView>
+            ) : (
+              <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.identityRow}>
+                  <Pressable onPress={handlePickPhoto} style={styles.fotoFrame}>
                     {foto ? (
-                      <Pressable onPress={handleRemovePhoto} hitSlop={8}>
-                        <Text style={styles.fotoRemove}>Quitar</Text>
+                      <Image
+                        source={{ uri: foto }}
+                        style={styles.fotoPreview}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Image
+                        source={SILUETA}
+                        style={styles.siluetaChica}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </Pressable>
+
+                  <View style={styles.identityFields}>
+                    <TextInput
+                        value={nombre}
+                        onChangeText={setNombre}
+                        placeholder="Nombre"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.input}
+                      autoCapitalize="words"
+                    />
+                    <View style={styles.fotoLinks}>
+                      <Pressable onPress={handlePickPhoto} hitSlop={8}>
+                        <Text style={styles.fotoLink}>
+                          {foto ? 'Cambiar foto' : 'Elegir foto'}
+                        </Text>
                       </Pressable>
-                    ) : null}
+                      {foto ? (
+                        <Pressable onPress={handleRemovePhoto} hitSlop={8}>
+                          <Text style={styles.fotoRemove}>Quitar</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <Seccion>Posición</Seccion>
-              <View style={styles.positionGrid}>
-                {POSITIONS.map((pos) => {
-                  const active = pos === posicion;
-                  return (
-                    <Pressable
-                      key={pos}
-                      onPress={() => setPosicion(pos)}
-                      style={[
-                        styles.positionChip,
-                        pos === 'LIB' && styles.positionChipWide,
-                        active && {
-                          backgroundColor: POSITION_COLORS[pos] + '26',
-                          borderColor: POSITION_COLORS[pos],
-                        },
-                      ]}
-                    >
-                      <Text
+                <Seccion>Posición</Seccion>
+                <View style={styles.positionGrid}>
+                  {POSITIONS.map((pos) => {
+                    const active = pos === posicion;
+                    return (
+                      <Pressable
+                        key={pos}
+                        onPress={() => setPosicion(pos)}
                         style={[
-                          styles.positionChipText,
-                          active && { color: POSITION_COLORS[pos] },
+                          styles.positionChip,
+                          pos === 'LIB' && styles.positionChipWide,
+                          active && {
+                            backgroundColor: POSITION_COLORS[pos] + '26',
+                            borderColor: POSITION_COLORS[pos],
+                          },
                         ]}
                       >
-                        {pos}
-                      </Text>
-                      <Text style={styles.positionChipHint} numberOfLines={1}>
-                        {POSITION_HINTS[pos]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                        <Text
+                          style={[
+                            styles.positionChipText,
+                            active && { color: POSITION_COLORS[pos] },
+                          ]}
+                        >
+                          {pos}
+                        </Text>
+                        <Text style={styles.positionChipHint} numberOfLines={1}>
+                          {POSITION_HINTS[pos]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
 
-              <View style={styles.statsHeader}>
-                <Seccion style={styles.seccionPlana}>Estadísticas</Seccion>
-                <RatingBadge value={media} size={46} />
-              </View>
+                <View style={styles.statsHeader}>
+                  <Seccion style={styles.seccionPlana}>Estadísticas</Seccion>
+                  <RatingBadge value={media} size={46} />
+                </View>
 
-              <View style={styles.stepRow}>
-                <Text style={styles.stepLabel}>Mover de a</Text>
-                {STEPS.map((value) => (
-                  <Opcion
-                    key={value}
-                    label={String(value)}
-                    activa={value === step}
-                    onPress={() => setStep(value)}
-                    style={styles.stepChip}
+                <View style={styles.stepRow}>
+                  <Text style={styles.stepLabel}>Mover de a</Text>
+                  {STEPS.map((value) => (
+                    <Opcion
+                      key={value}
+                      label={String(value)}
+                      activa={value === step}
+                      onPress={() => setStep(value)}
+                      style={styles.stepChip}
+                    />
+                  ))}
+                </View>
+
+                {STAT_KEYS.map((key: StatKey) => (
+                  <StatRow
+                    key={key}
+                    label={STAT_LABELS[key]}
+                    value={stats[key]}
+                    step={step}
+                    onChange={(next) =>
+                      setStats((prev) => ({ ...prev, [key]: next }))
+                    }
                   />
                 ))}
-              </View>
 
-              {STAT_KEYS.map((key: StatKey) => (
-                <StatRow
-                  key={key}
-                  label={STAT_LABELS[key]}
-                  value={stats[key]}
-                  step={step}
-                  onChange={(next) =>
-                    setStats((prev) => ({ ...prev, [key]: next }))
-                  }
-                />
-              ))}
-
-              {player && onDelete ? (
-                <Button
-                  title="Borrar jugador"
-                  variant="danger"
-                  onPress={handleDelete}
-                  style={{ marginTop: spacing.lg }}
-                />
-              ) : null}
-            </ScrollView>
-          )}
-        </KeyboardAvoidingView>
-        </ZonaGuia>
-      </SafeAreaView>
+                {player && onDelete ? (
+                  <Button
+                    title="Borrar jugador"
+                    variant="danger"
+                    onPress={handleDelete}
+                    style={{ marginTop: spacing.lg }}
+                  />
+                ) : null}
+              </ScrollView>
+            )}
+          </KeyboardAvoidingView>
+          </ZonaGuia>
+        </SafeAreaView>
+      </CierraTeclado>
 
       {dialogo}
     </Modal>

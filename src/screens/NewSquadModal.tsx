@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZonaGuia } from '../components/Guia';
 import HeaderModal from '../components/HeaderModal';
+import CierraTeclado from '../components/Teclado';
 import { Seccion } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
 
@@ -38,44 +39,46 @@ export default function NewSquadModal({ visible, onClose, onCrear }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* El modal es otra ventana: necesita su propia capa de foco. */}
-        <ZonaGuia>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <HeaderModal
-            titulo="Nuevo plantel"
-            izquierda={{ label: 'Cancelar', onPress: onClose }}
-            derecha={{
-              label: 'Crear',
-              onPress: handleCrear,
-              disabled: !valido,
-            }}
-          />
+      <CierraTeclado>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          {/* El modal es otra ventana: necesita su propia capa de foco. */}
+          <ZonaGuia>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <HeaderModal
+              titulo="Nuevo plantel"
+              izquierda={{ label: 'Cancelar', onPress: onClose }}
+              derecha={{
+                label: 'Crear',
+                onPress: handleCrear,
+                disabled: !valido,
+              }}
+            />
 
-          <View style={styles.content}>
-            <Seccion>Nombre del grupo</Seccion>
-            <TextInput
-                value={nombre}
-                onChangeText={setNombre}
-                placeholder="Los del sábado, Trabajo, Barrio…"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-                autoCapitalize="words"
-                autoFocus
-                onSubmitEditing={handleCrear}
-                returnKeyType="done"
-              />
-            <Text style={styles.ayuda}>
-              Cada plantel tiene sus propios jugadores. Después podés cargarlos,
-              exportarlo o marcarlo para que la app abra directo acá.
-            </Text>
-          </View>
-        </KeyboardAvoidingView>
-        </ZonaGuia>
-      </SafeAreaView>
+            <View style={styles.content}>
+              <Seccion>Nombre del grupo</Seccion>
+              <TextInput
+                  value={nombre}
+                  onChangeText={setNombre}
+                  placeholder="Los del sábado, Trabajo, Barrio…"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.input}
+                  autoCapitalize="words"
+                  autoFocus
+                  onSubmitEditing={handleCrear}
+                  returnKeyType="done"
+                />
+              <Text style={styles.ayuda}>
+                Cada plantel tiene sus propios jugadores. Después podés cargarlos,
+                exportarlo o marcarlo para que la app abra directo acá.
+              </Text>
+            </View>
+          </KeyboardAvoidingView>
+          </ZonaGuia>
+        </SafeAreaView>
+      </CierraTeclado>
     </Modal>
   );
 }

@@ -158,6 +158,7 @@ export default function AmigosScreen({
       ) : null}
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={aceptados}
         keyExtractor={(item) => item.usuario}
         contentContainerStyle={styles.lista}

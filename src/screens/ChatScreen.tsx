@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Panel, { DIAGONAL } from '../components/Angular';
 import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
+import CierraTeclado from '../components/Teclado';
 import { SendIcon } from '../components/icons';
 import { Presionable } from '../components/motion';
 import { Aviso, Button } from '../components/ui';
@@ -139,143 +140,146 @@ export default function ChatScreen({
 
   return (
     <Modal visible={con !== null} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <HeaderModal
-            titulo={con ? `@${con}` : ''}
-            izquierda={{ label: 'Volver', onPress: onClose }}
-          />
+      <CierraTeclado>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <HeaderModal
+              titulo={con ? `@${con}` : ''}
+              izquierda={{ label: 'Volver', onPress: onClose }}
+            />
 
-          {error ? (
-            <View style={styles.avisoCaja}>
-              <Aviso titulo={error.titulo} detalle={error.detalle} />
-            </View>
-          ) : null}
+            {error ? (
+              <View style={styles.avisoCaja}>
+                <Aviso titulo={error.titulo} detalle={error.detalle} />
+              </View>
+            ) : null}
 
-          <FlatList
-            ref={lista}
-            data={mensajes}
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.lista}
-            refreshing={cargando}
-            onRefresh={() => traer(true)}
-            onContentSizeChange={() =>
-              lista.current?.scrollToEnd({ animated: false })
-            }
-            ListEmptyComponent={
-              cargando ? null : (
-                <Text style={styles.vacio}>
-                  Todavía no se escribieron nada. Podés mandarle un plantel
-                  desde la tuerca del plantel, en Exportar.
-                </Text>
-              )
-            }
-            renderItem={({ item }) => {
-              if (item.tipo === 'plantel' && item.plantel) {
-                const estado = ESTADOS[item.plantel.estado];
-                return (
-                  <Panel
-                    style={[styles.plantel, item.mio ? styles.mio : styles.suyo]}
-                    degradado={degradados.panel}
-                    borde={
-                      item.plantel.estado === 'pendiente'
-                        ? colors.primary
-                        : colors.border
-                    }
-                    grosor={1.5}
-                    esquinas={DIAGONAL}
-                  >
-                    <Text style={styles.plantelTitulo}>
-                      {item.mio ? 'Le mandaste un plantel' : 'Te mandó un plantel'}
-                    </Text>
-                    <Text style={styles.plantelNombre}>
-                      {item.plantel.nombre}
-                    </Text>
-                    <Text style={styles.plantelDetalle}>
-                      {item.plantel.jugadores}{' '}
-                      {item.plantel.jugadores === 1 ? 'jugador' : 'jugadores'} ·{' '}
-                      {item.plantel.partidos}{' '}
-                      {item.plantel.partidos === 1 ? 'partido' : 'partidos'}
-                    </Text>
-
-                    {!item.mio && item.plantel.estado === 'pendiente' ? (
-                      <View style={styles.botones}>
-                        <Button
-                          title="Aceptar"
-                          onPress={() => resolver(item.plantel!.envio, true)}
-                          disabled={resolviendo !== null}
-                          loading={resolviendo === item.plantel.envio}
-                          compacto
-                        />
-                        <Button
-                          title="Rechazar"
-                          onPress={() => resolver(item.plantel!.envio, false)}
-                          disabled={resolviendo !== null}
-                          variant="ghost"
-                          compacto
-                        />
-                      </View>
-                    ) : (
-                      <Text style={[styles.estado, { color: estado.color }]}>
-                        {estado.texto}
-                      </Text>
-                    )}
-                    <Text style={styles.hora}>{hora(item.cuando)}</Text>
-                  </Panel>
-                );
+            <FlatList
+              keyboardShouldPersistTaps="handled"
+              ref={lista}
+              data={mensajes}
+              keyExtractor={(m) => m.id}
+              contentContainerStyle={styles.lista}
+              refreshing={cargando}
+              onRefresh={() => traer(true)}
+              onContentSizeChange={() =>
+                lista.current?.scrollToEnd({ animated: false })
               }
-
-              return (
-                <View
-                  style={[
-                    styles.burbuja,
-                    item.mio ? styles.burbujaMia : styles.burbujaSuya,
-                  ]}
-                >
-                  <Text
-                    style={item.mio ? styles.textoMio : styles.textoSuyo}
-                  >
-                    {item.texto}
+              ListEmptyComponent={
+                cargando ? null : (
+                  <Text style={styles.vacio}>
+                    Todavía no se escribieron nada. Podés mandarle un plantel
+                    desde la tuerca del plantel, en Exportar.
                   </Text>
-                  <Text
+                )
+              }
+              renderItem={({ item }) => {
+                if (item.tipo === 'plantel' && item.plantel) {
+                  const estado = ESTADOS[item.plantel.estado];
+                  return (
+                    <Panel
+                      style={[styles.plantel, item.mio ? styles.mio : styles.suyo]}
+                      degradado={degradados.panel}
+                      borde={
+                        item.plantel.estado === 'pendiente'
+                          ? colors.primary
+                          : colors.border
+                      }
+                      grosor={1.5}
+                      esquinas={DIAGONAL}
+                    >
+                      <Text style={styles.plantelTitulo}>
+                        {item.mio ? 'Le mandaste un plantel' : 'Te mandó un plantel'}
+                      </Text>
+                      <Text style={styles.plantelNombre}>
+                        {item.plantel.nombre}
+                      </Text>
+                      <Text style={styles.plantelDetalle}>
+                        {item.plantel.jugadores}{' '}
+                        {item.plantel.jugadores === 1 ? 'jugador' : 'jugadores'} ·{' '}
+                        {item.plantel.partidos}{' '}
+                        {item.plantel.partidos === 1 ? 'partido' : 'partidos'}
+                      </Text>
+
+                      {!item.mio && item.plantel.estado === 'pendiente' ? (
+                        <View style={styles.botones}>
+                          <Button
+                            title="Aceptar"
+                            onPress={() => resolver(item.plantel!.envio, true)}
+                            disabled={resolviendo !== null}
+                            loading={resolviendo === item.plantel.envio}
+                            compacto
+                          />
+                          <Button
+                            title="Rechazar"
+                            onPress={() => resolver(item.plantel!.envio, false)}
+                            disabled={resolviendo !== null}
+                            variant="ghost"
+                            compacto
+                          />
+                        </View>
+                      ) : (
+                        <Text style={[styles.estado, { color: estado.color }]}>
+                          {estado.texto}
+                        </Text>
+                      )}
+                      <Text style={styles.hora}>{hora(item.cuando)}</Text>
+                    </Panel>
+                  );
+                }
+
+                return (
+                  <View
                     style={[
-                      styles.hora,
-                      item.mio ? styles.horaMia : styles.horaSuya,
+                      styles.burbuja,
+                      item.mio ? styles.burbujaMia : styles.burbujaSuya,
                     ]}
                   >
-                    {hora(item.cuando)}
-                  </Text>
-                </View>
-              );
-            }}
-          />
-
-          <View style={styles.escribir}>
-            <TextInput
-              value={texto}
-              onChangeText={setTexto}
-              placeholder="Escribí algo"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              multiline
-              maxLength={1000}
+                    <Text
+                      style={item.mio ? styles.textoMio : styles.textoSuyo}
+                    >
+                      {item.texto}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.hora,
+                        item.mio ? styles.horaMia : styles.horaSuya,
+                      ]}
+                    >
+                      {hora(item.cuando)}
+                    </Text>
+                  </View>
+                );
+              }}
             />
-            <Presionable
-              onPress={handleMandar}
-              disabled={texto.trim().length === 0 || mandando}
-              style={[
-                styles.mandar,
-                texto.trim().length === 0 && styles.mandarApagado,
-              ]}
-            >
-              <SendIcon color={colors.sobreAcento} size={20} />
-            </Presionable>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+
+            <View style={styles.escribir}>
+              <TextInput
+                value={texto}
+                onChangeText={setTexto}
+                placeholder="Escribí algo"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+                multiline
+                maxLength={1000}
+              />
+              <Presionable
+                onPress={handleMandar}
+                disabled={texto.trim().length === 0 || mandando}
+                style={[
+                  styles.mandar,
+                  texto.trim().length === 0 && styles.mandarApagado,
+                ]}
+              >
+                <SendIcon color={colors.sobreAcento} size={20} />
+              </Presionable>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </CierraTeclado>
     </Modal>
   );
 }

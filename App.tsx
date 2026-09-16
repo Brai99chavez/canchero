@@ -19,6 +19,7 @@ import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
 import TabBar, { NavPrincipal, SeccionKey } from './src/components/TabBar';
+import CierraTeclado from './src/components/Teclado';
 import { planteesDesde } from './src/backup';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
 import Cargando from './src/screens/Cargando';
@@ -884,7 +885,8 @@ function Root() {
       onCompletar={completarPaso}
       onSaltar={apagarGuia}
     >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <CierraTeclado>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
 
       {vistaReal === 'plantel' ? (
@@ -1091,7 +1093,8 @@ function Root() {
         onClose={() => setResultadoId(null)}
         onGuardar={handleGuardarResultado}
       />
-      </SafeAreaView>
+        </SafeAreaView>
+      </CierraTeclado>
     </ProveedorGuia>
   );
 }

@@ -107,6 +107,17 @@ export function Barra<K extends string>({
                     translateX: deslizar.interpolate({
                       inputRange: items.map((_, i) => i),
                       outputRange: items.map((_, i) => i * anchoTab + 4),
+                      /*
+                       * El rebote se pasa de largo a propósito, y en el medio
+                       * de la barra eso está bien. En las puntas no: la
+                       * pastilla se iba más allá del borde, quedaba afuera de
+                       * la curva de la barra y durante ese pedacito se le veía
+                       * el lado recto en vez de la esquina redondeada.
+                       *
+                       * Con esto frena justo contra el borde. El rebote sigue
+                       * estando donde no molesta.
+                       */
+                      extrapolate: 'clamp',
                     }),
                   },
                 ],

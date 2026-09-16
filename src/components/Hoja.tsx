@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, degradados, fuentes, spacing } from '../theme';
 import Panel, { DIAGONAL, FondoDegradado } from './Angular';
 import { Presionable } from './motion';
+import CierraTeclado from './Teclado';
 
 /**
  * Una hoja que sube desde abajo para elegir algo. Se usa cuando una acción
@@ -36,17 +37,21 @@ export default function Hoja({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
         <SafeAreaView edges={['bottom']} style={styles.abajo}>
-          <Panel
-            style={styles.hoja}
-            degradado={degradados.panel}
-            borde={colors.border}
-            grosor={1.5}
-            esquinas={DIAGONAL}
-          >
-            <Text style={styles.titulo}>{titulo.toUpperCase()}</Text>
-            {bajada ? <Text style={styles.bajada}>{bajada}</Text> : null}
-            <View style={styles.contenido}>{children}</View>
-          </Panel>
+          {/* Tocar la hoja fuera del campo baja el teclado; tocar el fondo
+              oscuro cierra la hoja entera, que ya lo hace el Pressable. */}
+          <CierraTeclado>
+            <Panel
+              style={styles.hoja}
+              degradado={degradados.panel}
+              borde={colors.border}
+              grosor={1.5}
+              esquinas={DIAGONAL}
+            >
+              <Text style={styles.titulo}>{titulo.toUpperCase()}</Text>
+              {bajada ? <Text style={styles.bajada}>{bajada}</Text> : null}
+              <View style={styles.contenido}>{children}</View>
+            </Panel>
+          </CierraTeclado>
         </SafeAreaView>
       </View>
     </Modal>

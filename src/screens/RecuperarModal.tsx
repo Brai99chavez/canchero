@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Seccion } from '../components/Banner';
 import HeaderModal from '../components/HeaderModal';
+import CierraTeclado from '../components/Teclado';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { Aviso, Button } from '../components/ui';
 import { cambiarClave, Explicacion, explicar } from '../nube/cuenta';
@@ -83,109 +84,114 @@ export default function RecuperarModal({ pedido, onClose, onListo }: Props) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <HeaderModal
-            titulo="Contraseña nueva"
-            izquierda={{ label: 'Cerrar', onPress: onClose }}
-          />
+      <CierraTeclado>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <HeaderModal
+              titulo="Contraseña nueva"
+              izquierda={{ label: 'Cerrar', onPress: onClose }}
+            />
 
-          <ScrollView contentContainerStyle={styles.content}>
-            {listo ? (
-              <>
-                <Seccion>Listo</Seccion>
-                <Text style={styles.ayuda}>
-                  Ya podés entrar con tu contraseña nueva. Si tenías la sesión
-                  abierta en otro teléfono, ahí sigue como estaba.
-                </Text>
-                <Button title="Entrar" onPress={onListo} style={styles.boton} />
-              </>
-            ) : (
-              <>
-                <Seccion>Elegí una nueva</Seccion>
-                <Text style={styles.ayuda}>
-                  Llegaste desde el link que te mandamos por mail. Escribí la
-                  contraseña que vas a usar de ahora en adelante.
-                </Text>
+            <ScrollView
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+            >
+              {listo ? (
+                <>
+                  <Seccion>Listo</Seccion>
+                  <Text style={styles.ayuda}>
+                    Ya podés entrar con tu contraseña nueva. Si tenías la sesión
+                    abierta en otro teléfono, ahí sigue como estaba.
+                  </Text>
+                  <Button title="Entrar" onPress={onListo} style={styles.boton} />
+                </>
+              ) : (
+                <>
+                  <Seccion>Elegí una nueva</Seccion>
+                  <Text style={styles.ayuda}>
+                    Llegaste desde el link que te mandamos por mail. Escribí la
+                    contraseña que vas a usar de ahora en adelante.
+                  </Text>
 
-                {error ? (
-                  <Aviso titulo={error.titulo} detalle={error.detalle} />
-                ) : null}
+                  {error ? (
+                    <Aviso titulo={error.titulo} detalle={error.detalle} />
+                  ) : null}
 
-                <View style={styles.campoClave}>
+                  <View style={styles.campoClave}>
+                    <TextInput
+                      value={clave}
+                      onChangeText={(t) => {
+                        setClave(t);
+                        setError(null);
+                      }}
+                      placeholder="Contraseña (mínimo 8)"
+                      placeholderTextColor={colors.textMuted}
+                      style={[styles.input, styles.inputClave]}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry={!verClave}
+                      editable={Boolean(token)}
+                    />
+                    <Pressable
+                      onPress={() => setVerClave((v) => !v)}
+                      hitSlop={10}
+                      style={styles.ojo}
+                      accessibilityLabel={
+                        verClave ? 'Ocultar contraseña' : 'Ver contraseña'
+                      }
+                    >
+                      {verClave ? (
+                        <EyeOffIcon color={colors.textMuted} size={20} />
+                      ) : (
+                        <EyeIcon color={colors.textMuted} size={20} />
+                      )}
+                    </Pressable>
+                  </View>
+
+                  {/*
+                    Se pide dos veces porque acá no hay a quién preguntarle: si
+                    se escribe mal y queda guardada, la única salida es pedir
+                    otro mail y empezar de nuevo.
+                  */}
                   <TextInput
-                    value={clave}
+                    value={repetida}
                     onChangeText={(t) => {
-                      setClave(t);
+                      setRepetida(t);
                       setError(null);
                     }}
-                    placeholder="Contraseña (mínimo 8)"
+                    placeholder="Repetila"
                     placeholderTextColor={colors.textMuted}
-                    style={[styles.input, styles.inputClave]}
+                    style={styles.input}
                     autoCapitalize="none"
                     autoCorrect={false}
                     secureTextEntry={!verClave}
                     editable={Boolean(token)}
+                    onSubmitEditing={valido ? handleGuardar : undefined}
+                    returnKeyType="done"
                   />
-                  <Pressable
-                    onPress={() => setVerClave((v) => !v)}
-                    hitSlop={10}
-                    style={styles.ojo}
-                    accessibilityLabel={
-                      verClave ? 'Ocultar contraseña' : 'Ver contraseña'
-                    }
-                  >
-                    {verClave ? (
-                      <EyeOffIcon color={colors.textMuted} size={20} />
-                    ) : (
-                      <EyeIcon color={colors.textMuted} size={20} />
-                    )}
-                  </Pressable>
-                </View>
 
-                {/*
-                  Se pide dos veces porque acá no hay a quién preguntarle: si
-                  se escribe mal y queda guardada, la única salida es pedir
-                  otro mail y empezar de nuevo.
-                */}
-                <TextInput
-                  value={repetida}
-                  onChangeText={(t) => {
-                    setRepetida(t);
-                    setError(null);
-                  }}
-                  placeholder="Repetila"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry={!verClave}
-                  editable={Boolean(token)}
-                  onSubmitEditing={valido ? handleGuardar : undefined}
-                  returnKeyType="done"
-                />
+                  {repetida.length > 0 && !coinciden ? (
+                    <Text style={styles.noCoincide}>
+                      Las dos contraseñas no son iguales.
+                    </Text>
+                  ) : null}
 
-                {repetida.length > 0 && !coinciden ? (
-                  <Text style={styles.noCoincide}>
-                    Las dos contraseñas no son iguales.
-                  </Text>
-                ) : null}
-
-                <Button
-                  title="Guardar contraseña"
-                  onPress={handleGuardar}
-                  disabled={!valido}
-                  loading={trabajando}
-                  style={styles.boton}
-                />
-              </>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+                  <Button
+                    title="Guardar contraseña"
+                    onPress={handleGuardar}
+                    disabled={!valido}
+                    loading={trabajando}
+                    style={styles.boton}
+                  />
+                </>
+              )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </CierraTeclado>
     </Modal>
   );
 }
