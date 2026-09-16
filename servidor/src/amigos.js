@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { avisar } from './avisos.js';
 import { consultar } from './db.js';
 import { normalizar } from './perfil.js';
 
@@ -89,6 +90,11 @@ export async function pedirAmistad(yo, aQuien) {
         where uno = $1 and otro = $2`,
       [uno, otro]
     );
+    await avisar(suId, {
+      titulo: 'Ya son amigos',
+      cuerpo: `@${miUsuario} te aceptó.`,
+      datos: { tipo: 'amistad', de: miUsuario },
+    });
     return { estado: 'aceptada', usuario: destino };
   }
 
@@ -100,6 +106,13 @@ export async function pedirAmistad(yo, aQuien) {
            pedido = now(), resuelto = null`,
     [uno, otro, yo]
   );
+
+  await avisar(suId, {
+    titulo: 'Te quieren agregar',
+    cuerpo: `@${miUsuario} te mandó una solicitud.`,
+    datos: { tipo: 'amistad', de: miUsuario },
+  });
+
   return { estado: 'pendiente', usuario: destino };
 }
 
@@ -118,6 +131,16 @@ export async function responderAmistad(yo, deQuien, acepta) {
   );
   if (rowCount === 0) {
     throw Object.assign(new Error('Esa solicitud ya no está.'), { status: 404 });
+  }
+
+  // Sólo se avisa cuando aceptás. Que te rechacen no es una novedad que valga
+  // la pena hacer sonar un teléfono.
+  if (acepta) {
+    await avisar(suId, {
+      titulo: 'Ya son amigos',
+      cuerpo: `@${await usuarioDe(yo)} te aceptó.`,
+      datos: { tipo: 'amistad', de: await usuarioDe(yo) },
+    });
   }
 }
 
@@ -227,7 +250,17 @@ export async function mandarTexto(yo, aQuien, texto) {
     });
   }
 
-  return anotarMensaje(yo, suId, { tipo: 'texto', texto: limpio });
+  const id = await anotarMensaje(yo, suId, { tipo: 'texto', texto: limpio });
+
+  const miUsuario = await usuarioDe(yo);
+  await avisar(suId, {
+    titulo: `@${miUsuario}`,
+    cuerpo: limpio.length > 120 ? `${limpio.slice(0, 117)}...` : limpio,
+    // Con esto la app sabe qué conversación recargar sin preguntar nada más.
+    datos: { tipo: 'mensaje', de: miUsuario },
+  });
+
+  return id;
 }
 
 /**

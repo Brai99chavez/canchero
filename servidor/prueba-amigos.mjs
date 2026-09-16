@@ -306,6 +306,61 @@ r = await tito.pedir(`/mensajes/${luis.usuario}`, {
 });
 ok('el rechazado no puede escribir', r.estado === 403, r.texto);
 
+// ═══════════════════════════════════════════════════ avisos al teléfono
+titulo('avisos al teléfono');
+{
+  const r0 = await fetch(API + '/dispositivos', {
+    method: 'POST',
+    headers: {
+      origin: ORIGEN,
+      'content-type': 'application/json',
+      'x-forwarded-for': `198.18.${corrida}.201`,
+    },
+    body: JSON.stringify({ token: 'ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]' }),
+  });
+  ok('anotar el teléfono pide sesión', r0.status === 401, `HTTP ${r0.status}`);
+
+  r = await luis.pedir('/dispositivos', {
+    metodo: 'POST',
+    cuerpo: { token: 'no-es-un-token' },
+  });
+  ok('un token inventado se rechaza', r.estado === 400, r.texto);
+
+  const token = `ExponentPushToken[prueba-${sufijo}]`;
+  r = await luis.pedir('/dispositivos', { metodo: 'POST', cuerpo: { token } });
+  ok('un token de Expo se acepta', r.estado === 200, r.texto);
+
+  let fila = await base.query('select usuario_id from dispositivos where token = $1', [token]);
+  const suId = await base.query('select usuario_id from perfiles where usuario = $1', [luis.usuario]);
+  ok('queda anotado a esa cuenta', fila.rows[0]?.usuario_id === suId.rows[0]?.usuario_id);
+
+  /*
+   * El mismo teléfono con otra cuenta: la fila se muda en vez de duplicarse.
+   * Sin esto, al entrar otra persona en el mismo celular le seguirían llegando
+   * los avisos de la anterior.
+   */
+  r = await ana.pedir('/dispositivos', { metodo: 'POST', cuerpo: { token } });
+  fila = await base.query('select usuario_id from dispositivos where token = $1', [token]);
+  const suIdAna = await base.query('select usuario_id from perfiles where usuario = $1', [ana.usuario]);
+  ok('si entra otra cuenta, el teléfono se muda', fila.rows[0]?.usuario_id === suIdAna.rows[0]?.usuario_id);
+
+  const cuantos = await base.query('select count(*)::int as n from dispositivos where token = $1', [token]);
+  ok('y no queda duplicado', cuantos.rows[0].n === 1);
+
+  // Con un teléfono anotado, mandar un mensaje sale igual aunque el aviso no
+  // llegue a ningún lado: el token es inventado.
+  r = await luis.pedir(`/mensajes/${ana.usuario}`, {
+    metodo: 'POST',
+    cuerpo: { texto: 'con aviso puesto' },
+  });
+  ok('mandar un mensaje no se rompe por el aviso', r.estado === 200, r.texto);
+
+  r = await ana.pedir('/dispositivos', { metodo: 'DELETE', cuerpo: { token } });
+  ok('se puede desanotar', r.estado === 200, r.texto);
+  const quedan = await base.query('select count(*)::int as n from dispositivos where token = $1', [token]);
+  ok('y deja de estar', quedan.rows[0].n === 0);
+}
+
 // ══════════════════════════════════════════════════════════ barrido
 titulo('barrido');
 try {

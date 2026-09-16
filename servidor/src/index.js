@@ -12,6 +12,7 @@ import {
   responderAmistad,
   sacarAmigo,
 } from './amigos.js';
+import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
 import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
 import { guardarPerfil, leerPerfil } from './perfil.js';
 import { planDe, recortarAlPlan } from './planes.js';
@@ -63,6 +64,13 @@ app.use('/planteles/*', async (c, siguiente) => {
 });
 
 app.use('/fotos/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
+app.use('/dispositivos', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
   c.set('usuario', sesion.user);
@@ -128,6 +136,32 @@ app.put('/perfil', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
   }
+});
+
+/**
+ * Dónde avisarle a esta cuenta. Lo manda la app al entrar, con el token que le
+ * da Expo.
+ *
+ * Es lo que evita el refresco periódico: sin esto, cada app tendría que
+ * preguntar cada tantos segundos si pasó algo, y como casi nunca pasa nada eso
+ * es despertar la base todo el día para que conteste que no.
+ */
+app.post('/dispositivos', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    await guardarDispositivo(usuario.id, cuerpo?.token);
+    return c.json({ ok: true });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/** Al cerrar sesión: este teléfono deja de recibir los avisos de esta cuenta. */
+app.delete('/dispositivos', async (c) => {
+  const cuerpo = await c.req.json().catch(() => null);
+  if (typeof cuerpo?.token === 'string') await olvidarDispositivo(cuerpo.token);
+  return c.json({ ok: true });
 });
 
 /**

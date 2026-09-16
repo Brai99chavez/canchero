@@ -139,3 +139,23 @@ create table if not exists lecturas (
   hasta      timestamptz not null default now(),
   primary key (usuario_id, con)
 );
+
+-- ------------------------------------------------------------ dispositivos
+-- Adónde mandarle un aviso a cada cuenta. Una fila por teléfono: la misma
+-- persona puede tener la app en dos.
+--
+-- Esto es lo que evita el refresco periódico. Sin avisos, cada app tendría que
+-- preguntar cada tantos segundos si pasó algo, y como casi nunca pasa nada eso
+-- es despertar la base todo el día al pedo. Con esto se toca la base sólo
+-- cuando alguien hace algo.
+--
+-- El token es la clave: si el mismo teléfono cambia de cuenta, la fila se
+-- muda, y así el aviso no le llega a quien ya no está usando esa app.
+create table if not exists dispositivos (
+  token       text        primary key,
+  usuario_id  text        not null references "user" (id) on delete cascade,
+  actualizado timestamptz not null default now()
+);
+
+create index if not exists dispositivos_por_usuario
+  on dispositivos (usuario_id);

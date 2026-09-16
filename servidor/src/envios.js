@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { anotarMensaje, idDe, sonAmigos, usuarioDe } from './amigos.js';
+import { avisar } from './avisos.js';
 import { consultar } from './db.js';
 import { copiarFoto } from './fotos.js';
 import { normalizar } from './perfil.js';
@@ -99,6 +100,12 @@ export async function enviarPlantel(deId, aQuien, plantel) {
   // que todo lo demás, y su estado sale de esta misma fila.
   await anotarMensaje(deId, paraId, { tipo: 'plantel', envio: id });
 
+  await avisar(paraId, {
+    titulo: `@${miUsuario} te mandó un plantel`,
+    cuerpo: plantel.nombre,
+    datos: { tipo: 'plantel', de: miUsuario },
+  });
+
   return { id, para: destino, paraId };
 }
 
@@ -130,7 +137,7 @@ export async function aceptar(usuarioId, envioId) {
   const { rows } = await consultar(
     `update envios set estado = 'aceptado', resuelto = now()
       where id = $1 and para = $2 and estado = 'pendiente'
-      returning nombre, datos`,
+      returning nombre, datos, de`,
     [envioId, usuarioId]
   );
   if (rows.length === 0) {
@@ -146,16 +153,31 @@ export async function aceptar(usuarioId, envioId) {
     copiados.push(copia ? { ...jugador, foto: copia } : jugador);
   }
 
+  // El que lo mandó se entera de que le dijeron que sí, que es la mitad que
+  // faltaba: antes mandabas un plantel y no sabías nunca si había llegado.
+  await avisar(rows[0].de, {
+    titulo: 'Aceptaron tu plantel',
+    cuerpo: `@${await usuarioDe(usuarioId)} se quedó con ${rows[0].nombre}.`,
+    datos: { tipo: 'respuesta', de: await usuarioDe(usuarioId) },
+  });
+
   return { nombre: rows[0].nombre, datos: { ...datos, jugadores: copiados } };
 }
 
 export async function rechazar(usuarioId, envioId) {
-  const { rowCount } = await consultar(
+  const { rows } = await consultar(
     `update envios set estado = 'rechazado', resuelto = now()
-      where id = $1 and para = $2 and estado = 'pendiente'`,
+      where id = $1 and para = $2 and estado = 'pendiente'
+      returning de, nombre`,
     [envioId, usuarioId]
   );
-  if (rowCount === 0) {
+  if (rows.length === 0) {
     throw Object.assign(new Error('Ese envío ya no está.'), { status: 404 });
   }
+
+  await avisar(rows[0].de, {
+    titulo: 'Rechazaron tu plantel',
+    cuerpo: `@${await usuarioDe(usuarioId)} no se quedó con ${rows[0].nombre}.`,
+    datos: { tipo: 'respuesta', de: await usuarioDe(usuarioId) },
+  });
 }

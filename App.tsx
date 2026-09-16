@@ -47,6 +47,10 @@ import {
 import { alRecuperar, Recuperacion } from './src/nube/enlaces';
 import { Amigo, listarAmigos } from './src/nube/amigos';
 import {
+  alLlegarNovedad,
+  registrarTelefono,
+} from './src/nube/avisos';
+import {
   aceptarEnvio,
   Envio,
   pendientes,
@@ -235,6 +239,29 @@ function Root() {
   }, [sesion]);
 
   useEffect(revisarEnvios, [revisarEnvios]);
+
+  /*
+   * Los avisos: este teléfono se anota para recibirlos, y cuando llega uno se
+   * recarga lo que haya que recargar. Es lo que reemplaza al refresco
+   * periódico — sin esto habría que preguntarle al servidor cada tantos
+   * segundos si pasó algo, y como casi nunca pasa nada eso es despertar la
+   * base todo el día para que conteste que no.
+   */
+  useEffect(() => {
+    if (!sesion) return;
+    registrarTelefono();
+  }, [sesion]);
+
+  useEffect(
+    () =>
+      alLlegarNovedad(() => {
+        // Sube el contador y con eso se recargan los amigos y, si hay una
+        // conversación abierta, también ella.
+        setRefrescos((n) => n + 1);
+        revisarEnvios();
+      }),
+    [revisarEnvios]
+  );
 
   /**
    * Los amigos y lo que está sin leer. Se piden al entrar y después de cada

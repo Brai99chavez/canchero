@@ -47,7 +47,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#4BF0A5"
+        }
+      ]
     ],
     "extra": {
       "eas": {

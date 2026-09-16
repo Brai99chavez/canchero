@@ -1,3 +1,4 @@
+import { olvidarTelefono } from './avisos';
 import { urlDeRecuperacion } from './enlaces';
 import { leerPerfil } from './perfil';
 import { Plan } from '../plan';
@@ -259,6 +260,11 @@ export async function cambiarClave(token: string, nueva: string): Promise<void> 
 }
 
 export async function salir(): Promise<void> {
+  // Primero se desanota el teléfono: después de cerrar la sesión el servidor
+  // ya no sabe quién es y no lo dejaría hacerlo. Sin esto, al entrar otra
+  // persona en este mismo teléfono le seguirían llegando los avisos del
+  // anterior.
+  await olvidarTelefono();
   await clienteObligatorio().signOut();
   avisar(null);
 }
