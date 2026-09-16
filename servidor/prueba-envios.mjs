@@ -10,6 +10,11 @@
  * por hecho y se los hace amigos de entrada.
  *
  * Borra al terminar las cuentas @canchero.test que crea.
+ *
+ * Con PRUEBA_API se le puede apuntar a Render, pero de a una: ahí las IP
+ * falsas no valen —el proxy pone la de verdad— así que todas las corridas caen
+ * en el mismo balde del límite de intentos y la segunda se come un 429. Eso es
+ * el límite haciendo su trabajo, no algo roto.
  */
 import pg from 'pg';
 
