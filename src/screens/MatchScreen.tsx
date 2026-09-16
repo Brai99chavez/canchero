@@ -3,10 +3,10 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ajuste, mediaDe } from '../elo';
 import { Objetivo } from '../components/Guia';
 import Opcion from '../components/Opcion';
-import { FondoDegradado } from '../components/Angular';
+import Panel, { DIAGONAL, FondoDegradado } from '../components/Angular';
 import { Presionable } from '../components/motion';
 import { Button, EmptyState, PositionPill, RatingBadge } from '../components/ui';
-import { angulo, colors, degradados, radius, spacing } from '../theme';
+import { angulo, colors, degradados, spacing } from '../theme';
 import { Format, FORMATS, overall, Player } from '../types';
 
 interface Props {
@@ -99,10 +99,17 @@ export default function MatchScreen({
   return (
     <View style={styles.container}>
       {haySorteo ? (
-        <Presionable onPress={onVerSorteo} style={styles.aviso}>
-          <FondoDegradado colores={degradados.acento} />
-          <Text style={styles.avisoTitulo}>Hay equipos armados</Text>
-          <Text style={styles.avisoTexto}>Tocá para verlos</Text>
+        <Presionable onPress={onVerSorteo}>
+          <Panel
+            style={styles.aviso}
+            esquinas={DIAGONAL}
+            degradado={degradados.acento}
+            borde="transparent"
+            grosor={0}
+          >
+            <Text style={styles.avisoTitulo}>Hay equipos armados</Text>
+            <Text style={styles.avisoTexto}>Tocá para verlos</Text>
+          </Panel>
         </Presionable>
       ) : null}
 
@@ -186,12 +193,17 @@ export default function MatchScreen({
               {selected ? (
                 <FondoDegradado colores={degradados.acento} opacidad={0.14} />
               ) : null}
-              <View style={[styles.check, selected && styles.checkOn]}>
-                {selected ? (
-                  <FondoDegradado colores={degradados.acento} />
-                ) : null}
+              <Panel
+                style={styles.check}
+                esquinas={DIAGONAL}
+                chaflan={6}
+                degradado={selected ? degradados.acento : undefined}
+                fondo="transparent"
+                borde={selected ? 'transparent' : colors.border}
+                grosor={selected ? 0 : 1.5}
+              >
                 {selected ? <Text style={styles.checkMark}>✓</Text> : null}
-              </View>
+              </Panel>
               <Text style={styles.name} numberOfLines={1}>
                 {item.nombre}
               </Text>
@@ -252,22 +264,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: 6,
   },
-  formatChip: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    transform: [{ skewX: angulo.inclinacion }],
-  },
   formatRowPrimera: { marginTop: spacing.xs },
   aviso: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.md,
-    overflow: 'hidden',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   avisoTitulo: {
     color: colors.sobreAcento,
@@ -356,12 +357,8 @@ const styles = StyleSheet.create({
   check: {
     width: 22,
     height: 22,
-    borderWidth: 1.5,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   checkOn: {
     borderColor: colors.primary,

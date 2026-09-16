@@ -17,6 +17,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { angulo, colors, fuentes, radius, spacing } from '../theme';
+import Panel, { DIAGONAL } from './Angular';
 
 export type PasoGuia =
   | 'crear-plantel'
@@ -316,8 +317,17 @@ export function ZonaGuia({
               <Text style={styles.titulo}>{contenido.titulo}</Text>
               <Text style={styles.texto}>{contenido.texto}</Text>
 
-              <Pressable onPress={onSaltar} style={styles.saltar} hitSlop={8}>
-                <Text style={styles.saltarTexto}>SKIP TUTORIAL</Text>
+              <Pressable onPress={onSaltar} hitSlop={8} style={styles.saltarCaja}>
+                <Panel
+                  style={styles.saltar}
+                  esquinas={DIAGONAL}
+                  chaflan={8}
+                  fondo="transparent"
+                  borde={colors.border}
+                  grosor={1.5}
+                >
+                  <Text style={styles.saltarTexto}>SKIP TUTORIAL</Text>
+                </Panel>
               </Pressable>
             </Animated.View>
           </View>
@@ -451,14 +461,10 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.regular,
     lineHeight: 18,
   },
+  saltarCaja: { alignSelf: 'flex-start', marginTop: spacing.sm },
   saltar: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.sm,
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    transform: [{ skewX: angulo.inclinacion }],
   },
   saltarTexto: {
     color: colors.textMuted,

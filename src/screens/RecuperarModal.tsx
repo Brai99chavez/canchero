@@ -7,18 +7,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Seccion } from '../components/Banner';
+import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { Aviso, Button } from '../components/ui';
 import { cambiarClave, Explicacion, explicar } from '../nube/cuenta';
 import { Recuperacion } from '../nube/enlaces';
-import { colors, fuentes, radius, spacing } from '../theme';
+import { colors, fuentes, spacing } from '../theme';
 
 interface Props {
   /** Lo que trajo el link del mail. Con null la pantalla no existe. */
@@ -120,51 +120,46 @@ export default function RecuperarModal({ pedido, onClose, onListo }: Props) {
                     <Aviso titulo={error.titulo} detalle={error.detalle} />
                   ) : null}
 
-                  <View style={styles.campoClave}>
-                    <TextInput
-                      value={clave}
-                      onChangeText={(t) => {
-                        setClave(t);
-                        setError(null);
-                      }}
-                      placeholder="Contraseña (mínimo 8)"
-                      placeholderTextColor={colors.textMuted}
-                      style={[styles.input, styles.inputClave]}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      secureTextEntry={!verClave}
-                      editable={Boolean(token)}
-                    />
-                    <Pressable
-                      onPress={() => setVerClave((v) => !v)}
-                      hitSlop={10}
-                      style={styles.ojo}
-                      accessibilityLabel={
-                        verClave ? 'Ocultar contraseña' : 'Ver contraseña'
-                      }
-                    >
-                      {verClave ? (
-                        <EyeOffIcon color={colors.textMuted} size={20} />
-                      ) : (
-                        <EyeIcon color={colors.textMuted} size={20} />
-                      )}
-                    </Pressable>
-                  </View>
+                  <CampoTexto
+                    value={clave}
+                    onChangeText={(t) => {
+                      setClave(t);
+                      setError(null);
+                    }}
+                    placeholder="Contraseña (mínimo 8)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!verClave}
+                    editable={Boolean(token)}
+                    derecha={
+                      <Pressable
+                        onPress={() => setVerClave((v) => !v)}
+                        hitSlop={10}
+                        accessibilityLabel={
+                          verClave ? 'Ocultar contraseña' : 'Ver contraseña'
+                        }
+                      >
+                        {verClave ? (
+                          <EyeOffIcon color={colors.textMuted} size={20} />
+                        ) : (
+                          <EyeIcon color={colors.textMuted} size={20} />
+                        )}
+                      </Pressable>
+                    }
+                  />
 
                   {/*
                     Se pide dos veces porque acá no hay a quién preguntarle: si
                     se escribe mal y queda guardada, la única salida es pedir
                     otro mail y empezar de nuevo.
                   */}
-                  <TextInput
+                  <CampoTexto
                     value={repetida}
                     onChangeText={(t) => {
                       setRepetida(t);
                       setError(null);
                     }}
                     placeholder="Repetila"
-                    placeholderTextColor={colors.textMuted}
-                    style={styles.input}
                     autoCapitalize="none"
                     autoCorrect={false}
                     secureTextEntry={!verClave}
@@ -200,21 +195,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
-  campoClave: { justifyContent: 'center' },
-  // Sitio para el ojo, que va encima y no empuja el texto.
-  inputClave: { paddingRight: 46 },
-  ojo: { position: 'absolute', right: 0, paddingHorizontal: spacing.md },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: fuentes.regular,
-  },
   boton: { marginTop: spacing.sm },
   ayuda: {
     color: colors.textMuted,

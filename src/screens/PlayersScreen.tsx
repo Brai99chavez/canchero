@@ -5,19 +5,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SILUETA } from '../assets';
 import Panel, {
   DIAGONAL,
-  FondoDegradado,
 } from '../components/Angular';
+import CampoTexto from '../components/CampoTexto';
 import { Objetivo } from '../components/Guia';
 import { PlusIcon } from '../components/icons';
 import { Aparecer, Presionable } from '../components/motion';
 import { EmptyState, PositionPill, RatingBadge } from '../components/ui';
-import { angulo, colors, degradados, radius, sombra, spacing } from '../theme';
+import { colors, degradados, spacing } from '../theme';
 import { Ajuste } from '../elo';
 import {
   overall,
@@ -126,22 +125,30 @@ export default function PlayersScreen({
           </Text>
         </View>
         <Objetivo paso={['agregar-jugador', 'segundo-jugador']}>
-          <Presionable onPress={onAdd} style={styles.addButton}>
-            <FondoDegradado colores={degradados.acento} />
-            <PlusIcon color="#04140C" size={17} />
-            <Text style={styles.addButtonText}>Agregar</Text>
+          <Presionable onPress={onAdd}>
+            <Panel
+              style={styles.addButton}
+              esquinas={DIAGONAL}
+              chaflan={9}
+              degradado={degradados.acento}
+              borde="transparent"
+              grosor={0}
+            >
+              <PlusIcon color="#04140C" size={17} />
+              <Text style={styles.addButtonText}>Agregar</Text>
+            </Panel>
           </Presionable>
         </Objetivo>
       </View>
 
       {players.length > 3 ? (
         <>
-          <TextInput
+          <CampoTexto
             value={query}
             onChangeText={setQuery}
             placeholder="Buscar jugador"
-            placeholderTextColor={colors.textMuted}
-            style={styles.search}
+            contenedor={styles.search}
+            style={styles.searchTexto}
           />
 
           <ScrollView
@@ -292,16 +299,21 @@ function Chip({
 }) {
   const acento = color ?? colors.primary;
   return (
-    <Presionable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        activo && { borderColor: acento, backgroundColor: `${acento}22` },
-      ]}
-    >
-      <Text style={[styles.chipTexto, activo && { color: acento }]}>
-        {texto}
-      </Text>
+    <Presionable onPress={onPress}>
+      <Panel
+        style={styles.chip}
+        esquinas={DIAGONAL}
+        chaflan={8}
+        // Elegido se tiñe con su color en vez de rellenarse: son varios en
+        // fila y el relleno lleno de cinco a la vez tapa la lista de abajo.
+        fondo={activo ? `${acento}22` : 'transparent'}
+        borde={activo ? acento : colors.border}
+        grosor={1.5}
+      >
+        <Text style={[styles.chipTexto, activo && { color: acento }]}>
+          {texto}
+        </Text>
+      </Panel>
     </Presionable>
   );
 }
@@ -328,9 +340,6 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    transform: [{ skewX: angulo.inclinacion }],
   },
   chipTexto: {
     color: colors.textMuted,
@@ -338,7 +347,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Barlow_800ExtraBold',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    transform: [{ skewX: angulo.derecho }],
   },
   container: {
     flex: 1,
@@ -363,11 +371,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.primary,
     paddingHorizontal: spacing.md,
     height: 40,
-    overflow: 'hidden',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   addButtonText: {
     color: colors.sobreAcento,
@@ -377,14 +382,8 @@ const styles = StyleSheet.create({
   search: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    color: colors.text,
   },
+  searchTexto: { paddingVertical: 10, fontSize: 15 },
   lista: { flex: 1 },
   list: {
     paddingHorizontal: spacing.lg,

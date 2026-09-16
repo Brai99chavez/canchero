@@ -7,11 +7,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SILUETA } from '../assets';
 import { Seccion } from '../components/Banner';
+import CampoTexto from '../components/CampoTexto';
 import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
@@ -34,7 +34,7 @@ import {
   problemaDelUsuario,
 } from '../nube/perfil';
 import { cleanupPhotos, discardPhoto, pickPhoto } from '../photos';
-import { colors, fuentes, radius, spacing } from '../theme';
+import { colors, fuentes, spacing } from '../theme';
 
 interface Props {
   sesion: Sesion | null;
@@ -386,23 +386,19 @@ export default function PerfilScreen({
           </View>
 
           <Seccion style={styles.seccion}>Nombre de usuario</Seccion>
-          <View style={styles.campoUsuario}>
-            <Text style={styles.arroba}>@</Text>
-            <TextInput
-              value={usuario}
-              onChangeText={(t) => {
-                setUsuario(t);
-                setErrorPerfil(null);
-                setGuardado(false);
-              }}
-              placeholder="comotellaman"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.inputUsuario]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={20}
-            />
-          </View>
+          <CampoTexto
+            izquierda={<Text style={styles.arroba}>@</Text>}
+            value={usuario}
+            onChangeText={(t) => {
+              setUsuario(t);
+              setErrorPerfil(null);
+              setGuardado(false);
+            }}
+            placeholder="comotellaman"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={20}
+          />
 
           {problemaNombre ? (
             <Text style={styles.problema}>{problemaNombre}</Text>
@@ -509,51 +505,46 @@ export default function PerfilScreen({
 
       {error ? <Aviso titulo={error.titulo} detalle={error.detalle} /> : null}
 
-      <TextInput
+      <CampoTexto
         value={email}
         onChangeText={(t) => {
           setEmail(t);
           setError(null);
         }}
         placeholder="Mail"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
         inputMode="email"
       />
-      <View style={styles.campoClave}>
-        <TextInput
-          value={clave}
-          onChangeText={(t) => {
-            setClave(t);
-            setError(null);
-          }}
-          placeholder="Contraseña (mínimo 8)"
-          placeholderTextColor={colors.textMuted}
-          style={[styles.input, styles.inputClave]}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry={!verClave}
-          onSubmitEditing={modo === 'entrar' ? handleEntrar : handleRegistro}
-          returnKeyType="done"
-        />
-        <Pressable
-          onPress={() => setVerClave((v) => !v)}
-          hitSlop={10}
-          style={styles.ojo}
-          accessibilityLabel={
-            verClave ? 'Ocultar contraseña' : 'Ver contraseña'
-          }
-        >
-          {verClave ? (
-            <EyeOffIcon color={colors.textMuted} size={20} />
-          ) : (
-            <EyeIcon color={colors.textMuted} size={20} />
-          )}
-        </Pressable>
-      </View>
+      <CampoTexto
+        value={clave}
+        onChangeText={(t) => {
+          setClave(t);
+          setError(null);
+        }}
+        placeholder="Contraseña (mínimo 8)"
+        autoCapitalize="none"
+        autoCorrect={false}
+        secureTextEntry={!verClave}
+        onSubmitEditing={modo === 'entrar' ? handleEntrar : handleRegistro}
+        returnKeyType="done"
+        derecha={
+          <Pressable
+            onPress={() => setVerClave((v) => !v)}
+            hitSlop={10}
+            accessibilityLabel={
+              verClave ? 'Ocultar contraseña' : 'Ver contraseña'
+            }
+          >
+            {verClave ? (
+              <EyeOffIcon color={colors.textMuted} size={20} />
+            ) : (
+              <EyeIcon color={colors.textMuted} size={20} />
+            )}
+          </Pressable>
+        }
+      />
 
       <Button
         title={modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
@@ -642,28 +633,9 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     letterSpacing: 0.3,
   },
-  campoClave: { justifyContent: 'center' },
-  // Sitio para el ojo, que va encima y no empuja el texto.
-  inputClave: { paddingRight: 46 },
-  ojo: { position: 'absolute', right: 0, paddingHorizontal: spacing.md },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: fuentes.regular,
-  },
-  // La arroba va fija a la izquierda: el nombre no la lleva adentro, pero es
-  // como se lo va a escribir y a leer en cualquier otro lado.
-  campoUsuario: { justifyContent: 'center' },
-  inputUsuario: { paddingLeft: 34 },
+  // La arroba no forma parte del nombre, pero es como se lo escribe y se lo
+  // lee en cualquier otro lado.
   arroba: {
-    position: 'absolute',
-    left: spacing.md,
     color: colors.textMuted,
     fontSize: 16,
     fontFamily: fuentes.bold,

@@ -4,11 +4,11 @@ import {
   Image,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SILUETA } from '../assets';
 import Panel, { DIAGONAL, FondoDegradado } from '../components/Angular';
+import CampoTexto from '../components/CampoTexto';
 import { Seccion } from '../components/Banner';
 import { useDialogo } from '../components/Dialogo';
 import { Presionable } from '../components/motion';
@@ -21,7 +21,7 @@ import {
 } from '../nube/amigos';
 import { Explicacion, explicar } from '../nube/cuenta';
 import { normalizar } from '../nube/perfil';
-import { colors, degradados, fuentes, radius, spacing } from '../theme';
+import { colors, degradados, fuentes, spacing } from '../theme';
 
 /**
  * Los amigos: con quién ya lo sos, quién te está esperando y a quién esperás.
@@ -124,24 +124,22 @@ export default function AmigosScreen({
     <View style={styles.container}>
       <Text style={styles.titulo}>AMIGOS</Text>
       <View style={styles.buscador}>
-        <View style={styles.campo}>
-          <Text style={styles.arroba}>@</Text>
-          <TextInput
-            value={buscado}
-            onChangeText={(t) => {
-              setBuscado(t);
-              setError(null);
-            }}
-            placeholder="agregar por nombre de usuario"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={20}
-            onSubmitEditing={limpio.length >= 3 ? handleAgregar : undefined}
-            returnKeyType="send"
-          />
-        </View>
+        <CampoTexto
+          contenedor={styles.campo}
+          izquierda={<Text style={styles.arroba}>@</Text>}
+          value={buscado}
+          onChangeText={(t) => {
+            setBuscado(t);
+            setError(null);
+          }}
+          placeholder="agregar por nombre de usuario"
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={20}
+          onSubmitEditing={limpio.length >= 3 ? handleAgregar : undefined}
+          returnKeyType="send"
+        />
         <Button
           title="Agregar"
           onPress={handleAgregar}
@@ -300,26 +298,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  campo: { flex: 1, justifyContent: 'center' },
+  campo: { flex: 1 },
   arroba: {
-    position: 'absolute',
-    left: spacing.md,
     color: colors.textMuted,
     fontSize: 15,
     fontFamily: fuentes.bold,
   },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingLeft: 32,
-    paddingRight: spacing.md,
-    paddingVertical: 11,
-    color: colors.text,
-    fontSize: 15,
-    fontFamily: fuentes.regular,
-  },
+  // Sólo lo que cambia respecto del campo de siempre: acá entra un nombre
+  // corto y el recuadro no necesita ser tan alto.
+  input: { paddingVertical: 11, fontSize: 15 },
   avisoCaja: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   lista: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
   bloque: { gap: spacing.sm, marginBottom: spacing.md },

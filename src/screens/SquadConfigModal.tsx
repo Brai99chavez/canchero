@@ -8,11 +8,11 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
+import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
 import { Button } from '../components/ui';
@@ -137,10 +137,9 @@ export default function SquadConfigModal({
               keyboardShouldPersistTaps="handled"
             >
               <Seccion>Nombre</Seccion>
-              <TextInput
+              <CampoTexto
                 value={nombre}
                 onChangeText={setNombre}
-                style={styles.input}
                 autoCapitalize="words"
               />
 

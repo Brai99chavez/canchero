@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Explicacion, explicar } from '../nube/cuenta';
 import { enviarPlantel } from '../nube/envios';
 import { normalizar } from '../nube/perfil';
 import Hoja from '../components/Hoja';
+import CampoTexto from '../components/CampoTexto';
 import { Aviso, Button } from '../components/ui';
-import { colors, fuentes, radius, spacing } from '../theme';
+import { colors, fuentes, spacing } from '../theme';
 import { Squad } from '../types';
 
 /**
@@ -90,24 +91,20 @@ export default function EnviarModal({
             <Aviso titulo={error.titulo} detalle={error.detalle} />
           ) : null}
 
-          <View style={styles.campo}>
-            <Text style={styles.arroba}>@</Text>
-            <TextInput
-              value={usuario}
-              onChangeText={(t) => {
-                setUsuario(t);
-                setError(null);
-              }}
-              placeholder="nombre de usuario"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={20}
-              onSubmitEditing={sePuede ? handleEnviar : undefined}
-              returnKeyType="send"
-            />
-          </View>
+          <CampoTexto
+            izquierda={<Text style={styles.arroba}>@</Text>}
+            value={usuario}
+            onChangeText={(t) => {
+              setUsuario(t);
+              setError(null);
+            }}
+            placeholder="nombre de usuario"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={20}
+            onSubmitEditing={sePuede ? handleEnviar : undefined}
+            returnKeyType="send"
+          />
 
           <Text style={styles.ayuda}>
             Es el nombre que la otra persona eligió en su perfil, no su mail.
@@ -127,27 +124,12 @@ export default function EnviarModal({
 }
 
 const styles = StyleSheet.create({
-  // La arroba va fija: no forma parte del nombre, pero es como se lee y se
-  // escribe en cualquier otro lado.
-  campo: { justifyContent: 'center' },
+  // La arroba no forma parte del nombre, pero es como se lee y se escribe en
+  // cualquier otro lado.
   arroba: {
-    position: 'absolute',
-    left: spacing.md,
     color: colors.textMuted,
     fontSize: 16,
     fontFamily: fuentes.bold,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingLeft: 34,
-    paddingRight: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: fuentes.regular,
   },
   ayuda: {
     color: colors.textMuted,

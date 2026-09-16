@@ -11,8 +11,6 @@ import {
   colors,
   degradados,
   fuentes,
-  radius,
-  sombra,
   spacing,
 } from '../theme';
 import Panel, { CHAFLAN, DIAGONAL, FondoDegradado } from './Angular';
@@ -145,6 +143,46 @@ export function Button({
  * El detalle no es decoración: decir "mail o contraseña incorrectos" sin
  * agregar qué hacer deja a la persona probando lo mismo de nuevo.
  */
+/**
+ * Un botón que es sólo un ícono: volver, la tuerca, importar, agregar.
+ *
+ * Estaba repetido en cuatro pantallas, cada una con su tamaño y su borde. Con
+ * la esquina cortada, como todo lo demás.
+ */
+export function BotonIcono({
+  children,
+  onPress,
+  accessibilityLabel,
+  relleno,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  /** Lleno con el acento —el que propone la acción— o sólo su recuadro. */
+  relleno?: boolean;
+  style?: ViewStyle;
+}) {
+  return (
+    <Presionable
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      style={style}
+    >
+      <Panel
+        style={styles.botonIcono}
+        esquinas={DIAGONAL}
+        chaflan={9}
+        degradado={relleno ? degradados.acento : degradados.panel}
+        borde={relleno ? 'transparent' : colors.border}
+        grosor={relleno ? 0 : 1.5}
+      >
+        {children}
+      </Panel>
+    </Presionable>
+  );
+}
+
 /**
  * Un cartel dentro de la pantalla.
  *
@@ -280,6 +318,12 @@ const styles = StyleSheet.create({
   buttonTextCompacto: {
     fontSize: 12,
     letterSpacing: 0.8,
+  },
+  botonIcono: {
+    width: 40,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.4,

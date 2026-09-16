@@ -1,4 +1,5 @@
 import Slider from '@react-native-community/slider';
+import Panel, { DIAGONAL } from '../components/Angular';
 import React, { useEffect, useState } from 'react';
 import {
   Image,
@@ -9,11 +10,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZonaGuia } from '../components/Guia';
+import CampoTexto from '../components/CampoTexto';
 import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
@@ -276,12 +277,10 @@ export default function PlayerFormModal({
                   </Pressable>
 
                   <View style={styles.identityFields}>
-                    <TextInput
-                        value={nombre}
-                        onChangeText={setNombre}
-                        placeholder="Nombre"
-                        placeholderTextColor={colors.textMuted}
-                        style={styles.input}
+                    <CampoTexto
+                      value={nombre}
+                      onChangeText={setNombre}
+                      placeholder="Nombre"
                       autoCapitalize="words"
                     />
                     <View style={styles.fotoLinks}>
@@ -308,22 +307,29 @@ export default function PlayerFormModal({
                         key={pos}
                         onPress={() => setPosicion(pos)}
                         style={[
-                          styles.positionChip,
+                          styles.positionCelda,
                           pos === 'LIB' && styles.positionChipWide,
-                          active && {
-                            backgroundColor: POSITION_COLORS[pos] + '26',
-                            borderColor: POSITION_COLORS[pos],
-                          },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.positionChipText,
-                            active && { color: POSITION_COLORS[pos] },
-                          ]}
+                        <Panel
+                          style={styles.positionChip}
+                          esquinas={DIAGONAL}
+                          chaflan={8}
+                          fondo={
+                            active ? POSITION_COLORS[pos] + '26' : 'transparent'
+                          }
+                          borde={active ? POSITION_COLORS[pos] : colors.border}
+                          grosor={1.5}
                         >
-                          {pos}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.positionChipText,
+                              active && { color: POSITION_COLORS[pos] },
+                            ]}
+                          >
+                            {pos}
+                          </Text>
+                        </Panel>
                         <Text style={styles.positionChipHint} numberOfLines={1}>
                           {POSITION_HINTS[pos]}
                         </Text>
@@ -504,14 +510,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  positionCelda: { flexGrow: 1, flexBasis: '22%' },
   positionChip: {
-    flexGrow: 1,
-    flexBasis: '22%',
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   positionChipWide: {

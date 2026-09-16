@@ -6,11 +6,11 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Panel, { DIAGONAL } from '../components/Angular';
+import CampoTexto from '../components/CampoTexto';
 import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
@@ -24,7 +24,7 @@ import {
   Mensaje,
 } from '../nube/amigos';
 import { Explicacion, explicar } from '../nube/cuenta';
-import { colors, degradados, fuentes, radius, spacing } from '../theme';
+import { colors, degradados, fuentes, spacing } from '../theme';
 
 /** La hora, que es lo único que hace falta en una conversación del día. */
 function hora(cuando: string): string {
@@ -232,11 +232,16 @@ export default function ChatScreen({
                 }
 
                 return (
-                  <View
+                  <Panel
                     style={[
                       styles.burbuja,
                       item.mio ? styles.burbujaMia : styles.burbujaSuya,
                     ]}
+                    esquinas={DIAGONAL}
+                    chaflan={10}
+                    fondo={item.mio ? colors.primaryDark : colors.surface}
+                    borde={item.mio ? 'transparent' : colors.border}
+                    grosor={item.mio ? 0 : 1}
                   >
                     <Text
                       style={item.mio ? styles.textoMio : styles.textoSuyo}
@@ -251,17 +256,17 @@ export default function ChatScreen({
                     >
                       {hora(item.cuando)}
                     </Text>
-                  </View>
+                  </Panel>
                 );
               }}
             />
 
             <View style={styles.escribir}>
-              <TextInput
+              <CampoTexto
                 value={texto}
                 onChangeText={setTexto}
                 placeholder="Escribí algo"
-                placeholderTextColor={colors.textMuted}
+                contenedor={styles.campo}
                 style={styles.input}
                 multiline
                 maxLength={1000}
@@ -269,12 +274,18 @@ export default function ChatScreen({
               <Presionable
                 onPress={handleMandar}
                 disabled={texto.trim().length === 0 || mandando}
-                style={[
-                  styles.mandar,
-                  texto.trim().length === 0 && styles.mandarApagado,
-                ]}
+                style={texto.trim().length === 0 && styles.mandarApagado}
               >
-                <SendIcon color={colors.sobreAcento} size={20} />
+                <Panel
+                  style={styles.mandar}
+                  esquinas={DIAGONAL}
+                  chaflan={9}
+                  degradado={degradados.acento}
+                  borde="transparent"
+                  grosor={0}
+                >
+                  <SendIcon color={colors.sobreAcento} size={20} />
+                </Panel>
               </Presionable>
             </View>
           </KeyboardAvoidingView>
@@ -308,15 +319,9 @@ const styles = StyleSheet.create({
     maxWidth: '82%',
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
-    borderRadius: radius.md,
   },
-  burbujaMia: { alignSelf: 'flex-end', backgroundColor: colors.primaryDark },
-  burbujaSuya: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  burbujaMia: { alignSelf: 'flex-end' },
+  burbujaSuya: { alignSelf: 'flex-start' },
   textoMio: { color: colors.text, fontSize: 15, fontFamily: fuentes.regular },
   textoSuyo: { color: colors.text, fontSize: 15, fontFamily: fuentes.regular },
   hora: {
@@ -360,24 +365,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  input: {
-    flex: 1,
-    maxHeight: 110,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    color: colors.text,
-    fontSize: 15,
-    fontFamily: fuentes.regular,
-  },
+  campo: { flex: 1 },
+  input: { maxHeight: 110, paddingVertical: 10, fontSize: 15 },
   mandar: {
     width: 44,
     height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

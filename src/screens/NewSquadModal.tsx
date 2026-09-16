@@ -6,11 +6,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZonaGuia } from '../components/Guia';
+import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
 import { Seccion } from '../components/Banner';
@@ -59,17 +59,15 @@ export default function NewSquadModal({ visible, onClose, onCrear }: Props) {
 
             <View style={styles.content}>
               <Seccion>Nombre del grupo</Seccion>
-              <TextInput
-                  value={nombre}
-                  onChangeText={setNombre}
-                  placeholder="Los del sábado, Trabajo, Barrio…"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  autoCapitalize="words"
-                  autoFocus
-                  onSubmitEditing={handleCrear}
-                  returnKeyType="done"
-                />
+              <CampoTexto
+                value={nombre}
+                onChangeText={setNombre}
+                placeholder="Los del sábado, Trabajo, Barrio…"
+                autoCapitalize="words"
+                autoFocus
+                onSubmitEditing={handleCrear}
+                returnKeyType="done"
+              />
               <Text style={styles.ayuda}>
                 Cada plantel tiene sus propios jugadores. Después podés cargarlos,
                 exportarlo o marcarlo para que la app abra directo acá.

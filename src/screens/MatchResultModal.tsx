@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import Panel, { DIAGONAL } from '../components/Angular';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -7,15 +8,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
+import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
 import { Etiqueta } from '../components/Banner';
-import { colors, radius, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 import { tieneResultado } from '../stats';
 import { Actuacion, Partido } from '../types';
 
@@ -43,14 +44,14 @@ function Contador({
   onChange: (v: string) => void;
 }) {
   return (
-    <TextInput
+    <CampoTexto
       value={valor}
       onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, 2))}
       keyboardType="number-pad"
       selectTextOnFocus
+      contenedor={styles.contadorCaja}
       style={styles.contador}
       placeholder="0"
-      placeholderTextColor={colors.textMuted}
     />
   );
 }
@@ -248,7 +249,14 @@ export default function MatchResultModal({
       {ids.map((id) => {
         const salio = fuera.includes(id);
         return (
-          <View key={id} style={[styles.fila, salio && styles.filaFuera]}>
+          <Panel
+            key={id}
+            style={[styles.fila, salio && styles.filaFuera]}
+            esquinas={DIAGONAL}
+            chaflan={9}
+            fondo={colors.surface}
+            borde={colors.border}
+          >
             {editando ? (
               <Pressable onPress={() => alternarFuera(id)} hitSlop={8}>
                 <Text style={salio ? styles.volver : styles.sacar}>
@@ -281,7 +289,7 @@ export default function MatchResultModal({
                 <Dato valor={numero(aportes[id]?.asistencias ?? '')} />
               </>
             )}
-          </View>
+          </Panel>
         );
       })}
     </View>
@@ -330,7 +338,7 @@ export default function MatchResultModal({
                     Equipo A
                   </Text>
                   {editando ? (
-                    <TextInput
+                    <CampoTexto
                       value={golesA}
                       onChangeText={(t) => {
                         setTocado((prev) => ({ ...prev, a: true }));
@@ -338,9 +346,9 @@ export default function MatchResultModal({
                       }}
                       keyboardType="number-pad"
                       selectTextOnFocus
+                      contenedor={styles.marcadorCaja}
                       style={styles.marcadorInput}
                       placeholder="0"
-                      placeholderTextColor={colors.textMuted}
                     />
                   ) : (
                     <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
@@ -354,7 +362,7 @@ export default function MatchResultModal({
                     Equipo B
                   </Text>
                   {editando ? (
-                    <TextInput
+                    <CampoTexto
                       value={golesB}
                       onChangeText={(t) => {
                         setTocado((prev) => ({ ...prev, b: true }));
@@ -362,9 +370,9 @@ export default function MatchResultModal({
                       }}
                       keyboardType="number-pad"
                       selectTextOnFocus
+                      contenedor={styles.marcadorCaja}
                       style={styles.marcadorInput}
                       placeholder="0"
-                      placeholderTextColor={colors.textMuted}
                     />
                   ) : (
                     <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
@@ -427,25 +435,16 @@ const styles = StyleSheet.create({
   },
   marcadorLado: { alignItems: 'center', gap: spacing.sm },
   marcadorEquipo: { fontSize: 13, fontFamily: 'Barlow_800ExtraBold' },
+  marcadorCaja: { width: 84, paddingHorizontal: 0 },
   marcadorInput: {
-    width: 84,
     textAlign: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
     paddingVertical: 12,
-    color: colors.text,
     fontSize: 30,
     fontFamily: 'Barlow_900Black',
   },
-  // El marcador mirándolo: mismo tamaño que el campo, sin el recuadro que
-  // invita a escribir.
-  marcadorFijo: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    lineHeight: 36,
-  },
+  // Mirándolo: mismo cuerpo que el campo, sin el recuadro que invita a
+  // escribir.
+  marcadorFijo: { width: 84, color: colors.text, lineHeight: 36 },
   dato: {
     width: 46,
     textAlign: 'center',
@@ -473,10 +472,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
   },
@@ -498,13 +493,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   noJugo: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', fontStyle: 'italic' },
+  contadorCaja: { width: 46, paddingHorizontal: 0 },
   contador: {
-    width: 46,
     textAlign: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.sm,
     paddingVertical: 6,
-    color: colors.text,
     fontSize: 15,
     fontFamily: 'Barlow_700Bold',
   },

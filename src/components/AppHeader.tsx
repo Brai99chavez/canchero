@@ -1,9 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { angulo, colors, degradados, radius, spacing } from '../theme';
-import { FondoDegradado } from './Angular';
+import { colors, spacing } from '../theme';
 import { GearIcon } from './icons';
-import { Presionable } from './motion';
+import { BotonIcono } from './ui';
 
 /**
  * Encabezado del plantel abierto. Vive en el contenedor y no en cada pestaña:
@@ -22,14 +21,9 @@ export default function AppHeader({
 }) {
   return (
     <View style={styles.barra}>
-      <Presionable
-        onPress={onVolver}
-        style={styles.redondo}
-        accessibilityLabel="Volver a planteles"
-      >
-        <FondoDegradado colores={degradados.panel} />
+      <BotonIcono onPress={onVolver} accessibilityLabel="Volver a planteles">
         <Text style={styles.flecha}>‹</Text>
-      </Presionable>
+      </BotonIcono>
 
       <View style={styles.centro}>
         <Text style={styles.titulo} numberOfLines={1}>
@@ -42,14 +36,12 @@ export default function AppHeader({
         ) : null}
       </View>
 
-      <Presionable
+      <BotonIcono
         onPress={onConfig}
-        style={styles.redondo}
         accessibilityLabel="Configuración del plantel"
       >
-        <FondoDegradado colores={degradados.panel} />
         <GearIcon color={colors.primary} size={19} />
-      </Presionable>
+      </BotonIcono>
     </View>
   );
 }
@@ -61,16 +53,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-  },
-  redondo: {
-    width: 40,
-    height: 38,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   flecha: {
     color: colors.text,

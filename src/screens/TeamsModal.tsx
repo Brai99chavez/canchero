@@ -299,13 +299,20 @@ export default function TeamsModal({
           ))}
         </View>
 
-        <View style={[styles.ayuda, elegidoId ? styles.ayudaActiva : null]}>
+        <Panel
+          style={styles.ayuda}
+          esquinas={DIAGONAL}
+          chaflan={8}
+          fondo="transparent"
+          borde={elegidoId ? colors.primary : colors.border}
+          grosor={1.5}
+        >
           <Text style={[styles.ayudaTexto, elegidoId && styles.ayudaTextoActivo]}>
             {elegidoId
               ? 'Ahora tocá a otro para cambiarlos de lugar'
               : 'Tocá un jugador y después otro para intercambiarlos'}
           </Text>
-        </View>
+        </Panel>
 
         <ScrollView contentContainerStyle={styles.content}>
           {vista === 'lista' ? (
@@ -444,12 +451,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingVertical: 7,
     paddingHorizontal: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
     alignItems: 'center',
-    transform: [{ skewX: angulo.inclinacion }],
   },
-  ayudaActiva: { borderColor: colors.primary },
   ayudaTexto: {
     color: colors.textMuted,
     fontSize: 11,

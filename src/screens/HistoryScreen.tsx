@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Panel, { DIAGONAL } from '../components/Angular';
 import {
   FlatList,
   Pressable,
@@ -206,7 +207,6 @@ export default function HistoryScreen({
             const marcado = elegidos?.has(item.id) ?? false;
             return (
               <Pressable
-                style={[styles.partido, marcado && styles.partidoElegido]}
                 onPress={() =>
                   elegidos ? alternar(item.id) : onCargarResultado(item)
                 }
@@ -214,6 +214,13 @@ export default function HistoryScreen({
                 // el atajo que espera cualquiera que borró algo en el celular.
                 onLongPress={() => setElegidos(new Set([item.id]))}
               >
+                <Panel
+                  style={styles.partido}
+                  esquinas={DIAGONAL}
+                  fondo={colors.surface}
+                  borde={marcado ? colors.primary : colors.border}
+                  grosor={marcado ? 1.5 : 1}
+                >
                 <View style={styles.partidoCabecera}>
                   <Text style={styles.fecha}>{fechaCorta(item.fecha)}</Text>
                   <Text style={styles.formato}>
@@ -231,13 +238,14 @@ export default function HistoryScreen({
                 <Text style={styles.equiposB} numberOfLines={1}>
                   {item.equipoB.map((id) => item.nombres[id]).join(', ')}
                 </Text>
-                {cargado || elegidos ? null : (
-                  <Button
-                    title="Cargar resultado"
-                    onPress={() => onCargarResultado(item)}
-                    style={styles.cargar}
-                  />
-                )}
+                  {cargado || elegidos ? null : (
+                    <Button
+                      title="Cargar resultado"
+                      onPress={() => onCargarResultado(item)}
+                      style={styles.cargar}
+                    />
+                  )}
+                </Panel>
               </Pressable>
             );
           }}
@@ -335,22 +343,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  partidoElegido: { borderColor: colors.primary, borderWidth: 1.5 },
   pieBorrar: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     paddingTop: spacing.sm,
   },
   container: { flex: 1 },
-  pestania: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 9,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    transform: [{ skewX: angulo.inclinacion }],
-  },
   pestaniaTexto: {
     color: colors.text,
     fontSize: 13,
@@ -365,10 +363,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   partido: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
     padding: spacing.md,
     gap: 3,
   },

@@ -9,16 +9,15 @@ import {
 import { GearIcon, ImportIcon, PlusIcon } from '../components/icons';
 import Panel, {
   DIAGONAL,
-  FondoDegradado,
 } from '../components/Angular';
 import { Etiqueta } from '../components/Banner';
 import { useDialogo } from '../components/Dialogo';
 import { Logotipo } from '../components/Logo';
 import { Objetivo } from '../components/Guia';
 import { Aparecer, Presionable } from '../components/motion';
-import { Button, EmptyState } from '../components/ui';
+import { BotonIcono, Button, EmptyState } from '../components/ui';
 import { Envio } from '../nube/envios';
-import { angulo, colors, degradados, radius, spacing } from '../theme';
+import { colors, degradados, spacing } from '../theme';
 import { Squad } from '../types';
 import ImportarModal from './ImportarModal';
 
@@ -133,19 +132,25 @@ export default function SquadsScreen({
           </Text>
         </View>
         <View style={styles.acciones}>
-          <Presionable
+          <BotonIcono
             onPress={() => hayLugar() && setImportarVisible(true)}
-            style={styles.iconoBoton}
             accessibilityLabel="Importar planteles"
           >
-            <FondoDegradado colores={degradados.panel} />
             <ImportIcon color={colors.primary} size={20} />
-          </Presionable>
+          </BotonIcono>
           <Objetivo paso="crear-plantel">
-            <Presionable onPress={onNuevo} style={styles.addButton}>
-              <FondoDegradado colores={degradados.acento} />
-            <PlusIcon color="#04140C" size={17} />
-              <Text style={styles.addButtonText}>Nuevo</Text>
+            <Presionable onPress={onNuevo}>
+              <Panel
+                style={styles.addButton}
+                esquinas={DIAGONAL}
+                chaflan={9}
+                degradado={degradados.acento}
+                borde="transparent"
+                grosor={0}
+              >
+                <PlusIcon color="#04140C" size={17} />
+                <Text style={styles.addButtonText}>Nuevo</Text>
+              </Panel>
             </Presionable>
           </Objetivo>
         </View>
@@ -344,25 +349,12 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   acciones: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconoBoton: {
-    width: 42,
-    height: 40,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ skewX: angulo.inclinacion }],
-  },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.primary,
     paddingHorizontal: spacing.md,
     height: 40,
-    overflow: 'hidden',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   addButtonText: {
     color: colors.sobreAcento,
