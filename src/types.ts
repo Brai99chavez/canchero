@@ -130,6 +130,14 @@ export interface Squad {
    * tiene que sincronizarse con ella para que los dos teléfonos coincidan.
    */
   llegada: string;
+  /**
+   * Cuándo cambió por última vez en este teléfono, en ISO.
+   *
+   * Es lo que decide qué hay que subir: si no coincide con lo último que se
+   * confirmó arriba, este plantel tiene algo sin guardar. Sin esto habría que
+   * subir los diez planteles cada vez que se toca un jugador.
+   */
+  actualizado: string;
   jugadores: Player[];
   partidos: Partido[];
   convocatoria: Convocatoria;

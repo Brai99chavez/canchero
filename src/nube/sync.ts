@@ -2,15 +2,24 @@ import { esLocal } from '../photos';
 import { sanitizePlantel } from '../storage';
 import { Squad } from '../types';
 import { pedir } from './cliente';
+import { subirFotosPendientes } from './fotos';
 
 /**
- * Por ahora esto es un respaldo, no una sincronización de verdad: el teléfono
- * sube lo suyo y, cuando se lo pide, baja lo que hay. No se resuelven
- * conflictos entre dos aparatos editando a la vez, y por eso bajar avisa que
- * reemplaza lo local en lugar de mezclarlo a ciegas.
+ * El guardado automático.
  *
- * Para mezclar haría falta una fecha de modificación por plantel, actualizada
- * en cada cambio. Es el próximo paso, no este.
+ * Cada plantel lleva su `actualizado`, y acá se guarda cuál fue el último que
+ * se confirmó arriba. Lo que no coincide, falta subir. Así cambiar un jugador
+ * sube ese plantel y no los diez.
+ *
+ * Primero se sube y después se baja, y eso no es casual: cuando se baja, lo
+ * que este teléfono tenía pendiente ya está en el servidor, así que lo que
+ * llega coincide con lo de acá y no hay nada que resolver. Sin ese orden
+ * habría que comparar dos relojes —el del teléfono y el del servidor— para
+ * decidir quién gana, y los relojes de los celulares no son de fiar.
+ *
+ * Gana el último que llega al servidor. Dos teléfonos editando el mismo
+ * plantel al mismo tiempo es raro en esta app: cada plantel lo lleva una
+ * persona.
  */
 
 interface PlantelDeLaNube {
@@ -18,96 +27,224 @@ interface PlantelDeLaNube {
   nombre: string;
   llegada: string;
   datos: { jugadores?: unknown; partidos?: unknown } | null;
+  borrado?: boolean;
 }
 
-/**
- * Las fotos que ya están en la nube viajan: su URL sirve en cualquier
- * teléfono. Las que todavía son un archivo de acá no, porque esa ruta no
- * significa nada en otro aparato — esas las sube el backup justo antes, y si
- * alguna falla se manda el plantel igual y se reintenta la próxima.
- */
-function sinFotosLocales(jugadores: Squad['jugadores']) {
-  return jugadores.map((j) =>
-    esLocal(j.foto) ? { ...j, foto: undefined } : j
-  );
-}
-
-/**
- * Un resumen corto de lo que se subiría. Comparando el de ahora con el de la
- * última subida exitosa se sabe si quedó algo sin guardar, que es lo que hay
- * que avisar antes de cerrar la sesión.
- *
- * Se arma sobre lo mismo que viaja —y no sobre el plantel entero— para que un
- * cambio que no se sube, como elegir una foto, no cuente como pendiente.
- */
-export function firmaDe(planteles: Squad[]): string {
-  const crudo = JSON.stringify(planteles.map(aFila));
-  // Hash corto: guardar el JSON entero para compararlo sería cargar en memoria
-  // dos veces todo el plantel sin ninguna ventaja.
-  let h = 5381;
-  for (let i = 0; i < crudo.length; i++) {
-    h = ((h * 33) ^ crudo.charCodeAt(i)) >>> 0;
-  }
-  return `${crudo.length}-${h.toString(36)}`;
-}
-
+/** Qué se le manda al servidor de cada plantel. */
 function aFila(p: Squad) {
   return {
-    id: p.id,
     nombre: p.nombre,
     llegada: p.llegada,
-    datos: { jugadores: sinFotosLocales(p.jugadores), partidos: p.partidos },
+    datos: {
+      /*
+       * Las fotos que ya están arriba viajan: su URL sirve en cualquier
+       * teléfono. Las que todavía son un archivo de acá no significan nada en
+       * otro aparato, así que no se mandan — se suben antes, y la que falla se
+       * reintenta en la próxima vuelta.
+       */
+      jugadores: p.jugadores.map((j) =>
+        esLocal(j.foto) ? { ...j, foto: undefined } : j
+      ),
+      partidos: p.partidos,
+    },
   };
 }
 
+export interface EstadoSync {
+  /** Lo último confirmado arriba de cada plantel, por id. */
+  subido: Record<string, string>;
+  /** Hasta cuándo se leyó del servidor. */
+  hasta: string | null;
+}
+
+export interface Resultado {
+  estado: EstadoSync;
+  /** Los planteles como quedaron: con las URLs de las fotos que se subieron. */
+  planteles: Squad[];
+  /** Los borrados que ya se avisaron y se pueden olvidar. */
+  borradosListos: string[];
+  /** Cuántos no entraron por el plan. */
+  sinLugar: number;
+  /** Si algo quedó sin subir y hay que reintentar. */
+  faltaSubir: boolean;
+}
+
+/** Cuáles tienen algo sin subir. */
+export function sinSubir(planteles: Squad[], subido: EstadoSync['subido']) {
+  return planteles.filter((p) => subido[p.id] !== p.actualizado);
+}
+
 /**
- * Sube y devuelve cuántos quedaron afuera por el plan.
+ * Sube lo que falta, borra lo que hay que borrar y trae lo que cambió.
  *
- * El servidor recorta contra el plan que figura en su base, no contra lo que
- * diga la app: acá los límites son para avisar, allá son la regla. Si recortó,
- * hay que decirlo — dar por guardado algo que no se guardó es la peor forma de
- * perder datos.
+ * No tira error hacia afuera: si no hay señal devuelve lo que pudo y deja
+ * anotado que falta. Un guardado que falla no puede romper la pantalla.
  */
-export async function subir(planteles: Squad[]): Promise<number> {
-  // Sin planteles no se sube nada: una app recién instalada no tiene por qué
-  // poder vaciar el respaldo antes de que la persona alcance a restaurarlo.
-  if (planteles.length === 0) return 0;
+export async function sincronizar(
+  planteles: Squad[],
+  borrados: string[],
+  estado: EstadoSync
+): Promise<Resultado> {
+  const subido = { ...estado.subido };
+  const borradosListos: string[] = [];
+  let sinLugar = 0;
+  let faltaSubir = false;
 
-  const r = await pedir<{ guardados: number; ignorados?: number }>(
-    '/planteles',
-    { metodo: 'PUT', cuerpo: { planteles: planteles.map(aFila) } }
-  );
-  return r.ignorados ?? 0;
+  // ── Las fotos primero: el plantel tiene que viajar con la URL, no con la
+  //    ruta de un archivo de este teléfono.
+  const conFotos = await subirFotosPendientes(planteles).catch(() => ({
+    planteles,
+    subidas: 0,
+    fallaron: 0,
+  }));
+  let lista = conFotos.planteles;
+
+  // ── Los borrados antes que las subidas: si se borró y se volvió a crear con
+  //    el mismo id, el borrado tiene que quedar atrás.
+  for (const id of borrados) {
+    try {
+      await pedir(`/planteles/${encodeURIComponent(id)}`, { metodo: 'DELETE' });
+      borradosListos.push(id);
+      delete subido[id];
+    } catch {
+      faltaSubir = true;
+    }
+  }
+
+  for (const p of sinSubir(lista, subido)) {
+    try {
+      await pedir(`/planteles/${encodeURIComponent(p.id)}`, {
+        metodo: 'PUT',
+        cuerpo: aFila(p),
+      });
+      subido[p.id] = p.actualizado;
+    } catch (error) {
+      // El servidor rechaza los que no entran en el plan. No es un error de
+      // red: reintentarlo no va a cambiar nada hasta que se haga lugar.
+      if (String(error instanceof Error ? error.message : error).includes('límite')) {
+        sinLugar++;
+      } else {
+        faltaSubir = true;
+      }
+    }
+  }
+
+  // ── Y ahora lo que cambió en otro lado.
+  let hasta = estado.hasta;
+  try {
+    const desde = estado.hasta
+      ? `?desde=${encodeURIComponent(estado.hasta)}`
+      : '';
+    const traido = await pedir<{
+      planteles: PlantelDeLaNube[];
+      hasta: string;
+    }>(`/planteles${desde}`);
+
+    lista = aplicar(lista, traido.planteles ?? []);
+    for (const fila of traido.planteles ?? []) {
+      if (fila.borrado) delete subido[fila.id];
+    }
+    // El corte lo pone el servidor: con el del teléfono, un celular atrasado
+    // se perdería los cambios de esa ventana para siempre.
+    hasta = traido.hasta ?? hasta;
+  } catch {
+    faltaSubir = true;
+  }
+
+  // Lo que ya no está no tiene sentido seguir recordándolo.
+  const vivos = new Set(lista.map((p) => p.id));
+  for (const id of Object.keys(subido)) {
+    if (!vivos.has(id)) delete subido[id];
+  }
+
+  return {
+    estado: { subido, hasta },
+    planteles: lista,
+    borradosListos,
+    sinLugar,
+    faltaSubir: faltaSubir || conFotos.fallaron > 0,
+  };
 }
 
-/**
- * Borrar de verdad haría que el plantel reapareciera la próxima vez que otro
- * teléfono restaure, así que del lado del servidor queda marcado.
- */
-export async function marcarBorrado(id: string): Promise<void> {
-  await pedir(`/planteles/${encodeURIComponent(id)}`, { metodo: 'DELETE' });
+/** Mete lo que vino del servidor en lo que hay acá. */
+function aplicar(locales: Squad[], traidos: PlantelDeLaNube[]): Squad[] {
+  if (traidos.length === 0) return locales;
+
+  const porId = new Map(locales.map((p) => [p.id, p]));
+
+  for (const fila of traidos) {
+    if (fila.borrado) {
+      porId.delete(fila.id);
+      continue;
+    }
+
+    const existente = porId.get(fila.id);
+    const armado = sanitizePlantel(
+      {
+        id: fila.id,
+        nombre: fila.nombre,
+        llegada: fila.llegada,
+        jugadores: fila.datos?.jugadores,
+        partidos: fila.datos?.partidos,
+        // Viene del servidor, o sea que ya está subido: se marca con lo mismo
+        // que se va a guardar en `subido` para que no se vuelva a mandar.
+        actualizado: existente?.actualizado,
+      },
+      0
+    );
+    if (!armado) continue;
+
+    porId.set(fila.id, {
+      ...armado,
+      // La convocatoria y el sorteo son de este teléfono y de esta tarde: no
+      // viajan, así que si ya había algo acá se conserva.
+      convocatoria: existente?.convocatoria ?? armado.convocatoria,
+      sorteo: existente?.sorteo ?? armado.sorteo,
+      actualizado: existente?.actualizado ?? armado.actualizado,
+    });
+  }
+
+  return [...porId.values()].sort((a, b) => a.llegada.localeCompare(b.llegada));
 }
 
-export async function bajar(): Promise<Squad[]> {
-  const { planteles } = await pedir<{ planteles: PlantelDeLaNube[] }>(
-    '/planteles'
-  );
+/** Lo que está en la papelera del servidor. */
+export interface EnPapelera {
+  id: string;
+  nombre: string;
+  llegada: string;
+  jugadores: number;
+  borradoEn: string;
+}
 
-  return (planteles ?? [])
-    .map((fila, indice) =>
-      // Lo que viene del servidor pasa por el mismo saneador que lo que viene
-      // del disco: la convocatoria y el sorteo son de la sesión de cada
-      // teléfono y no del respaldo, así que les pone los valores vacíos.
-      sanitizePlantel(
-        {
-          id: fila.id,
-          nombre: fila.nombre,
-          llegada: fila.llegada,
-          jugadores: fila.datos?.jugadores,
-          partidos: fila.datos?.partidos,
-        },
-        indice
-      )
-    )
-    .filter((p): p is Squad => p !== null);
+export async function verPapelera(): Promise<{
+  planteles: EnPapelera[];
+  dias: number;
+}> {
+  const r = await pedir<{
+    planteles: {
+      id: string;
+      nombre: string;
+      llegada: string;
+      datos: { jugadores?: unknown[] } | null;
+      borrado_en: string;
+    }[];
+    dias: number;
+  }>('/planteles/papelera');
+
+  return {
+    dias: r.dias,
+    planteles: (r.planteles ?? []).map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      llegada: p.llegada,
+      jugadores: Array.isArray(p.datos?.jugadores) ? p.datos.jugadores.length : 0,
+      borradoEn: p.borrado_en,
+    })),
+  };
+}
+
+export async function restaurarDePapelera(id: string): Promise<void> {
+  await pedir(`/planteles/${encodeURIComponent(id)}/restaurar`, {
+    metodo: 'POST',
+  });
 }

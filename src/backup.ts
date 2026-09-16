@@ -282,9 +282,12 @@ export function planteesDesde(crudos: any[]): Importado {
           .filter((x: Partido | null): x is Partido => x !== null)
       : [];
 
+    const llegada = new Date(ahora + indice++ * 1000).toISOString();
     planteles.push({
       id: newId(),
-      llegada: new Date(ahora + indice++ * 1000).toISOString(),
+      llegada,
+      // Recién llegado: todavía no se subió nada de esto.
+      actualizado: llegada,
       nombre:
         typeof p?.nombre === 'string' && p.nombre.trim()
           ? p.nombre.trim()

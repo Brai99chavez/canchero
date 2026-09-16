@@ -4,10 +4,12 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 /**
- * El enganche con la API (ver servidor/). Si no está configurada, `hayNube`
- * queda en false, el botón de cuenta ni aparece y la app entera funciona como
- * siempre: sin internet, sin registrarse y con todo guardado en el teléfono.
- * Eso no es un caso raro, es el modo en que la usa la mayoría.
+ * El enganche con la API (ver servidor/).
+ *
+ * `hayNube` en false es una copia de la app compilada sin servidor: ahí no se
+ * pide cuenta y todo queda en el teléfono. No es el modo normal —hoy la app
+ * guarda todo en el servidor y sin cuenta no se entra— pero deja que la app
+ * siga siendo usable si alguna vez se compila sin backend.
  *
  * Acá sólo va la URL del servidor, que no es un secreto. La cadena de conexión
  * de la base y las claves del servidor viven en Render y no en la app, que es

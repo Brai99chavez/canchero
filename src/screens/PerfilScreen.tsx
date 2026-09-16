@@ -28,6 +28,13 @@ import {
 } from '../nube/cuenta';
 import { subirFoto } from '../nube/fotos';
 import {
+  EnPapelera,
+  restaurarDePapelera,
+  verPapelera,
+} from '../nube/sync';
+import Panel, { DIAGONAL } from '../components/Angular';
+import { comoSeLeeCorto } from '../fechas';
+import {
   guardarPerfil,
   leerPerfil,
   normalizar,
@@ -45,9 +52,8 @@ interface Props {
   ultimaCopia: string | null;
   /** Si hay cambios en el teléfono que todavía no llegaron a la cuenta. */
   haySinSubir: boolean;
-  onBackup: () => Promise<void>;
-  /** Trae la copia y devuelve cuántos planteles vinieron. */
-  onRestaurar: () => Promise<number>;
+  /** Vuelve a traer lo que haya en la papelera y lo recuperado. */
+  onRecuperado: () => void;
 }
 
 type Modo = 'entrar' | 'registro';
@@ -69,8 +75,7 @@ export default function PerfilScreen({
   cuantosPlanteles,
   ultimaCopia,
   haySinSubir,
-  onBackup,
-  onRestaurar,
+  onRecuperado,
 }: Props) {
   const [modo, setModo] = useState<Modo>('entrar');
   const [pestania, setPestania] = useState<Pestania>('perfil');
@@ -104,6 +109,12 @@ export default function PerfilScreen({
   >(undefined);
   /** Lo mismo, para poder limpiar al cerrar sin depender del render. */
   const pendienteRef = useRef<string | null | undefined>(undefined);
+  /** Lo que hay en la papelera. Null mientras no se miró. */
+  const [papelera, setPapelera] = useState<{
+    planteles: EnPapelera[];
+    dias: number;
+  } | null>(null);
+  const [recuperando, setRecuperando] = useState<string | null>(null);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [errorPerfil, setErrorPerfil] = useState<Explicacion | null>(null);
   const [guardado, setGuardado] = useState(false);
@@ -150,6 +161,36 @@ export default function PerfilScreen({
     // Sin `refrescar`: si ya está en memoria esto no pide nada.
     traerPerfil(false);
   }, [sesion, traerPerfil]);
+
+  /*
+   * La papelera se mira al entrar a esa pestaña y no al abrir la sección: casi
+   * nadie la va a abrir, y pedirla siempre es despertar la base para nada.
+   */
+  const mirarPapelera = useCallback(() => {
+    if (!sesion) return;
+    verPapelera()
+      .then(setPapelera)
+      .catch(() => setPapelera({ planteles: [], dias: 30 }));
+  }, [sesion]);
+
+  useEffect(() => {
+    if (pestania === 'respaldo') mirarPapelera();
+  }, [pestania, mirarPapelera]);
+
+  const handleRecuperar = async (id: string) => {
+    setRecuperando(id);
+    setError(null);
+    try {
+      await restaurarDePapelera(id);
+      // Que la lista de planteles se entere: el que volvió tiene que aparecer.
+      onRecuperado();
+      mirarPapelera();
+    } catch (problema) {
+      setError(explicar(problema));
+    } finally {
+      setRecuperando(null);
+    }
+  };
 
   /** El tirón hacia abajo: la forma de pedirlo de nuevo a propósito. */
   const handleRefrescar = () => {
@@ -214,22 +255,13 @@ export default function PerfilScreen({
   const handleSalir = () => {
     if (haySinSubir) {
       preguntar({
-        titulo: 'Tenés cambios sin guardar',
+        titulo: 'Tenés cambios sin subir',
         mensaje:
-          'Hiciste cambios en tus planteles que todavía no están en la nube. ' +
-          'Si cerrás la sesión ahora, esos cambios quedan sólo en este ' +
-          'teléfono: si lo perdés o reinstalás la app, no hay de dónde ' +
-          'sacarlos. Conviene hacer un backup antes.',
+          'Hay algo que todavía no llegó a tu cuenta —seguramente porque no ' +
+          'hubo internet—. Si cerrás la sesión ahora, eso queda sólo en este ' +
+          'teléfono. Esperá a tener señal y va a subir solo.',
         confirmar: 'Cerrar igual',
         peligro: true,
-        alternativa: {
-          label: 'Hacer backup y cerrar',
-          onPress: () =>
-            conAviso(async () => {
-              await onBackup();
-              await salir();
-            }),
-        },
         onConfirmar: () => conAviso(salir),
       });
       return;
@@ -238,36 +270,12 @@ export default function PerfilScreen({
     preguntar({
       titulo: 'Cerrar sesión',
       mensaje:
-        'Los planteles siguen en este teléfono, con todo lo que tienen. La ' +
-        'copia de la nube queda guardada para cuando vuelvas a entrar.',
+        'Tus planteles quedan guardados en la cuenta. Cuando vuelvas a entrar, ' +
+        'desde este teléfono o desde otro, van a estar ahí.',
       confirmar: 'Cerrar sesión',
       onConfirmar: () => conAviso(salir),
     });
   };
-
-  const handleRestaurar = () =>
-    preguntar({
-      titulo: 'Traer de la nube',
-      mensaje:
-        `Los ${cuantosPlanteles} ${
-          cuantosPlanteles === 1 ? 'plantel' : 'planteles'
-        } de este teléfono se reemplazan por los de tu cuenta. ` +
-        'Si acá tenés algo que no subiste, se pierde.',
-      confirmar: 'Traer',
-      peligro: true,
-      onConfirmar: () =>
-        conAviso(async () => {
-          const cuantos = await onRestaurar();
-          avisar(
-            cuantos === 0 ? 'No hay nada guardado' : 'Listo',
-            cuantos === 0
-              ? 'Tu cuenta todavía no tiene planteles.'
-              : `Vinieron ${cuantos} ${
-                  cuantos === 1 ? 'plantel' : 'planteles'
-                }. Están en la pestaña Planteles.`
-          );
-        }),
-    });
 
   // ───────────────────────────────────────────────────────────── perfil
 
@@ -462,51 +470,63 @@ export default function PerfilScreen({
     <>
       {error ? <Aviso titulo={error.titulo} detalle={error.detalle} /> : null}
 
-      {haySinSubir ? (
-        <Aviso
-          titulo="Hay cambios sin guardar"
-          detalle="Tocá HACER BACKUP para subirlos a tu cuenta."
-        />
-      ) : null}
-
-      <Seccion>Backup</Seccion>
+      <Seccion>Tus datos</Seccion>
       <Text style={styles.ayuda}>
-        Guarda tus planteles en la cuenta. Se hace sólo cuando tocás el botón:
-        si se guardara solo, borrar un plantel sin querer se llevaría puesta la
-        copia de la que ibas a recuperarlo.
+        Todo lo que hacés se guarda solo en tu cuenta: los planteles, los
+        jugadores con sus fotos y los partidos. No hay nada que apretar.
       </Text>
       <Text style={[styles.estado, haySinSubir && styles.estadoPendiente]}>
         {haySinSubir
-          ? 'Hay cambios sin guardar en la nube.'
+          ? 'Falta subir algo. Se sube solo cuando vuelva internet.'
           : ultimaCopia
-          ? `Guardado a las ${ultimaCopia}.`
-          : 'Todavía no guardaste nada en esta sesión.'}
+          ? `Todo guardado — ${ultimaCopia}.`
+          : 'Todo guardado.'}
       </Text>
-      <Button
-        title="Hacer backup"
-        onPress={() => conAviso(onBackup)}
-        loading={trabajando}
-        style={styles.boton}
-      />
-
-      <Seccion style={styles.seccion}>Restore</Seccion>
-      <Text style={styles.ayuda}>
-        Trae los planteles de tu cuenta a este teléfono. Es para cuando cambiás
-        de aparato o reinstalás la app: reemplaza los {cuantosPlanteles}{' '}
-        {cuantosPlanteles === 1 ? 'plantel' : 'planteles'} que tenés acá por los
-        de la nube.
-      </Text>
-      <Button
-        title="Restaurar en este teléfono"
-        onPress={handleRestaurar}
-        variant="ghost"
-        style={styles.boton}
-      />
-
       <Text style={styles.nota}>
-        Las fotos de los jugadores viajan con el backup. El resto del plantel va
-        entero.
+        Los {cuantosPlanteles}{' '}
+        {cuantosPlanteles === 1 ? 'plantel' : 'planteles'} de este teléfono
+        están en tu cuenta. Si entrás desde otro, los vas a encontrar ahí.
       </Text>
+
+      <Seccion style={styles.seccion}>Papelera</Seccion>
+      <Text style={styles.ayuda}>
+        Lo que borrás se guarda acá por {papelera?.dias ?? 30} días antes de
+        irse del todo. Es la vuelta atrás de haber borrado sin querer.
+      </Text>
+
+      {papelera === null ? (
+        <Text style={styles.cargando}>Mirando la papelera…</Text>
+      ) : papelera.planteles.length === 0 ? (
+        <Text style={styles.nota}>No borraste nada últimamente.</Text>
+      ) : (
+        papelera.planteles.map((p) => (
+          <Panel
+            key={p.id}
+            style={styles.papelera}
+            esquinas={DIAGONAL}
+            chaflan={9}
+            fondo={colors.surface}
+            borde={colors.border}
+          >
+            <View style={styles.papeleraTextos}>
+              <Text style={styles.papeleraNombre}>{p.nombre}</Text>
+              <Text style={styles.papeleraDetalle}>
+                {p.jugadores}{' '}
+                {p.jugadores === 1 ? 'jugador' : 'jugadores'} · borrado{' '}
+                {comoSeLeeCorto(p.borradoEn)}
+              </Text>
+            </View>
+            <Button
+              title="Recuperar"
+              variant="ghost"
+              compacto
+              loading={recuperando === p.id}
+              disabled={recuperando !== null}
+              onPress={() => handleRecuperar(p.id)}
+            />
+          </Panel>
+        ))
+      )}
     </>
   );
 
@@ -514,8 +534,9 @@ export default function PerfilScreen({
     <>
       <Seccion>{modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}</Seccion>
       <Text style={styles.ayuda}>
-        La cuenta guarda tus planteles para que no se pierdan si cambiás de
-        teléfono. La app funciona igual sin ella.
+        Todo lo que cargues se guarda en tu cuenta: los planteles, los jugadores
+        y los partidos. Si cambiás de teléfono, entrás y está todo. Y es lo que
+        te deja pasarle un plantel a un amigo.
       </Text>
 
       {error ? <Aviso titulo={error.titulo} detalle={error.detalle} /> : null}
@@ -694,6 +715,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fuentes.bold,
     letterSpacing: 0.3,
+  },
+  papelera: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  papeleraTextos: { flex: 1 },
+  papeleraNombre: {
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: fuentes.extra,
+  },
+  papeleraDetalle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: fuentes.regular,
+    marginTop: 1,
   },
   cargando: {
     color: colors.textMuted,

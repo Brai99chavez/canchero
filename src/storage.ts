@@ -31,6 +31,17 @@ export interface Guardado {
    * a aparecer la próxima vez que restaures.
    */
   borrados: string[];
+  /**
+   * Lo último que se confirmó subido de cada plantel, por id.
+   *
+   * Comparado con el `actualizado` de cada uno dice qué falta subir. Va al
+   * disco porque entre que cambiás algo y hay internet puede pasar un día y
+   * cerrarse la app: si esto se perdiera, o se subiría todo de nuevo o —peor—
+   * se daría por subido algo que no llegó.
+   */
+  subido: Record<string, string>;
+  /** Hasta cuándo se leyó del servidor. El corte lo pone él, no el teléfono. */
+  hasta: string | null;
 }
 
 export function newId(): string {
@@ -155,6 +166,13 @@ export function sanitizePlantel(raw: any, indice: number): Squad | null {
   return {
     id: raw.id,
     llegada: fechaLlegada(raw, indice),
+    // Sin fecha de cambio se toma la de llegada: es lo más viejo que puede
+    // ser, así que en la primera sincronización se sube y queda al día.
+    actualizado:
+      typeof raw?.actualizado === 'string' &&
+      !Number.isNaN(Date.parse(raw.actualizado))
+        ? raw.actualizado
+        : fechaLlegada(raw, indice),
     nombre:
       typeof raw.nombre === 'string' && raw.nombre.trim()
         ? raw.nombre
@@ -175,10 +193,12 @@ export function sanitizePlantel(raw: any, indice: number): Squad | null {
 }
 
 export function plantelVacio(nombre = 'Mi plantel'): Squad {
+  const ahora = new Date().toISOString();
   return {
     id: newId(),
     nombre,
-    llegada: new Date().toISOString(),
+    llegada: ahora,
+    actualizado: ahora,
     jugadores: [],
     partidos: [],
     convocatoria: { ...CONVOCATORIA_VACIA },
@@ -222,6 +242,11 @@ export async function loadPlanteles(): Promise<Guardado> {
           predeterminadoId: existe(parsed?.predeterminadoId)
             ? parsed.predeterminadoId
             : null,
+          subido:
+            parsed?.subido && typeof parsed.subido === 'object'
+              ? parsed.subido
+              : {},
+          hasta: typeof parsed?.hasta === 'string' ? parsed.hasta : null,
           borrados: Array.isArray(parsed?.borrados)
             ? parsed.borrados.filter((x: unknown) => typeof x === 'string')
             : [],
@@ -237,6 +262,8 @@ export async function loadPlanteles(): Promise<Guardado> {
         activoId: migrados[0].id,
         predeterminadoId: migrados[0].id,
         borrados: [],
+        subido: {},
+        hasta: null,
       };
       await savePlanteles(guardado);
       return guardado;
@@ -248,7 +275,14 @@ export async function loadPlanteles(): Promise<Guardado> {
   // Instalación nueva: sin planteles. Que el primero lo cree y lo nombre el
   // usuario hace que el grupo tenga nombre propio desde el arranque, y es lo
   // que le da sentido a la pantalla de bienvenida.
-  return { planteles: [], activoId: '', predeterminadoId: null, borrados: [] };
+  return {
+    planteles: [],
+    activoId: '',
+    predeterminadoId: null,
+    borrados: [],
+    subido: {},
+    hasta: null,
+  };
 }
 
 const GUIA_KEY = 'cancha-app/guia/v1';

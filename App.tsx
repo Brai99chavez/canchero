@@ -9,12 +9,19 @@ import {
 } from '@expo-google-fonts/barlow';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { buildTeams } from './src/balance';
 import { ajustesDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
+import { Logotipo } from './src/components/Logo';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
@@ -57,7 +64,7 @@ import {
 } from './src/nube/envios';
 import { leerPerfil } from './src/nube/perfil';
 import { subirFotosPendientes } from './src/nube/fotos';
-import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
+import { EstadoSync, sincronizar, sinSubir } from './src/nube/sync';
 import {
   AVISO_PRO,
   idsActivos,
@@ -105,6 +112,16 @@ type Vista = 'lista' | 'plantel';
  */
 const CARGA_MINIMA = 1000;
 
+/**
+ * Cuánto se espera después del último cambio antes de subir.
+ *
+ * Mover el deslizador de una estadística dispara veinte cambios en dos
+ * segundos: sin esta pausa se mandaría veinte veces el mismo plantel. Y no
+ * puede ser mucho más largo, porque lo que no subió todavía es lo que se
+ * pierde si el teléfono se apaga.
+ */
+const ESPERA_ANTES_DE_SUBIR = 1500;
+
 
 
 
@@ -144,6 +161,8 @@ function Root() {
   const [resultadoId, setResultadoId] = useState<string | null>(null);
   const [guia, setGuia] = useState<EstadoGuia>({ activa: false, vistos: [] });
   const [sesion, setSesion] = useState<Sesion | null>(null);
+  /** Si ya se preguntó si había una sesión guardada. Antes no se sabe nada. */
+  const [sesionMirada, setSesionMirada] = useState(false);
   /** En cuál de las tres secciones está. Planteles es a lo que se entra. */
   const [seccion, setSeccion] = useState<SeccionKey>('planteles');
   const [amigos, setAmigos] = useState<Amigo[]>([]);
@@ -161,9 +180,14 @@ function Root() {
   const [recuperacion, setRecuperacion] = useState<Recuperacion | null>(null);
   /** Los planteles que otros te mandaron y todavía no aceptaste ni rechazaste. */
   const [envios, setEnvios] = useState<Envio[]>([]);
+  /** Cuándo terminó la última sincronización que salió bien. */
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
-  /** La firma de lo último que llegó a subir, para saber qué falta. */
-  const [firmaSubida, setFirmaSubida] = useState<string | null>(null);
+  /** Qué se confirmó arriba de cada plantel, y hasta cuándo se leyó. */
+  const [estadoSync, setEstadoSync] = useState<EstadoSync>({
+    subido: {},
+    hasta: null,
+  });
+  const [sincronizando, setSincronizando] = useState(false);
   /**
    * Los planteles borrados acá que todavía siguen en la nube. Viajan con el
    * backup y no en el momento de borrar, por lo mismo: un borrado sin querer
@@ -191,7 +215,9 @@ function Root() {
   // La sesión puede cambiar desde el modal o sola, cuando vence el token.
   useEffect(() => {
     if (!hayNube) return;
-    sesionActual().then(setSesion);
+    sesionActual()
+      .then(setSesion)
+      .finally(() => setSesionMirada(true));
     return alCambiarSesion(setSesion);
   }, []);
 
@@ -210,8 +236,7 @@ function Root() {
     if (!sesion) {
       setPlan(PLAN);
       setUltimaCopia(null);
-      setFirmaSubida(null);
-      // Los borrados pendientes se quedan: siguen siendo verdad aunque no
+        // Los borrados pendientes se quedan: siguen siendo verdad aunque no
       // haya sesión, y hay que propagarlos cuando se vuelva a entrar.
       return;
     }
@@ -324,6 +349,7 @@ function Root() {
       setActivoId(guardado.activoId);
       setPredeterminadoId(guardado.predeterminadoId);
       setBorrados(guardado.borrados);
+      setEstadoSync({ subido: guardado.subido, hasta: guardado.hasta });
       setVista(guardado.predeterminadoId ? 'plantel' : 'lista');
       setReady(true);
     });
@@ -337,23 +363,28 @@ function Root() {
       activoId,
       predeterminadoId,
       borrados: borradosPendientes,
+      subido: estadoSync.subido,
+      hasta: estadoSync.hasta,
     });
-  }, [planteles, activoId, predeterminadoId, borradosPendientes, ready]);
+  }, [
+    planteles,
+    activoId,
+    predeterminadoId,
+    borradosPendientes,
+    estadoSync,
+    ready,
+  ]);
 
   /**
-   * El respaldo NO se hace solo: sube únicamente cuando se toca el botón.
+   * Si hay algo que todavía no llegó al servidor.
    *
-   * Automático parecía mejor hasta que se piensa en el caso malo: borrás un
-   * plantel sin querer y a los dos segundos ese borrado ya está en la nube,
-   * que era justo de donde ibas a recuperarlo. Una copia que se pisa sola no
-   * es una copia de seguridad.
+   * El guardado es automático, pero no instantáneo: sin señal queda acá hasta
+   * que vuelva. Se muestra para que nadie dé por guardado lo que no lo está.
    */
-  const firmaActual = useMemo(() => firmaDe(planteles), [planteles]);
-
-  /** Si lo que hay en el teléfono no es lo último que se subió. */
   const haySinSubir =
     Boolean(sesion) &&
-    (firmaActual !== firmaSubida || borradosPendientes.length > 0);
+    (sinSubir(planteles, estadoSync.subido).length > 0 ||
+      borradosPendientes.length > 0);
 
   const activo = useMemo(
     () => planteles.find((p) => p.id === activoId) ?? planteles[0],
@@ -389,11 +420,21 @@ function Root() {
     return salida;
   }, [ajustes]);
 
-  /** Aplica un cambio sólo al plantel que se está usando. */
+  /**
+   * Aplica un cambio sólo al plantel que se está usando, y le pone la fecha.
+   *
+   * Todo lo que cambia un plantel pasa por acá, y por eso la fecha se estampa
+   * acá: si cada pantalla tuviera que acordarse de ponerla, la primera que se
+   * olvidara dejaría ese cambio sin subir para siempre.
+   */
   const editarPlantel = useCallback(
     (cambio: (plantel: Squad) => Squad) => {
       setPlanteles((prev) =>
-        prev.map((p) => (p.id === activoId ? cambio(p) : p))
+        prev.map((p) =>
+          p.id === activoId
+            ? { ...cambio(p), actualizado: new Date().toISOString() }
+            : p
+        )
       );
     },
     [activoId]
@@ -708,8 +749,18 @@ function Root() {
     [planteles, activoId, predeterminadoId]
   );
 
-  /** Deja la app como recién instalada: sin planteles, sin fotos, sin nada. */
+  /**
+   * Deja la app como recién instalada: sin planteles, sin fotos, sin nada.
+   *
+   * Los planteles se marcan como borrados antes de irse, así el servidor se
+   * entera. Sin eso quedarían arriba y la próxima vuelta de sincronización los
+   * traería de vuelta, que es lo contrario de empezar de cero. Van a la
+   * papelera como cualquier borrado, así que hay treinta días para arrepentirse.
+   */
   const handleReiniciar = useCallback(async () => {
+    setBorrados((prev) => [
+      ...new Set([...prev, ...planteles.map((p) => p.id)]),
+    ]);
     try {
       borrarTodasLasFotos();
     } catch {
@@ -725,7 +776,7 @@ function Root() {
     setTeamsVisible(false);
     setResultadoId(null);
     setVista('lista');
-  }, []);
+  }, [planteles]);
 
   /**
    * Con un solo jugador no se puede convocar a dos ni armar equipos: esos
@@ -809,82 +860,115 @@ function Root() {
     setEnvios((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
-  /** Mandar un plantel sube sus fotos: se guardan las URLs que quedaron. */
-  const handleFotosSubidas = useCallback((actualizado: Squad) => {
+  /**
+   * Mandar un plantel sube sus fotos: se guardan las URLs que quedaron.
+   *
+   * Con fecha nueva: si no, el servidor se quedaría con los jugadores sin foto
+   * para siempre —el plantel ya figuraba como subido y nada lo volvería a
+   * mandar—, y cambiar de teléfono traería las cartas vacías.
+   */
+  const handleFotosSubidas = useCallback((cambiado: Squad) => {
     setPlanteles((prev) =>
-      prev.map((p) => (p.id === actualizado.id ? actualizado : p))
+      prev.map((p) =>
+        p.id === cambiado.id
+          ? { ...cambiado, actualizado: new Date().toISOString() }
+          : p
+      )
     );
   }, []);
 
-  const handleBackup = useCallback(async () => {
-    if (!sesion) return;
-
-    // Primero las fotos: recién cuando están arriba el plantel puede llevar
-    // sus URLs. Las que fallan quedan locales y se reintentan en el próximo.
-    const conFotos = await subirFotosPendientes(planteles);
-    if (conFotos.subidas > 0) setPlanteles(conFotos.planteles);
-
-    const ignorados = await subir(conFotos.planteles);
-    // Los borrados van después de subir: si la subida falla, el plantel sigue
-    // en la nube y no se perdió nada.
-    for (const id of borradosPendientes) await marcarBorrado(id);
-
-    setBorrados([]);
-    setUltimaCopia(new Date());
-    setFirmaSubida(firmaDe(conFotos.planteles));
-
-    if (ignorados > 0) {
-      throw new Error(
-        `${ignorados} ${
-          ignorados === 1 ? 'plantel no entró' : 'planteles no entraron'
-        } en tu plan y ${
-          ignorados === 1 ? 'quedó' : 'quedaron'
-        } sólo en este teléfono. Se guardaron los más viejos.`
-      );
-    }
-    if (conFotos.fallaron > 0) {
-      throw new Error(
-        `Se guardó todo, pero ${conFotos.fallaron} ${
-          conFotos.fallaron === 1 ? 'foto quedó' : 'fotos quedaron'
-        } sin subir. Probá de nuevo más tarde.`
-      );
-    }
-  }, [planteles, sesion, borradosPendientes]);
-
   /**
-   * Traer reemplaza en vez de mezclar: sin una fecha de modificación por
-   * plantel no hay forma de saber cuál de las dos copias es la buena, y
-   * adivinar mal se lleva puestos datos que alguien cargó a mano.
+   * Sube lo que falta y trae lo que cambió.
    *
-   * Preguntar y contar cómo salió es cosa de la pantalla de cuenta: sus
-   * diálogos nacen dentro de su propia ventana y no corren riesgo de quedar
-   * por debajo. Acá sólo se trae y se aplica.
+   * Corre sola después de cada cambio, con un respiro de por medio: mover un
+   * deslizador de estadísticas dispara veinte cambios en dos segundos y no
+   * tiene sentido mandar veinte veces el mismo plantel.
+   *
+   * No avisa de los errores. Sin señal esto va a fallar seguido y es normal:
+   * lo que hay que mostrar no es un cartel cada vez, es que todavía queda algo
+   * sin subir, y de eso se encarga `haySinSubir`.
    */
-  const handleRestaurar = useCallback(async () => {
-    const traidos = await bajar();
-    if (traidos.length === 0) return 0;
+  const sincronizarAhora = useCallback(async () => {
+    if (!sesion || sincronizando) return;
+    setSincronizando(true);
+    try {
+      const salida = await sincronizar(planteles, borradosPendientes, estadoSync);
 
-    // Lo que se trae es exactamente lo que hay en la nube: no queda nada
-    // pendiente de subir ni de borrar.
-    setBorrados([]);
-    setFirmaSubida(firmaDe(traidos));
-    setUltimaCopia(new Date());
-    setPlanteles(traidos);
-    setActivoId(traidos[0].id);
-    setPredeterminadoId(null);
-    setVista('lista');
-    return traidos.length;
-  }, []);
+      setEstadoSync(salida.estado);
+      // Sólo si cambió algo: asignar el mismo arreglo dispararía otra vuelta.
+      if (salida.planteles !== planteles) setPlanteles(salida.planteles);
+      if (salida.borradosListos.length > 0) {
+        const listos = new Set(salida.borradosListos);
+        setBorrados((prev) => prev.filter((id) => !listos.has(id)));
+      }
+      if (!salida.faltaSubir) setUltimaCopia(new Date());
+    } finally {
+      setSincronizando(false);
+    }
+  }, [sesion, sincronizando, planteles, borradosPendientes, estadoSync]);
+
+  /*
+   * El disparador: cualquier cambio en los planteles o en lo borrado deja la
+   * sincronización agendada para dentro de un rato. Cada cambio nuevo corre el
+   * reloj, así que se manda una sola vez cuando la persona deja de tocar.
+   */
+  useEffect(() => {
+    if (!ready || !sesion || !haySinSubir) return;
+    const reloj = setTimeout(sincronizarAhora, ESPERA_ANTES_DE_SUBIR);
+    return () => clearTimeout(reloj);
+  }, [ready, sesion, haySinSubir, sincronizarAhora]);
+
+  /*
+   * Y al entrar, una vuelta para traer lo que se haya hecho en otro teléfono.
+   * Una sola vez por sesión: lo que llegue después llega por el aviso.
+   */
+  const yaTrajo = useRef(false);
+  useEffect(() => {
+    if (!ready || !sesion || yaTrajo.current) return;
+    yaTrajo.current = true;
+    sincronizarAhora();
+  }, [ready, sesion, sincronizarAhora]);
+
+  useEffect(() => {
+    if (!sesion) yaTrajo.current = false;
+  }, [sesion]);
 
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
 
   // Sin las fuentes cargadas el texto saltaría de tipografía al aparecer.
-  if (!ready || !fuentesListas || !tiempoCumplido) {
+  if (!ready || !fuentesListas || !tiempoCumplido || (hayNube && !sesionMirada)) {
     return (
       <>
         <Cargando />
         <StatusBar style="light" />
       </>
+    );
+  }
+
+  /*
+   * Sin cuenta no se entra. Todo lo que se hace se guarda en el servidor, así
+   * que sin saber de quién es no hay dónde guardarlo.
+   *
+   * Se muestra la pantalla de cuenta sola, sin la barra de abajo: no hay a qué
+   * otra sección ir, y una barra con dos pestañas que no llevan a ningún lado
+   * es peor que no tenerla.
+   */
+  if (hayNube && !sesion) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <StatusBar style="light" />
+        <View style={styles.marca}>
+          <Logotipo size={30} />
+        </View>
+        <PerfilScreen
+          sesion={null}
+          cuantosPlanteles={planteles.length}
+          ultimaCopia={null}
+          haySinSubir={false}
+          onRecuperado={() => {}}
+        />
+        {dialogo}
+      </SafeAreaView>
     );
   }
 
@@ -935,8 +1019,11 @@ function Root() {
                 : null
             }
             haySinSubir={haySinSubir}
-            onBackup={handleBackup}
-            onRestaurar={handleRestaurar}
+            onRecuperado={() => {
+              // El que volvió está en el servidor: la próxima vuelta lo trae.
+              setEstadoSync((prev) => ({ ...prev, hasta: null }));
+              sincronizarAhora();
+            }}
           />
         ) : vistaReal === 'lista' && seccion === 'amigos' ? (
           <AmigosScreen
@@ -1113,5 +1200,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     paddingTop: spacing.lg,
+  },
+  marca: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
 });
