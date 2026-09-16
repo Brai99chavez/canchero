@@ -27,13 +27,6 @@ interface Props {
   onSelectAll: (ids: string[]) => void;
   onClear: () => void;
   onBuild: () => void;
-  /**
-   * Si quedaron equipos armados y sin guardar. Guardado no cuenta: ahí el
-   * partido ya está en Activos y este cartel sólo repetía lo mismo con otras
-   * palabras.
-   */
-  haySorteo: boolean;
-  onVerSorteo: () => void;
 }
 
 /** Una salida del cartel amarillo. Chico, pero claramente tocable. */
@@ -73,8 +66,6 @@ export default function MatchScreen({
   onSelectAll,
   onClear,
   onBuild,
-  haySorteo,
-  onVerSorteo,
 }: Props) {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const needed = format * 2;
@@ -171,25 +162,6 @@ export default function MatchScreen({
 
   return (
     <View style={styles.container}>
-      {haySorteo ? (
-        <Presionable onPress={onVerSorteo}>
-          <Panel
-            style={styles.aviso}
-            esquinas={DIAGONAL}
-            degradado={degradados.acento}
-            borde="transparent"
-            grosor={0}
-          >
-            <Text style={styles.avisoTitulo}>
-              Tenés equipos armados sin guardar
-            </Text>
-            <Text style={styles.avisoTexto}>
-              Tocá para verlos y guardar el partido
-            </Text>
-          </Panel>
-        </Presionable>
-      ) : null}
-
       <Text style={styles.rotulo}>Cuántos por lado</Text>
       <View style={[styles.formatRow, styles.formatRowPrimera]}>
         {FORMATS.map((f) => (
@@ -419,26 +391,6 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   formatRowPrimera: { marginTop: spacing.xs },
-  aviso: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-  },
-  avisoTitulo: {
-    color: colors.sobreAcento,
-    fontSize: 14,
-    fontFamily: 'Anton_400Regular',
-    letterSpacing: 0.5,
-    transform: [{ skewX: angulo.derecho }],
-  },
-  avisoTexto: {
-    color: colors.sobreAcento,
-    opacity: 0.75,
-    fontSize: 12,
-    fontFamily: 'Barlow_600SemiBold',
-    marginTop: 1,
-    transform: [{ skewX: angulo.derecho }],
-  },
   formatText: {
     color: colors.text,
     fontFamily: 'Anton_400Regular',

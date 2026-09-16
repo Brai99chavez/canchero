@@ -444,12 +444,14 @@ export default function TeamsModal({
               title="Volver a sortear"
               variant="ghost"
               onPress={onReshuffle}
+              expandir
               style={styles.mitad}
             />
             <Button
               title="Descartar"
               variant="ghost"
               onPress={onDescartar}
+              expandir
               style={styles.mitad}
             />
           </View>

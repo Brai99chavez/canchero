@@ -68,6 +68,8 @@ interface ButtonProps {
   loading?: boolean;
   /** Versión chica, para las acciones de los encabezados. */
   compacto?: boolean;
+  /** Que llene el alto que le den, para que dos de una fila midan igual. */
+  expandir?: boolean;
   style?: ViewStyle;
 }
 
@@ -86,6 +88,7 @@ export function Button({
   disabled,
   loading,
   compacto,
+  expandir,
   style,
 }: ButtonProps) {
   const isPrimary = variant === 'primary';
@@ -104,7 +107,11 @@ export function Button({
       style={[apagado && styles.buttonDisabled, style]}
     >
       <Panel
-        style={[styles.button, compacto && styles.buttonCompacto]}
+        style={[
+          styles.button,
+          compacto && styles.buttonCompacto,
+          expandir && styles.buttonExpandido,
+        ]}
         esquinas={DIAGONAL}
         chaflan={compacto ? 9 : CHAFLAN}
         // Apagado va sin degradado: el relleno lleno se leería como habilitado
@@ -306,16 +313,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   button: {
-    /*
-     * Crece, pero sin flexBasis en cero. Dos botones al lado del otro se
-     * estiran al alto del más alto —uno tiene el texto en dos líneas y el otro
-     * en una— y sin esto el bloque de adentro se quedaba con su alto de
-     * contenido: mismo espacio, recuadros de distinto tamaño.
-     *
-     * `flex: 1` no sirve acá: pone flexBasis en 0 y en un padre de alto
-     * automático el bloque se aplasta a nada.
-     */
-    flexGrow: 1,
     paddingVertical: 13,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
@@ -325,6 +322,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: spacing.md,
   },
+  /*
+   * Para dos botones al lado del otro que tienen que medir igual. Uno lleva el
+   * texto en dos líneas y el otro en una: los dos se estiran al alto del más
+   * alto, pero sin esto el bloque de adentro se queda con su alto de contenido
+   * y quedan recuadros de distinto tamaño.
+   *
+   * No va puesto siempre porque entonces todo botón se estira a llenar lo que
+   * tenga alrededor: el de poner la foto del perfil ocupaba la pantalla
+   * entera.
+   *
+   * Y es flexGrow y no flex: `flex: 1` pone flexBasis en 0, y en un padre de
+   * alto automático eso aplasta el bloque a nada.
+   */
+  buttonExpandido: { flexGrow: 1 },
   buttonTextCompacto: {
     fontSize: 12,
     letterSpacing: 0.8,
