@@ -306,7 +306,8 @@ function Chip({
         chaflan={8}
         // Elegido se tiñe con su color en vez de rellenarse: son varios en
         // fila y el relleno lleno de cinco a la vez tapa la lista de abajo.
-        fondo={activo ? `${acento}22` : 'transparent'}
+        fondo={activo ? acento : 'transparent'}
+        opacidadFondo={activo ? 0.13 : undefined}
         borde={activo ? acento : colors.border}
         grosor={1.5}
       >

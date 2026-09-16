@@ -316,8 +316,9 @@ export default function PlayerFormModal({
                           esquinas={DIAGONAL}
                           chaflan={8}
                           fondo={
-                            active ? POSITION_COLORS[pos] + '26' : 'transparent'
+                            active ? POSITION_COLORS[pos] : 'transparent'
                           }
+                          opacidadFondo={active ? 0.15 : undefined}
                           borde={active ? POSITION_COLORS[pos] : colors.border}
                           grosor={1.5}
                         >

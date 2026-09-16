@@ -136,6 +136,7 @@ export default function Panel({
   grosor = 1,
   chaflan = CHAFLAN,
   esquinas = TODAS,
+  opacidadFondo,
   onMedida,
 }: {
   children?: React.ReactNode;
@@ -147,6 +148,15 @@ export default function Panel({
   grosor?: number;
   chaflan?: number;
   esquinas?: Esquinas;
+  /**
+   * De 0 a 1, para teñir con un color en vez de pintarlo.
+   *
+   * Va como número aparte y no como un color con alfa —`#FFC24B26`— porque
+   * react-native-svg no trata el alfa del color igual en todos lados, y un
+   * tinte del 15% que se dibuja opaco tapa todo lo de abajo. El mismo problema
+   * ya había aparecido con las paradas de los degradados.
+   */
+  opacidadFondo?: number;
   /**
    * Qué tamaño terminó teniendo. El panel ya se mide para dibujar el fondo, y
    * a veces quien lo usa necesita ese mismo número —la barra de pestañas, para
@@ -185,6 +195,7 @@ export default function Panel({
           <Path
             d={pathChaflan(medida.ancho, medida.alto, chaflan, esquinas)}
             fill={degradado ? `url(#${id})` : fondo}
+            fillOpacity={opacidadFondo}
             stroke={borde}
             strokeWidth={grosor}
           />

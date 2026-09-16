@@ -8,6 +8,8 @@ export const colors = {
   text: '#EDEFFF',
   textMuted: '#8F95C4',
   danger: '#FF6B6B',
+  /** "Ojo con esto": ni el verde de todo bien ni el rojo de algo roto. */
+  aviso: '#FFC24B',
   teamA: '#4BF0A5',
   teamB: '#38BDF8',
   /** El texto que va sobre un relleno claro o sobre el degradado. */

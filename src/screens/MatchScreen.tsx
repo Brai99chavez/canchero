@@ -153,16 +153,35 @@ export default function MatchScreen({
         </Pressable>
       </View>
 
+      {/*
+        Como cartel y no como una línea de texto: era una frase gris entre
+        otras frases grises y pasaba desapercibida, que es lo único que esto
+        no se puede permitir — si no se ve, no sirve para nada.
+      */}
       {sugerencia !== null ? (
         <Pressable
           onPress={() => elegir(sugerencia)}
-          style={styles.sugerencia}
-          hitSlop={6}
+          style={styles.sugerenciaCaja}
         >
-          <Text style={styles.sugerenciaTexto}>
-            Son {count}: alcanzan para fútbol {sugerencia}.{' '}
-            <Text style={styles.sugerenciaAccion}>Cambiar</Text>
-          </Text>
+          <Panel
+            style={styles.sugerencia}
+            esquinas={DIAGONAL}
+            chaflan={9}
+            fondo={colors.aviso}
+            opacidadFondo={0.12}
+            borde={colors.aviso}
+            grosor={1.5}
+          >
+            <Text style={styles.sugerenciaSigno}>!</Text>
+            <View style={styles.sugerenciaTextos}>
+              <Text style={styles.sugerenciaTitulo}>
+                Marcaste {count}: alcanzan para fútbol {sugerencia}
+              </Text>
+              <Text style={styles.sugerenciaAccion}>
+                Tocá acá para cambiar
+              </Text>
+            </View>
+          </Panel>
         </Pressable>
       ) : null}
 
@@ -239,21 +258,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  sugerencia: {
+  sugerenciaCaja: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  sugerenciaTexto: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontFamily: 'Barlow_400Regular',
-    lineHeight: 17,
+  sugerencia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
   },
-  // Subrayado y en el color de la app: sin eso no se ve que se puede tocar.
+  // El signo va en su propia columna: la línea de texto arranca siempre en el
+  // mismo lugar aunque el número cambie de largo.
+  sugerenciaSigno: {
+    color: colors.aviso,
+    fontSize: 22,
+    lineHeight: 26,
+    fontFamily: 'Anton_400Regular',
+    width: 14,
+    textAlign: 'center',
+  },
+  sugerenciaTextos: { flex: 1 },
+  sugerenciaTitulo: {
+    color: colors.text,
+    fontSize: 13,
+    fontFamily: 'Barlow_700Bold',
+    lineHeight: 18,
+  },
   sugerenciaAccion: {
-    color: colors.primary,
+    color: colors.aviso,
+    fontSize: 11,
     fontFamily: 'Barlow_800ExtraBold',
-    textDecorationLine: 'underline',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
   rotulo: {
     color: colors.textMuted,
