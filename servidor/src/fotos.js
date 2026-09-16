@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  CopyObjectCommand,
   DeleteObjectsCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
@@ -88,6 +89,40 @@ export async function permisoDeSubida(usuarioId, tipo, carpeta = 'jugadores') {
   );
 
   return { url, key, publica: `${publica}/${key}` };
+}
+
+/**
+ * Copia una foto a la carpeta de otra cuenta y devuelve la URL nueva.
+ *
+ * Se usa cuando alguien acepta un plantel que le mandaron. Sin copiarla, las
+ * cartas del que recibe apuntarían a los archivos del que mandó, y el día que
+ * ese otro borre el plantel la limpieza de huérfanas se las llevaría: cada
+ * cuenta barre lo suyo, y esos archivos serían suyos.
+ *
+ * Si algo falla devuelve null y el que llama se queda con la URL original: una
+ * foto que puede romperse más adelante es mejor que no aceptar el plantel.
+ */
+export async function copiarFoto(url, paraUsuarioId) {
+  if (!hayFotos || !esNuestra(url)) return null;
+
+  const origen = url.slice(publica.length + 1);
+  const extension = origen.split('.').pop();
+  if (!Object.values(TIPOS).includes(extension)) return null;
+
+  const destino = `${paraUsuarioId}/jugadores/${randomBytes(16).toString('hex')}.${extension}`;
+  try {
+    await getCliente().send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        // El origen va con el bucket adelante, que es como lo pide S3.
+        CopySource: `${bucket}/${origen}`,
+        Key: destino,
+      })
+    );
+  } catch {
+    return null;
+  }
+  return `${publica}/${destino}`;
 }
 
 /** Si una URL es de nuestro bucket. Lo demás no se borra ni se toca. */

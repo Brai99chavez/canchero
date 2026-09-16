@@ -236,16 +236,33 @@ export async function importar(): Promise<Importado | null> {
     throw new Error('El archivo no es un respaldo de CANCHERO.');
   }
 
+  const leidos = planteesDesde(crudo.planteles);
+  if (leidos.planteles.length === 0) {
+    throw new Error('El archivo no tiene planteles.');
+  }
+  return leidos;
+}
+
+/**
+ * Arma planteles nuevos a partir de unos crudos, vengan de un archivo o de un
+ * envío de otra persona.
+ *
+ * Siempre con ids nuevos: los del origen podrían chocar con los que ya hay en
+ * este teléfono, y dos planteles con el mismo id se pisarían al respaldar. Por
+ * eso se lleva un mapa de los ids viejos a los nuevos, sin el cual el historial
+ * de partidos quedaría apuntando a jugadores que no existen.
+ */
+export function planteesDesde(crudos: any[]): Importado {
   const planteles: Squad[] = [];
   let jugadores = 0;
   let partidos = 0;
-  // Lo importado llega ahora, por definición: nunca le saca el lugar a lo que
-  // ya está en el teléfono. El índice conserva el orden del archivo, que
-  // importa cuando se restaura un respaldo entero en un teléfono vacío.
+  // Lo que llega, llega ahora: nunca le saca el lugar a lo que ya está en el
+  // teléfono. El índice conserva el orden del origen, que importa cuando se
+  // restaura un respaldo entero en un teléfono vacío.
   const ahora = Date.now();
   let indice = 0;
 
-  for (const p of crudo.planteles) {
+  for (const p of crudos) {
     const lista: Player[] = [];
     // De los ids del archivo a los ids nuevos, para poder traer el historial.
     const mapa: Record<string, string> = {};
@@ -282,6 +299,5 @@ export async function importar(): Promise<Importado | null> {
     partidos += historial.length;
   }
 
-  if (planteles.length === 0) throw new Error('El archivo no tiene planteles.');
   return { planteles, jugadores, partidos };
 }

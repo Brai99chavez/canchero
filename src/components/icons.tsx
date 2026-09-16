@@ -111,6 +111,16 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** Avión de papel: mandarle el plantel a otro. */
+export function SendIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M21 3L10.5 13.5" />
+      <Path d="M21 3l-6.8 18-3.7-7.5L3 9.8 21 3z" />
+    </Trazo>
+  );
+}
+
 /** Flecha que entra a una bandeja: importar. */
 export function ImportIcon(props: IconProps) {
   return (

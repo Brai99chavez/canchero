@@ -68,6 +68,34 @@ export function explicar(error: unknown): Explicacion {
         'sola vez. Pedí uno nuevo desde "Olvidé mi contraseña".',
     };
   }
+  if (m.includes('no hay nadie que se llame')) {
+    return {
+      titulo: 'No encontramos a esa persona',
+      detalle:
+        'Fijate que el nombre esté bien escrito. Tiene que ser el que eligió ' +
+        'en su perfil, que no es su mail.',
+    };
+  }
+  if (m.includes('elegí tu nombre de usuario')) {
+    return {
+      titulo: 'Te falta tu nombre de usuario',
+      detalle:
+        'Entrá a Cuenta y elegí uno en Perfil. El que recibe el plantel ' +
+        'necesita saber de quién es.',
+    };
+  }
+  if (m.includes('ese sos vos')) {
+    return {
+      titulo: 'Ese sos vos',
+      detalle: 'Poné el nombre de la persona a la que se lo querés mandar.',
+    };
+  }
+  if (m.includes('ya está tomado')) {
+    return {
+      titulo: 'Ese nombre ya está tomado',
+      detalle: 'Probá con otro: no puede haber dos personas con el mismo.',
+    };
+  }
   if (m.includes('too many') || m.includes('rate limit')) {
     return {
       titulo: 'Demasiados intentos',

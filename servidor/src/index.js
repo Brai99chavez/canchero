@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
 import { hayMails } from './mails.js';
+import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
 import { guardarPerfil, leerPerfil } from './perfil.js';
 import { planDe, recortarAlPlan } from './planes.js';
 import {
@@ -59,6 +60,13 @@ app.use('/fotos/*', async (c, siguiente) => {
   await siguiente();
 });
 
+app.use('/envios/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
 app.use('/perfil', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
@@ -94,6 +102,49 @@ app.put('/perfil', async (c) => {
   try {
     const perfil = await guardarPerfil(usuario.id, cambios);
     return c.json({ email: usuario.email, ...perfil });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/**
+ * Mandarle un plantel a otro por su nombre de usuario.
+ *
+ * Va una copia: el que recibe la acepta y a partir de ahí es suya. Nada de
+ * esto toca el plantel del que mandó.
+ */
+app.post('/envios', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    return c.json(
+      await enviarPlantel(usuario.id, cuerpo?.usuario, cuerpo?.plantel)
+    );
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/** Lo que me llegó y todavía no abrí. */
+app.get('/envios', async (c) => {
+  const usuario = c.get('usuario');
+  return c.json({ envios: await pendientesDe(usuario.id) });
+});
+
+app.post('/envios/:id/aceptar', async (c) => {
+  const usuario = c.get('usuario');
+  try {
+    return c.json(await aceptar(usuario.id, c.req.param('id')));
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+app.post('/envios/:id/rechazar', async (c) => {
+  const usuario = c.get('usuario');
+  try {
+    await rechazar(usuario.id, c.req.param('id'));
+    return c.json({ ok: true });
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
   }

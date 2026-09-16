@@ -57,3 +57,30 @@ create table if not exists planteles (
 
 create index if not exists planteles_por_dueno
   on planteles (dueno) where not borrado;
+
+-- ----------------------------------------------------------------- envios
+-- Un plantel que alguien le manda a otro por nombre de usuario.
+--
+-- Es una copia y no un plantel compartido: viaja el JSON, el que lo recibe lo
+-- acepta y a partir de ahí es suyo. Compartir uno en vivo —que los dos vean
+-- los mismos partidos— es otra cosa y necesita resolver quién gana cuando los
+-- dos editan; esto no.
+--
+-- El envío queda guardado aunque se acepte, con `estado`: si se borrara al
+-- aceptar, tocar dos veces "aceptar" con mala señal cargaría el plantel dos
+-- veces, y no habría forma de saber que ya había pasado.
+create table if not exists envios (
+  id          text        primary key,
+  de          text        not null references "user" (id) on delete cascade,
+  para        text        not null references "user" (id) on delete cascade,
+  nombre      text        not null,
+  datos       jsonb       not null default '{}'::jsonb,
+  estado      text        not null default 'pendiente',
+  enviado     timestamptz not null default now(),
+  resuelto    timestamptz,
+  constraint estado_valido check (estado in ('pendiente', 'aceptado', 'rechazado'))
+);
+
+-- Lo único que se consulta seguido: qué tiene sin abrir el que recibe.
+create index if not exists envios_pendientes
+  on envios (para, enviado) where estado = 'pendiente';

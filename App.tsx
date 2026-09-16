@@ -19,6 +19,7 @@ import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
 import TabBar from './src/components/TabBar';
+import { planteesDesde } from './src/backup';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
 import Cargando from './src/screens/Cargando';
 import CuentaModal from './src/screens/CuentaModal';
@@ -42,6 +43,12 @@ import {
   Sesion,
 } from './src/nube/cuenta';
 import { alRecuperar, Recuperacion } from './src/nube/enlaces';
+import {
+  aceptarEnvio,
+  Envio,
+  pendientes,
+  rechazarEnvio,
+} from './src/nube/envios';
 import { subirFotosPendientes } from './src/nube/fotos';
 import { bajar, firmaDe, marcarBorrado, subir } from './src/nube/sync';
 import {
@@ -82,6 +89,7 @@ type Vista = 'lista' | 'plantel';
 
 
 
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -119,6 +127,8 @@ function Root() {
   const [cuentaVisible, setCuentaVisible] = useState(false);
   /** Lo que trajo el link del mail para cambiar la contraseña. */
   const [recuperacion, setRecuperacion] = useState<Recuperacion | null>(null);
+  /** Los planteles que otros te mandaron y todavía no aceptaste ni rechazaste. */
+  const [envios, setEnvios] = useState<Envio[]>([]);
   const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
   /** La firma de lo último que llegó a subir, para saber qué falta. */
   const [firmaSubida, setFirmaSubida] = useState<string | null>(null);
@@ -175,6 +185,24 @@ function Root() {
     }
     planDeLaCuenta().then(setPlan);
   }, [sesion]);
+
+  /**
+   * Lo que te mandaron. Se mira al entrar y nada más: no hay aviso al momento,
+   * así que el que manda avisa por otro lado y esto aparece la próxima vez.
+   * Un plantel no es algo urgente.
+   */
+  const revisarEnvios = useCallback(() => {
+    if (!sesion) {
+      setEnvios([]);
+      return;
+    }
+    // Si falla —sin señal, servidor dormido— no se avisa: la bandeja queda
+    // vacía y se vuelve a mirar la próxima. No hay nada que el usuario pueda
+    // hacer con ese error.
+    pendientes().then(setEnvios).catch(() => {});
+  }, [sesion]);
+
+  useEffect(revisarEnvios, [revisarEnvios]);
 
   useEffect(() => {
     loadGuia().then(setGuia);
@@ -643,6 +671,37 @@ function Root() {
     setPlanteles((prev) => [...prev, ...nuevos]);
   }, []);
 
+  /**
+   * Acepta un plantel que te mandaron y lo guarda como uno más.
+   *
+   * Entra aunque pase el tope del plan, igual que al importar: perder algo que
+   * alguien te mandó sería peor que verlo bloqueado. Cuáles se pueden usar lo
+   * decide después el orden de llegada.
+   */
+  const handleAceptarEnvio = useCallback(async (id: string) => {
+    const traido = await aceptarEnvio(id);
+    const { planteles: nuevos } = planteesDesde([
+      { nombre: traido.nombre, ...traido.datos },
+    ]);
+    if (nuevos.length > 0) {
+      setPlanteles((prev) => [...prev, ...nuevos]);
+      setActivoId(nuevos[0].id);
+    }
+    setEnvios((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const handleRechazarEnvio = useCallback(async (id: string) => {
+    await rechazarEnvio(id);
+    setEnvios((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  /** Mandar un plantel sube sus fotos: se guardan las URLs que quedaron. */
+  const handleFotosSubidas = useCallback((actualizado: Squad) => {
+    setPlanteles((prev) =>
+      prev.map((p) => (p.id === actualizado.id ? actualizado : p))
+    );
+  }, []);
+
   const handleBackup = useCallback(async () => {
     if (!sesion) return;
 
@@ -760,6 +819,9 @@ function Root() {
             motivoBloqueo={motivoBloqueado(plan)}
             avisoPro={AVISO_PRO}
             sesion={hayNube ? sesion : undefined}
+            envios={envios}
+            onAceptarEnvio={handleAceptarEnvio}
+            onRechazarEnvio={handleRechazarEnvio}
             onCuenta={() => setCuentaVisible(true)}
             onNuevo={() => {
               if (hayLugar()) setNuevoVisible(true);
@@ -831,6 +893,8 @@ function Root() {
         visible={enConfig !== null}
         plantel={enConfig}
         esPredeterminado={enConfig?.id === predeterminadoId}
+        haySesion={Boolean(sesion)}
+        onFotosSubidas={handleFotosSubidas}
         onClose={() => setConfigId(null)}
         onGuardar={(cambios) =>
           enConfig && handleGuardarConfig(enConfig.id, cambios)
@@ -859,7 +923,10 @@ function Root() {
               })
             : null
         }
-        onClose={() => setCuentaVisible(false)}
+        onClose={() => {
+          setCuentaVisible(false);
+          revisarEnvios();
+        }}
         haySinSubir={haySinSubir}
         onBackup={handleBackup}
         onRestaurar={handleRestaurar}

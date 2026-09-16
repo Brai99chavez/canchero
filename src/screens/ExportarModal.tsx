@@ -2,23 +2,31 @@ import React, { useState } from 'react';
 import { compartir, descargar } from '../backup';
 import { useDialogo } from '../components/Dialogo';
 import Hoja, { Opcion } from '../components/Hoja';
-import { DownloadIcon, ShareIcon } from '../components/icons';
+import { DownloadIcon, SendIcon, ShareIcon } from '../components/icons';
 import { colors } from '../theme';
 import { Squad } from '../types';
 
 /**
- * Los dos caminos de exportar. Antes era un botón solo que abría el menú de
- * compartir, y no había forma de quedarse con el archivo: el respaldo dependía
- * de mandárselo a uno mismo por WhatsApp.
+ * Las formas de sacar un plantel de acá.
+ *
+ * Mandárselo a alguien de CANCHERO va primero porque es lo que se quiere hacer
+ * casi siempre: le llega adentro de la app, con las fotos, y lo acepta de un
+ * toque. Las otras dos son para lo demás —guardarte una copia, o pasárselo a
+ * alguien que no tiene la app— y ahí viaja un archivo suelto.
  */
 export default function ExportarModal({
   visible,
   plantel,
+  haySesion,
   onClose,
+  onEnviar,
 }: {
   visible: boolean;
   plantel: Squad | null;
+  /** Sin cuenta no hay a quién mandárselo ni de parte de quién. */
+  haySesion: boolean;
   onClose: () => void;
+  onEnviar: () => void;
 }) {
   const [trabajando, setTrabajando] = useState(false);
   const { dialogo, avisar } = useDialogo();
@@ -68,16 +76,26 @@ export default function ExportarModal({
   return (
     <Hoja
       visible={visible}
-      titulo="Exportar plantel"
+      titulo="Pasar el plantel"
       bajada={
         plantel
-          ? `Se genera un archivo JSON con ${plantel.jugadores.length} ` +
+          ? `${plantel.jugadores.length} ` +
             `${plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'} y su ` +
-            'historial de partidos. Las fotos no viajan.'
+            'historial de partidos. En el archivo las fotos no viajan; ' +
+            'enviándolo por la app, sí.'
           : undefined
       }
       onClose={onClose}
     >
+      {haySesion ? (
+        <Opcion
+          icono={<SendIcon color={colors.sobreAcento} size={22} />}
+          titulo="Enviar a alguien de CANCHERO"
+          detalle="Con su nombre de usuario. Le llega adentro de la app y lo acepta ahí."
+          onPress={onEnviar}
+          disabled={trabajando}
+        />
+      ) : null}
       <Opcion
         icono={<DownloadIcon color={colors.sobreAcento} size={22} />}
         titulo="Guardar en el teléfono"

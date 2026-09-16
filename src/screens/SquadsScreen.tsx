@@ -21,7 +21,8 @@ import { useDialogo } from '../components/Dialogo';
 import { Logotipo } from '../components/Logo';
 import { Objetivo } from '../components/Guia';
 import { Aparecer, Presionable } from '../components/motion';
-import { EmptyState } from '../components/ui';
+import { Button, EmptyState } from '../components/ui';
+import { Envio } from '../nube/envios';
 import { angulo, colors, degradados, radius, spacing } from '../theme';
 import { Squad } from '../types';
 import ImportarModal from './ImportarModal';
@@ -53,6 +54,10 @@ interface Props {
    */
   hayLugar: () => boolean;
   onImportar: (nuevos: Squad[]) => void;
+  /** Los planteles que otros te mandaron, esperando que decidas. */
+  envios: Envio[];
+  onAceptarEnvio: (id: string) => Promise<void>;
+  onRechazarEnvio: (id: string) => Promise<void>;
   onReiniciar: () => void;
 }
 
@@ -70,15 +75,36 @@ export default function SquadsScreen({
   onNuevo,
   hayLugar,
   onImportar,
+  envios,
+  onAceptarEnvio,
+  onRechazarEnvio,
   onReiniciar,
 }: Props) {
   const [importarVisible, setImportarVisible] = useState(false);
-  const { dialogo, preguntar } = useDialogo();
+  /** Cuál se está aceptando o rechazando, para no tocarlo dos veces. */
+  const [resolviendo, setResolviendo] = useState<string | null>(null);
+  const { dialogo, avisar, preguntar } = useDialogo();
 
   const totalJugadores = planteles.reduce(
     (acc, p) => acc + p.jugadores.length,
     0
   );
+
+  /** Acepta o rechaza, sin dejar tocar dos veces mientras va y viene. */
+  async function resolver(id: string, accion: (id: string) => Promise<void>) {
+    if (resolviendo) return;
+    setResolviendo(id);
+    try {
+      await accion(id);
+    } catch (error) {
+      avisar(
+        'No se pudo',
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      setResolviendo(null);
+    }
+  }
 
   function confirmarReinicio() {
     // Se pregunta dos veces a propósito: es lo único de la app que no tiene
@@ -150,6 +176,55 @@ export default function SquadsScreen({
           </Objetivo>
         </View>
       </View>
+
+      {/*
+        Lo que te mandaron va arriba de todo y no adentro de la lista: no es un
+        plantel tuyo hasta que lo aceptes, y mezclarlo con los tuyos haría
+        dudar de cuáles son cuáles.
+      */}
+      {envios.map((envio) => (
+        <Panel
+          key={envio.id}
+          style={styles.envio}
+          degradado={degradados.panel}
+          borde={colors.primary}
+          grosor={1.5}
+          esquinas={DIAGONAL}
+        >
+          <Text style={styles.envioDe}>@{envio.de} te mandó un plantel</Text>
+          <Text style={styles.envioNombre}>{envio.nombre}</Text>
+          <Text style={styles.envioDetalle}>
+            {envio.jugadores}{' '}
+            {envio.jugadores === 1 ? 'jugador' : 'jugadores'} ·{' '}
+            {envio.partidos}{' '}
+            {envio.partidos === 1 ? 'partido' : 'partidos'}
+          </Text>
+          <View style={styles.envioBotones}>
+            <Button
+              title="Aceptar"
+              onPress={() => resolver(envio.id, onAceptarEnvio)}
+              disabled={resolviendo !== null}
+              loading={resolviendo === envio.id}
+              compacto
+            />
+            <Button
+              title="Rechazar"
+              onPress={() =>
+                preguntar({
+                  titulo: 'Rechazar el plantel',
+                  mensaje: `Se descarta el que te mandó @${envio.de}. Si lo querés después, se lo vas a tener que pedir de nuevo.`,
+                  confirmar: 'Rechazar',
+                  peligro: true,
+                  onConfirmar: () => resolver(envio.id, onRechazarEnvio),
+                })
+              }
+              disabled={resolviendo !== null}
+              variant="ghost"
+              compacto
+            />
+          </View>
+        </Panel>
+      ))}
 
       <FlatList
         data={planteles}
@@ -237,6 +312,34 @@ export default function SquadsScreen({
 }
 
 const styles = StyleSheet.create({
+  envio: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    gap: 2,
+  },
+  envioDe: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  envioNombre: {
+    color: colors.text,
+    fontSize: 17,
+    fontFamily: 'Barlow_900Black',
+  },
+  envioDetalle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: 'Barlow_400Regular',
+  },
+  envioBotones: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
   container: { flex: 1 },
   nombreBloqueado: { color: colors.textMuted },
   bloqueado: {

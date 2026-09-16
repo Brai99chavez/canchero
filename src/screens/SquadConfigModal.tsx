@@ -18,6 +18,7 @@ import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
 import { Squad } from '../types';
+import EnviarModal from './EnviarModal';
 import ExportarModal from './ExportarModal';
 
 export interface CambiosPlantel {
@@ -29,24 +30,31 @@ interface Props {
   visible: boolean;
   plantel: Squad | null;
   esPredeterminado: boolean;
+  /** Con sesión aparece la opción de mandárselo a alguien por su usuario. */
+  haySesion: boolean;
   onClose: () => void;
   onGuardar: (cambios: CambiosPlantel) => void;
   onBorrar: () => void;
+  /** Mandar sube las fotos que faltaban: hay que guardar las URLs nuevas. */
+  onFotosSubidas: (plantel: Squad) => void;
 }
 
 export default function SquadConfigModal({
   visible,
   plantel,
   esPredeterminado,
+  haySesion,
   onClose,
   onGuardar,
   onBorrar,
+  onFotosSubidas,
 }: Props) {
   // Todo se edita en borrador y recién se aplica con Guardar.
   const [nombre, setNombre] = useState('');
   const { dialogo, avisar, preguntar } = useDialogo();
   const [predeterminado, setPredeterminado] = useState(false);
   const [exportarVisible, setExportarVisible] = useState(false);
+  const [enviarVisible, setEnviarVisible] = useState(false);
 
   useEffect(() => {
     if (!visible || !plantel) return;
@@ -178,10 +186,24 @@ export default function SquadConfigModal({
         </KeyboardAvoidingView>
       </SafeAreaView>
 
+      <EnviarModal
+        visible={enviarVisible}
+        plantel={plantel}
+        onClose={() => setEnviarVisible(false)}
+        onFotosSubidas={onFotosSubidas}
+      />
+
       <ExportarModal
         visible={exportarVisible}
         plantel={plantel}
+        haySesion={haySesion}
         onClose={() => setExportarVisible(false)}
+        onEnviar={() => {
+          // Una hoja arriba de la otra se ve mal y la de abajo igual no se
+          // puede tocar: se cierra ésta y se abre la de enviar.
+          setExportarVisible(false);
+          setEnviarVisible(true);
+        }}
       />
 
       {dialogo}
