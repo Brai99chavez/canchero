@@ -92,9 +92,18 @@ export async function enviarPlantel(deId, aQuien, plantel) {
 
   const id = nuevoId();
   await consultar(
-    `insert into envios (id, de, para, nombre, datos)
-     values ($1, $2, $3, $4, $5)`,
-    [id, deId, paraId, plantel.nombre, plantel.datos ?? {}]
+    `insert into envios (id, de, para, nombre, datos, plantel_id)
+     values ($1, $2, $3, $4, $5, $6)`,
+    [
+      id,
+      deId,
+      paraId,
+      plantel.nombre,
+      plantel.datos ?? {},
+      // De qué plantel salió: si lo borran antes de que el otro lo acepte,
+      // este envío se cancela.
+      typeof plantel.id === 'string' ? plantel.id : null,
+    ]
   );
   // El envío es un mensaje más de la conversación: así se ve en el mismo lugar
   // que todo lo demás, y su estado sale de esta misma fila.
@@ -162,6 +171,32 @@ export async function aceptar(usuarioId, envioId) {
   });
 
   return { nombre: rows[0].nombre, datos: { ...datos, jugadores: copiados } };
+}
+
+/**
+ * Cancela lo que se mandó de un plantel y todavía nadie acepto.
+ *
+ * Corre al borrar el plantel. Lo que se compartió y no se acepto todavía deja
+ * de tener sentido: el plantel que iba a recibir ya no existe. Lo ya aceptado
+ * no se toca — eso ya es de la otra persona.
+ */
+export async function cancelarEnviosDe(usuarioId, plantelId) {
+  const { rows } = await consultar(
+    `update envios set estado = 'cancelado', resuelto = now()
+      where de = $1 and plantel_id = $2 and estado = 'pendiente'
+      returning para, nombre`,
+    [usuarioId, plantelId]
+  );
+
+  const quien = await usuarioDe(usuarioId);
+  for (const fila of rows) {
+    await avisar(fila.para, {
+      titulo: 'Se canceló un plantel',
+      cuerpo: `@${quien} borró ${fila.nombre} antes de que lo aceptaras.`,
+      datos: { tipo: 'respuesta', de: quien },
+    });
+  }
+  return rows.length;
 }
 
 export async function rechazar(usuarioId, envioId) {

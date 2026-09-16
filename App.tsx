@@ -165,6 +165,8 @@ function Root() {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   /** Si ya se preguntó si había una sesión guardada. Antes no se sabe nada. */
   const [sesionMirada, setSesionMirada] = useState(false);
+  /** Quién entró. Lo que decide de quién son los datos de este teléfono. */
+  const idSesion = sesion?.id ?? null;
   /** En cuál de las tres secciones está. Planteles es a lo que se entra. */
   const [seccion, setSeccion] = useState<SeccionKey>('planteles');
   const [amigos, setAmigos] = useState<Amigo[]>([]);
@@ -384,21 +386,61 @@ function Root() {
 
   useEffect(() => {
     loadGuia().then(setGuia);
+  }, []);
+
+  /*
+   * Lo guardado se lee recién cuando se sabe de quién es la sesión, y no al
+   * arrancar.
+   *
+   * Leerlo antes fue la causa de que los planteles de una cuenta aparecieran
+   * en otra: quedaban en memoria mientras se averiguaba quién había entrado, y
+   * cualquier cosa que corriera en ese rato los tomaba por propios. Limpiar
+   * después no alcanza — siempre hay una ventana.
+   *
+   * Si lo guardado es de otra cuenta, o no dice de quién es, se descarta: está
+   * todo en el servidor y se vuelve a bajar. Lo que no se puede hacer es
+   * adivinar de quién era.
+   */
+  useEffect(() => {
+    if (hayNube && !sesionMirada) return;
+
+    let vigente = true;
     loadPlanteles().then((guardado) => {
-      setPlanteles(guardado.planteles);
-      setActivoId(guardado.activoId);
-      setPredeterminadoId(guardado.predeterminadoId);
-      setBorrados(guardado.borrados);
-      setEstadoSync({ subido: guardado.subido, hasta: guardado.hasta });
-      setDuenoLocal(guardado.dueno);
-      setVista(guardado.predeterminadoId ? 'plantel' : 'lista');
+      if (!vigente) return;
+
+      const dueno = idSesion;
+      const esMio = !hayNube || guardado.dueno === dueno;
+
+      setPlanteles(esMio ? guardado.planteles : []);
+      setActivoId(esMio ? guardado.activoId : '');
+      setPredeterminadoId(esMio ? guardado.predeterminadoId : null);
+      setBorrados(esMio ? guardado.borrados : []);
+      setEstadoSync(
+        esMio
+          ? { subido: guardado.subido, hasta: guardado.hasta }
+          : { subido: {}, hasta: null }
+      );
+      setDuenoLocal(dueno);
+      setVista(esMio && guardado.predeterminadoId ? 'plantel' : 'lista');
       setReady(true);
     });
-  }, []);
+
+    return () => {
+      vigente = false;
+    };
+    /*
+     * Se depende del id y no del objeto de la sesión: si el objeto cambiara de
+     * identidad sin cambiar de persona, esto recargaría del disco y se llevaría
+     * puesto lo que todavía no se guardó.
+     */
+  }, [hayNube, sesionMirada, idSesion]);
 
   // Persiste los planteles en el celular ante cualquier cambio.
   useEffect(() => {
     if (!ready) return;
+    // Nunca escribir con un dueño que no es el de la sesión: seria dejarle lo
+    // de uno al que entre después.
+    if (hayNube && duenoLocal !== idSesion) return;
     savePlanteles({
       planteles,
       activoId,
@@ -415,6 +457,7 @@ function Root() {
     borradosPendientes,
     estadoSync,
     duenoLocal,
+    idSesion,
     ready,
   ]);
 
@@ -920,30 +963,6 @@ function Root() {
     );
   }, []);
 
-  /*
-   * Si lo guardado es de otra cuenta, se descarta antes de tocar nada. Pasa
-   * cuando alguien cierra sesión y entra otro: lo de acá es del anterior y
-   * subirlo se lo regalaría al que entró. Está todo en la cuenta del dueño, así
-   * que no se pierde nada.
-   *
-   * Va antes que la sincronización a propósito, para que nunca llegue a correr
-   * con datos ajenos en la mano.
-   */
-  useEffect(() => {
-    if (!ready || !sesion) return;
-    if (duenoLocal === sesion.id) return;
-
-    if (duenoLocal !== null) {
-      setPlanteles([]);
-      setActivoId('');
-      setPredeterminadoId(null);
-      setBorrados([]);
-      setEstadoSync({ subido: {}, hasta: null });
-      setVista('lista');
-    }
-    setDuenoLocal(sesion.id);
-  }, [ready, sesion, duenoLocal]);
-
   /**
    * Sube lo que falta y trae lo que cambió.
    *
@@ -991,16 +1010,19 @@ function Root() {
    * Y al entrar, una vuelta para traer lo que se haya hecho en otro teléfono.
    * Una sola vez por sesión: lo que llegue después llega por el aviso.
    */
-  const yaTrajo = useRef(false);
+  /*
+   * Se guarda para qué sesión se hizo, y no un simple sí/no. Con un booleano
+   * que se marcaba antes de llamar, si esa primera vuelta no llegaba a correr
+   * —porque todavía no se sabía de quién eran los datos— no se reintentaba
+   * nunca y la cuenta quedaba sin sus planteles hasta que se tocara algo.
+   */
+  const trajoDe = useRef<string | null>(null);
   useEffect(() => {
-    if (!ready || !sesion || yaTrajo.current) return;
-    yaTrajo.current = true;
+    if (!ready || !sesion || duenoLocal !== sesion.id) return;
+    if (trajoDe.current === sesion.id) return;
+    trajoDe.current = sesion.id;
     sincronizarAhora();
-  }, [ready, sesion, sincronizarAhora]);
-
-  useEffect(() => {
-    if (!sesion) yaTrajo.current = false;
-  }, [sesion]);
+  }, [ready, sesion, duenoLocal, sincronizarAhora]);
 
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
 

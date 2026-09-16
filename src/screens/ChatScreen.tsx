@@ -39,6 +39,8 @@ const ESTADOS = {
   pendiente: { texto: 'Esperando respuesta', color: colors.textMuted },
   aceptado: { texto: 'Aceptado', color: colors.primary },
   rechazado: { texto: 'Rechazado', color: colors.danger },
+  // El que compartió borró el plantel antes de que el otro lo aceptara.
+  cancelado: { texto: 'El plantel ya no existe', color: colors.aviso },
 } as const;
 
 /**
@@ -190,7 +192,13 @@ export default function ChatScreen({
                     esquinas={DIAGONAL}
                   >
                     <Text style={styles.plantelTitulo}>
-                      {item.mio ? 'Le mandaste un plantel' : 'Te mandó un plantel'}
+                      {item.plantel.estado === 'cancelado'
+                        ? item.mio
+                          ? 'Cancelaste este plantel'
+                          : 'Este plantel se canceló'
+                        : item.mio
+                        ? 'Le mandaste un plantel'
+                        : 'Te mandó un plantel'}
                     </Text>
                     <Text style={styles.plantelNombre}>
                       {item.plantel.nombre}

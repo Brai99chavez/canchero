@@ -14,7 +14,13 @@ import {
 } from './amigos.js';
 import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
 import { DIAS_DE_PAPELERA, vaciarPapeleraVieja } from './papelera.js';
-import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
+import {
+  aceptar,
+  cancelarEnviosDe,
+  enviarPlantel,
+  pendientesDe,
+  rechazar,
+} from './envios.js';
 import {
   guardarPerfil,
   leerPerfil,
@@ -617,11 +623,16 @@ async function fotosEnUso(usuarioId) {
  */
 app.delete('/planteles/:id', async (c) => {
   const usuario = c.get('usuario');
+  const id = c.req.param('id');
   await consultar(
     `update planteles set borrado = true, borrado_en = now(), actualizado = now()
      where dueno = $1 and id = $2 and not borrado`,
-    [usuario.id, c.req.param('id')]
+    [usuario.id, id]
   );
+
+  // Lo que se compartió de este plantel y todavía nadie aceptó se cancela: lo
+  // que iban a recibir ya no existe.
+  await cancelarEnviosDe(usuario.id, id).catch(() => 0);
   /*
    * Vaciar lo viejo deja fotos sin dueño: se barren contra lo que sigue
    * referenciado, que ahora incluye lo que está en la papelera.

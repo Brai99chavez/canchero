@@ -31,7 +31,8 @@ export interface Mensaje {
   plantel: {
     envio: string;
     nombre: string;
-    estado: 'pendiente' | 'aceptado' | 'rechazado';
+    /** `cancelado` es el que borró el plantel antes de que lo aceptaran. */
+    estado: 'pendiente' | 'aceptado' | 'rechazado' | 'cancelado';
     jugadores: number;
     partidos: number;
   } | null;

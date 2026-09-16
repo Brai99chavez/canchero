@@ -311,6 +311,89 @@ r = await tito.pedir(`/mensajes/${luis.usuario}`, {
 });
 ok('el rechazado no puede escribir', r.estado === 403, r.texto);
 
+// ══════════════════════════ borrar el plantel cancela lo compartido
+titulo('borrar el plantel cancela lo compartido');
+{
+  // El plantel tiene que existir del lado del que comparte para poder borrarlo.
+  await luis.pedir('/planteles/px1', {
+    metodo: 'PUT',
+    cuerpo: {
+      nombre: 'Para cancelar',
+      llegada: '2026-01-01T00:00:00.000Z',
+      datos: { jugadores: [{ id: 'j1', nombre: 'Rodri' }], partidos: [] },
+    },
+  });
+
+  r = await luis.pedir('/envios', {
+    metodo: 'POST',
+    cuerpo: {
+      usuario: ana.usuario,
+      plantel: { id: 'px1', nombre: 'Para cancelar', datos: { jugadores: [], partidos: [] } },
+    },
+  });
+  const pendiente = r.json?.id;
+  ok('se comparte', r.estado === 200 && !!pendiente, r.texto);
+
+  r = await ana.pedir('/envios');
+  ok('a Ana le figura pendiente', r.json?.envios?.some((e) => e.id === pendiente));
+
+  r = await luis.pedir('/planteles/px1', { metodo: 'DELETE' });
+  ok('Luis borra el plantel', r.estado === 200, r.texto);
+
+  r = await ana.pedir('/envios');
+  ok(
+    'y el envío deja de estar pendiente',
+    !r.json?.envios?.some((e) => e.id === pendiente),
+    r.texto
+  );
+
+  r = await ana.pedir(`/envios/${pendiente}/aceptar`, { metodo: 'POST' });
+  ok('Ana ya no lo puede aceptar', r.estado === 404, r.texto);
+
+  r = await luis.pedir(`/mensajes/${ana.usuario}`);
+  const ultimoPlantel = [...(r.json?.mensajes ?? [])]
+    .reverse()
+    .find((m) => m.tipo === 'plantel');
+  ok(
+    'y en el chat figura cancelado',
+    ultimoPlantel?.plantel?.estado === 'cancelado',
+    JSON.stringify(ultimoPlantel?.plantel)
+  );
+}
+
+// ══════════════════════════ lo ya aceptado no se cancela
+titulo('lo ya aceptado no se cancela');
+{
+  await luis.pedir('/planteles/px2', {
+    metodo: 'PUT',
+    cuerpo: {
+      nombre: 'Ya aceptado',
+      llegada: '2026-01-02T00:00:00.000Z',
+      datos: { jugadores: [], partidos: [] },
+    },
+  });
+  r = await luis.pedir('/envios', {
+    metodo: 'POST',
+    cuerpo: {
+      usuario: ana.usuario,
+      plantel: { id: 'px2', nombre: 'Ya aceptado', datos: { jugadores: [], partidos: [] } },
+    },
+  });
+  const aceptado = r.json?.id;
+  await ana.pedir(`/envios/${aceptado}/aceptar`, { metodo: 'POST' });
+  await luis.pedir('/planteles/px2', { metodo: 'DELETE' });
+
+  r = await luis.pedir(`/mensajes/${ana.usuario}`);
+  const suyo = [...(r.json?.mensajes ?? [])]
+    .reverse()
+    .find((m) => m.plantel?.envio === aceptado);
+  ok(
+    'borrar despues no le saca a Ana lo que ya aceptó',
+    suyo?.plantel?.estado === 'aceptado',
+    JSON.stringify(suyo?.plantel)
+  );
+}
+
 // ═══════════════════════════════════════════════════ avisos al teléfono
 titulo('avisos al teléfono');
 {

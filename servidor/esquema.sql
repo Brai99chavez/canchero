@@ -167,3 +167,19 @@ alter table planteles add column if not exists borrado_en timestamptz;
 -- Lo que se borró hace poco y todavía se puede recuperar.
 create index if not exists planteles_papelera
   on planteles (dueno, borrado_en) where borrado;
+
+-- De qué plantel salió un envío, para poder cancelarlo si lo borran.
+--
+-- Si el que comparte borra el plantel antes de que el otro lo acepte, ese
+-- envío deja de tener sentido: lo que iba a recibir ya no existe. Sin esta
+-- columna no habría forma de saber cuáles cancelar.
+alter table envios add column if not exists plantel_id text;
+
+-- `cancelado` se suma a los estados: ni aceptado ni rechazado por el que
+-- recibe, sino retirado por el que mandó.
+alter table envios drop constraint if exists estado_valido;
+alter table envios add constraint estado_valido
+  check (estado in ('pendiente', 'aceptado', 'rechazado', 'cancelado'));
+
+create index if not exists envios_por_plantel
+  on envios (de, plantel_id) where estado = 'pendiente';
