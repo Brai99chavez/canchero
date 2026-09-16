@@ -16,6 +16,12 @@ const LIMITES = {
   pro: { planteles: Infinity },
 };
 
+/** Si entra uno más, teniendo ya `cuantos`. */
+export function hayLugar(cuantos, plan) {
+  const tope = LIMITES[plan]?.planteles ?? LIMITES.gratis.planteles;
+  return cuantos < tope;
+}
+
 export async function planDe(usuarioId) {
   const { rows } = await consultar(
     `insert into perfiles (usuario_id) values ($1)

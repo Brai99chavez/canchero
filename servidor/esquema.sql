@@ -159,3 +159,11 @@ create table if not exists dispositivos (
 
 create index if not exists dispositivos_por_usuario
   on dispositivos (usuario_id);
+
+-- Cuándo se borró, para la papelera. `borrado` solo decía que sí, no cuándo, y
+-- sin eso no se puede vaciar lo que ya lleva demasiado tiempo adentro.
+alter table planteles add column if not exists borrado_en timestamptz;
+
+-- Lo que se borró hace poco y todavía se puede recuperar.
+create index if not exists planteles_papelera
+  on planteles (dueno, borrado_en) where borrado;

@@ -13,9 +13,10 @@ import {
   sacarAmigo,
 } from './amigos.js';
 import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
+import { DIAS_DE_PAPELERA, vaciarPapeleraVieja } from './papelera.js';
 import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
 import { guardarPerfil, leerPerfil } from './perfil.js';
-import { planDe, recortarAlPlan } from './planes.js';
+import { hayLugar, planDe, recortarAlPlan } from './planes.js';
 import {
   borrarFoto,
   hayFotos,
@@ -313,15 +314,141 @@ app.post('/fotos/borrar', async (c) => {
   return c.json({ ok: true });
 });
 
+/**
+ * Los planteles de la cuenta.
+ *
+ * Con `?desde=` vienen sólo los que cambiaron después de ese momento, y ahí sí
+ * vienen también los borrados: el teléfono necesita enterarse de un borrado
+ * hecho en otro aparato, y si los borrados no viajaran lo daría por vivo para
+ * siempre.
+ *
+ * Sin `desde` es todo lo vivo, que es lo que hace falta al entrar por primera
+ * vez en un teléfono.
+ */
 app.get('/planteles', async (c) => {
   const usuario = c.get('usuario');
+  const desde = c.req.query('desde');
+
+  const { rows } = desde
+    ? await consultar(
+        `select id, nombre, llegada, datos, borrado, actualizado
+           from planteles
+          where dueno = $1 and actualizado > $2
+          order by llegada asc`,
+        [usuario.id, desde]
+      )
+    : await consultar(
+        `select id, nombre, llegada, datos, borrado, actualizado
+           from planteles
+          where dueno = $1 and not borrado
+          order by llegada asc`,
+        [usuario.id]
+      );
+
+  /*
+   * El reloj del servidor, no el del teléfono. El próximo `desde` sale de acá:
+   * si saliera del teléfono, un celular atrasado unos segundos se perdería los
+   * cambios de esa ventana para siempre.
+   */
+  const { rows: ahora } = await consultar(`select now() as ahora`);
+
+  return c.json({ planteles: rows, hasta: ahora[0].ahora });
+});
+
+/**
+ * Guarda un plantel solo. Es lo que usa el guardado automático: cambia un
+ * jugador y sube ese plantel, no los diez.
+ */
+app.put('/planteles/:id', async (c) => {
+  const usuario = c.get('usuario');
+  const id = c.req.param('id');
+  const p = await c.req.json().catch(() => null);
+  if (typeof p?.nombre !== 'string') {
+    return c.json({ error: 'Falta el plantel.' }, 400);
+  }
+
+  /*
+   * El límite se cuenta acá y no se confía en lo que diga la app. Un plantel
+   * que ya existe siempre se puede seguir guardando: lo que el plan limita es
+   * cuántos tenés, no que puedas editar los que tenés.
+   */
+  const plan = await planDe(usuario.id);
+  const { rows: cuantos } = await consultar(
+    `select count(*)::int as n from planteles
+      where dueno = $1 and not borrado and id <> $2`,
+    [usuario.id, id]
+  );
+  const { rows: existe } = await consultar(
+    `select 1 from planteles where dueno = $1 and id = $2 and not borrado`,
+    [usuario.id, id]
+  );
+  if (existe.length === 0 && !hayLugar(cuantos[0].n, plan)) {
+    return c.json(
+      { error: 'Llegaste al límite de planteles de tu plan.', limite: true },
+      409
+    );
+  }
+
+  await consultar(
+    `insert into planteles (id, dueno, nombre, llegada, datos, borrado, borrado_en, actualizado)
+     values ($1, $2, $3, $4, $5, false, null, now())
+     on conflict (dueno, id) do update
+       set nombre = excluded.nombre,
+           llegada = excluded.llegada,
+           datos = excluded.datos,
+           borrado = false,
+           borrado_en = null,
+           actualizado = now()`,
+    [
+      id,
+      usuario.id,
+      p.nombre,
+      p.llegada ?? new Date().toISOString(),
+      JSON.stringify(p.datos ?? {}),
+    ]
+  );
+
   const { rows } = await consultar(
-    `select id, nombre, llegada, datos from planteles
-     where dueno = $1 and not borrado
-     order by llegada asc`,
+    `select actualizado from planteles where dueno = $1 and id = $2`,
+    [usuario.id, id]
+  );
+  return c.json({ ok: true, actualizado: rows[0].actualizado });
+});
+
+/** Lo que está en la papelera, de lo más nuevo a lo más viejo. */
+app.get('/planteles/papelera', async (c) => {
+  const usuario = c.get('usuario');
+  const { rows } = await consultar(
+    `select id, nombre, llegada, datos, borrado_en from planteles
+      where dueno = $1 and borrado and borrado_en is not null
+      order by borrado_en desc`,
     [usuario.id]
   );
-  return c.json({ planteles: rows });
+  return c.json({ planteles: rows, dias: DIAS_DE_PAPELERA });
+});
+
+/** Saca uno de la papelera. Vuelve como estaba, con todo lo que tenía. */
+app.post('/planteles/:id/restaurar', async (c) => {
+  const usuario = c.get('usuario');
+  const plan = await planDe(usuario.id);
+  const { rows: cuantos } = await consultar(
+    `select count(*)::int as n from planteles where dueno = $1 and not borrado`,
+    [usuario.id]
+  );
+  if (!hayLugar(cuantos[0].n, plan)) {
+    return c.json(
+      { error: 'No te entra otro plantel en tu plan.', limite: true },
+      409
+    );
+  }
+
+  const { rowCount } = await consultar(
+    `update planteles set borrado = false, borrado_en = null, actualizado = now()
+      where dueno = $1 and id = $2 and borrado`,
+    [usuario.id, c.req.param('id')]
+  );
+  if (rowCount === 0) return c.json({ error: 'Ese plantel ya no está.' }, 404);
+  return c.json({ ok: true });
 });
 
 /**
@@ -376,10 +503,16 @@ app.put('/planteles', async (c) => {
   return c.json({ guardados: aceptados.length, ignorados, fotosBorradas });
 });
 
-/** Las URLs de foto que aparecen en los planteles vivos de una cuenta. */
+/**
+ * Las URLs de foto que aparecen en los planteles de una cuenta.
+ *
+ * Los de la papelera cuentan como en uso: mientras se puedan recuperar, sus
+ * fotos tienen que seguir estando. Si no, el plantel volvería con las cartas
+ * rotas, que es casi peor que no poder recuperarlo.
+ */
 async function fotosEnUso(usuarioId) {
   const { rows } = await consultar(
-    'select datos from planteles where dueno = $1 and not borrado',
+    'select datos from planteles where dueno = $1',
     [usuarioId]
   );
   const usadas = [];
@@ -395,13 +528,34 @@ async function fotosEnUso(usuarioId) {
  * Se marca en vez de borrar: si la fila desapareciera, el plantel volvería a
  * aparecer la próxima vez que otro teléfono restaure.
  */
+/**
+ * Borra un plantel. No lo saca de la base: lo manda a la papelera.
+ *
+ * Con el guardado automático esto es lo que reemplaza a la protección que daba
+ * el backup manual. Antes, borrar sin querer no tocaba la copia de la nube
+ * hasta que apretabas el botón; ahora sube solo, así que el seguro tiene que
+ * estar del otro lado.
+ */
 app.delete('/planteles/:id', async (c) => {
   const usuario = c.get('usuario');
   await consultar(
-    `update planteles set borrado = true, actualizado = now()
-     where dueno = $1 and id = $2`,
+    `update planteles set borrado = true, borrado_en = now(), actualizado = now()
+     where dueno = $1 and id = $2 and not borrado`,
     [usuario.id, c.req.param('id')]
   );
+  /*
+   * Vaciar lo viejo deja fotos sin dueño: se barren contra lo que sigue
+   * referenciado, que ahora incluye lo que está en la papelera.
+   */
+  try {
+    const sueltas = await vaciarPapeleraVieja(usuario.id);
+    if (sueltas.length > 0) {
+      await limpiarHuerfanas(usuario.id, await fotosEnUso(usuario.id));
+    }
+  } catch {
+    // Que no se pueda vaciar lo viejo no tiene por qué frenar el borrado.
+  }
+
   return c.json({ ok: true });
 });
 
