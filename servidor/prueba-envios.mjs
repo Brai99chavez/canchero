@@ -6,7 +6,8 @@
  *
  * Lo que importa acá es lo que tiene que ser imposible: ver lo que le mandaron
  * a otro, aceptar un envío ajeno, y que aceptar dos veces cargue el plantel
- * dos veces.
+ * dos veces. Que haga falta ser amigos lo prueba prueba-amigos.mjs; acá se da
+ * por hecho y se los hace amigos de entrada.
  *
  * Borra al terminar las cuentas @canchero.test que crea.
  */
@@ -86,6 +87,15 @@ async function cuenta(etiqueta, nombreDeUsuario) {
 }
 
 const sufijo = Date.now().toString(36).slice(-5);
+
+/** Los deja amigos: uno pide y el otro acepta. */
+async function amigos(a, b) {
+  await a.pedir('/amigos', { metodo: 'POST', cuerpo: { usuario: b.usuario } });
+  await b.pedir(`/amigos/${a.usuario}/responder`, {
+    metodo: 'POST',
+    cuerpo: { acepta: true },
+  });
+}
 const PLANTEL = {
   nombre: 'Los del sabado',
   datos: {
@@ -111,6 +121,8 @@ titulo('mandar');
 const luis = await cuenta('luis', `luis${sufijo}`);
 const ana = await cuenta('ana', `ana${sufijo}`);
 const sinNombre = await cuenta('sinnombre');
+await amigos(luis, ana);
+await amigos(ana, sinNombre);
 
 let r = await sinNombre.pedir('/envios', {
   metodo: 'POST',

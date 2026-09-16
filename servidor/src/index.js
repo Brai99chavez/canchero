@@ -3,6 +3,15 @@ import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
 import { hayMails } from './mails.js';
+import {
+  amigosDe,
+  conversacionCon,
+  mandarTexto,
+  marcarLeido,
+  pedirAmistad,
+  responderAmistad,
+  sacarAmigo,
+} from './amigos.js';
 import { aceptar, enviarPlantel, pendientesDe, rechazar } from './envios.js';
 import { guardarPerfil, leerPerfil } from './perfil.js';
 import { planDe, recortarAlPlan } from './planes.js';
@@ -60,6 +69,20 @@ app.use('/fotos/*', async (c, siguiente) => {
   await siguiente();
 });
 
+app.use('/amigos/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
+app.use('/mensajes/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
 app.use('/envios/*', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
@@ -105,6 +128,81 @@ app.put('/perfil', async (c) => {
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
   }
+});
+
+/**
+ * Los amigos y las solicitudes, todo en una lista: con quién ya sos amigo,
+ * quién te está esperando y a quién estás esperando vos.
+ */
+app.get('/amigos', async (c) => {
+  const usuario = c.get('usuario');
+  return c.json({ amigos: await amigosDe(usuario.id) });
+});
+
+/** Manda una solicitud. Si el otro ya te había mandado una, la acepta. */
+app.post('/amigos', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    return c.json(await pedirAmistad(usuario.id, cuerpo?.usuario));
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+app.post('/amigos/:usuario/responder', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    await responderAmistad(
+      usuario.id,
+      c.req.param('usuario'),
+      cuerpo?.acepta === true
+    );
+    return c.json({ ok: true });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+app.delete('/amigos/:usuario', async (c) => {
+  const usuario = c.get('usuario');
+  await sacarAmigo(usuario.id, c.req.param('usuario'));
+  return c.json({ ok: true });
+});
+
+/** La conversación con alguien: sus mensajes y los planteles que se pasaron. */
+app.get('/mensajes/:usuario', async (c) => {
+  const usuario = c.get('usuario');
+  try {
+    return c.json({
+      mensajes: await conversacionCon(usuario.id, c.req.param('usuario')),
+    });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+app.post('/mensajes/:usuario', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    const id = await mandarTexto(
+      usuario.id,
+      c.req.param('usuario'),
+      cuerpo?.texto
+    );
+    return c.json({ id });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/** Hasta acá leí. Sirve para el contador de sin leer de la lista. */
+app.post('/mensajes/:usuario/leido', async (c) => {
+  const usuario = c.get('usuario');
+  await marcarLeido(usuario.id, c.req.param('usuario'));
+  return c.json({ ok: true });
 });
 
 /**

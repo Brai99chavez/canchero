@@ -84,3 +84,58 @@ create table if not exists envios (
 -- Lo único que se consulta seguido: qué tiene sin abrir el que recibe.
 create index if not exists envios_pendientes
   on envios (para, enviado) where estado = 'pendiente';
+
+-- -------------------------------------------------------------- amistades
+-- Una fila por par de personas, no una por dirección.
+--
+-- El `check (uno < otro)` es lo que lo hace posible: los dos ids se guardan
+-- siempre ordenados, así que "A con B" y "B con A" son la misma fila y la
+-- clave primaria impide que existan las dos. Sin eso, si los dos se mandan
+-- solicitud al mismo tiempo quedarían dos amistades pendientes entre las
+-- mismas dos personas y ninguna de las dos se podría aceptar del todo.
+--
+-- `pidio` guarda cuál de los dos mandó la solicitud, que es lo único que no se
+-- puede deducir del par ordenado.
+create table if not exists amistades (
+  uno      text        not null references "user" (id) on delete cascade,
+  otro     text        not null references "user" (id) on delete cascade,
+  pidio    text        not null references "user" (id) on delete cascade,
+  estado   text        not null default 'pendiente',
+  pedido   timestamptz not null default now(),
+  resuelto timestamptz,
+  primary key (uno, otro),
+  constraint orden_canonico check (uno < otro),
+  constraint estado_amistad check (estado in ('pendiente', 'aceptada', 'rechazada'))
+);
+
+-- ---------------------------------------------------------------- mensajes
+-- La conversación entre dos. Un mensaje es texto o es un plantel: cuando es un
+-- plantel, `envio` apunta a la fila de envios y de ahí sale si está pendiente,
+-- aceptado o rechazado. Así el estado se ve en la conversación sin copiarlo
+-- acá, que es como se desincronizan las cosas.
+create table if not exists mensajes (
+  id     text        primary key,
+  uno    text        not null references "user" (id) on delete cascade,
+  otro   text        not null references "user" (id) on delete cascade,
+  autor  text        not null references "user" (id) on delete cascade,
+  tipo   text        not null,
+  texto  text,
+  envio  text        references envios (id) on delete cascade,
+  creado timestamptz not null default now(),
+  constraint orden_canonico_mensaje check (uno < otro),
+  constraint tipo_mensaje check (tipo in ('texto', 'plantel'))
+);
+
+create index if not exists mensajes_por_conversacion
+  on mensajes (uno, otro, creado);
+
+-- ---------------------------------------------------------------- lecturas
+-- Hasta dónde leyó cada uno en cada conversación, para saber qué está sin
+-- leer. Va aparte y no como un booleano en `mensajes` porque son dos personas
+-- mirando los mismos mensajes: cada una llegó hasta un lugar distinto.
+create table if not exists lecturas (
+  usuario_id text        not null references "user" (id) on delete cascade,
+  con        text        not null references "user" (id) on delete cascade,
+  hasta      timestamptz not null default now(),
+  primary key (usuario_id, con)
+);

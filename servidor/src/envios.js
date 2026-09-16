@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { anotarMensaje, idDe, sonAmigos, usuarioDe } from './amigos.js';
 import { consultar } from './db.js';
 import { copiarFoto } from './fotos.js';
 import { normalizar } from './perfil.js';
@@ -47,11 +48,7 @@ export async function enviarPlantel(deId, aQuien, plantel) {
     throw Object.assign(new Error('Falta el plantel.'), { status: 400 });
   }
 
-  const { rows: mios } = await consultar(
-    `select usuario from perfiles where usuario_id = $1`,
-    [deId]
-  );
-  const miUsuario = mios[0]?.usuario ?? null;
+  const miUsuario = await usuarioDe(deId);
   if (!miUsuario) {
     throw Object.assign(
       new Error('Elegí tu nombre de usuario antes de mandar un plantel.'),
@@ -62,11 +59,7 @@ export async function enviarPlantel(deId, aQuien, plantel) {
     throw Object.assign(new Error('Ese sos vos.'), { status: 400 });
   }
 
-  const { rows: suyos } = await consultar(
-    `select usuario_id from perfiles where lower(usuario) = $1`,
-    [destino]
-  );
-  const paraId = suyos[0]?.usuario_id;
+  const paraId = await idDe(destino);
   if (!paraId) {
     // Acá sí se dice que no existe, y no es un descuido: para mandarle algo a
     // alguien hay que saber si le llegó. Lo que se averigua es un nombre de
@@ -74,6 +67,15 @@ export async function enviarPlantel(deId, aQuien, plantel) {
     throw Object.assign(new Error(`No hay nadie que se llame @${destino}.`), {
       status: 404,
     });
+  }
+
+  // Sólo entre amigos. La solicitud es lo que te deja decidir de quién querés
+  // recibir algo; sin esto, cualquiera que sepa tu nombre te llena la lista.
+  if (!(await sonAmigos(deId, paraId))) {
+    throw Object.assign(
+      new Error(`Todavía no sos amigo de @${destino}.`),
+      { status: 403 }
+    );
   }
 
   const { rows: cuantos } = await consultar(
@@ -93,8 +95,11 @@ export async function enviarPlantel(deId, aQuien, plantel) {
      values ($1, $2, $3, $4, $5)`,
     [id, deId, paraId, plantel.nombre, plantel.datos ?? {}]
   );
+  // El envío es un mensaje más de la conversación: así se ve en el mismo lugar
+  // que todo lo demás, y su estado sale de esta misma fila.
+  await anotarMensaje(deId, paraId, { tipo: 'plantel', envio: id });
 
-  return { id, para: destino };
+  return { id, para: destino, paraId };
 }
 
 /** Lo que le llegó y todavía no abrió, del más viejo al más nuevo. */
