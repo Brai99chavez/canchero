@@ -87,6 +87,17 @@ import type { TabKey as Tab } from './src/components/TabBar';
 /** La app arranca en la lista, salvo que haya un plantel por defecto. */
 type Vista = 'lista' | 'plantel';
 
+/**
+ * Lo mínimo que se queda la pantalla de carga.
+ *
+ * Con los planteles ya guardados en el teléfono la app está lista en un par de
+ * cuadros, y el logo pasaba como un parpadeo: alcanzaba a verse un destello y
+ * nada más. No es tiempo perdido —es el único lugar donde la app dice cómo se
+ * llama— y la barra de abajo entra a los 320 ms, así que con menos de esto ni
+ * se la ve moverse.
+ */
+const CARGA_MINIMA = 1000;
+
 
 
 
@@ -109,6 +120,8 @@ function Root() {
     Barlow_900Black,
   });
   const [ready, setReady] = useState(false);
+  /** Si ya pasó el mínimo que la pantalla de carga se queda en pantalla. */
+  const [tiempoCumplido, setTiempoCumplido] = useState(false);
   const [planteles, setPlanteles] = useState<Squad[]>([]);
   const [activoId, setActivoId] = useState('');
   const [predeterminadoId, setPredeterminadoId] = useState<string | null>(null);
@@ -203,6 +216,11 @@ function Root() {
   }, [sesion]);
 
   useEffect(revisarEnvios, [revisarEnvios]);
+
+  useEffect(() => {
+    const reloj = setTimeout(() => setTiempoCumplido(true), CARGA_MINIMA);
+    return () => clearTimeout(reloj);
+  }, []);
 
   useEffect(() => {
     loadGuia().then(setGuia);
@@ -765,7 +783,7 @@ function Root() {
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
 
   // Sin las fuentes cargadas el texto saltaría de tipografía al aparecer.
-  if (!ready || !fuentesListas) {
+  if (!ready || !fuentesListas || !tiempoCumplido) {
     return (
       <>
         <Cargando />
