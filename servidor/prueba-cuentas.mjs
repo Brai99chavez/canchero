@@ -159,6 +159,42 @@ r = await a.pedir('/api/auth/sign-up/email', {
 });
 ok('mail inválido se rechaza', r.estado >= 400);
 
+/*
+ * Registrarse de nuevo con el mismo mail NO reenvía el mail de confirmación,
+ * ni siquiera si la cuenta sigue sin confirmar. Es el comportamiento de Better
+ * Auth y no se puede cambiar sin delatar qué direcciones tienen cuenta; lo que
+ * se agregó es una forma de pedir el reenvío a propósito.
+ */
+titulo('reenviar la confirmación');
+const antesDeReenviar = LOG ? ultimoLink(/verify-email[^\s"'<]*/g) : null;
+
+r = await a.pedir('/api/auth/sign-up/email', {
+  metodo: 'POST',
+  cuerpo: { email: miMail, password: CLAVE, name: 'Flujo' },
+});
+await esperar(400);
+ok(
+  'registrarse de nuevo NO manda otro mail',
+  !LOG || ultimoLink(/verify-email[^\s"'<]*/g) === antesDeReenviar
+);
+
+r = await a.pedir('/api/auth/send-verification-email', {
+  metodo: 'POST',
+  cuerpo: { email: miMail },
+});
+ok('pero se puede pedir el reenvío', r.estado === 200, r.texto);
+await esperar(400);
+ok(
+  'y ahí sí llega uno nuevo',
+  !LOG || ultimoLink(/verify-email[^\s"'<]*/g) !== antesDeReenviar
+);
+
+r = await a.pedir('/api/auth/send-verification-email', {
+  metodo: 'POST',
+  cuerpo: { email: mail('nadie') },
+});
+ok('con un mail que no existe responde igual', r.estado === 200, r.texto);
+
 // ═══════════════════════════════════════════════ entrar sin confirmar
 titulo('entrar sin confirmar');
 a.olvidarCookie();

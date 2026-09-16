@@ -259,6 +259,23 @@ export async function cambiarClave(token: string, nueva: string): Promise<void> 
   }
 }
 
+/**
+ * Vuelve a mandar el mail de confirmación.
+ *
+ * Hace falta porque registrarse de nuevo con el mismo mail no manda nada: el
+ * servidor contesta que sí —a propósito, para no delatar qué direcciones
+ * tienen cuenta— pero no reenvía. Sin esto, si el primer mail se perdía o caía
+ * en spam, la cuenta quedaba inaccesible para siempre.
+ */
+export async function reenviarConfirmacion(email: string): Promise<void> {
+  const { error } = await clienteObligatorio().sendVerificationEmail({
+    email: email.trim(),
+  });
+  if (error) {
+    throw new Error(enCastellano(error.message ?? 'No se pudo reenviar.'));
+  }
+}
+
 export async function salir(): Promise<void> {
   // Primero se desanota el teléfono: después de cerrar la sesión el servidor
   // ya no sabe quién es y no lo dejaría hacerlo. Sin esto, al entrar otra

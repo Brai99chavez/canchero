@@ -23,6 +23,7 @@ import {
   Explicacion,
   explicar,
   registrarse,
+  reenviarConfirmacion,
   salir,
   Sesion,
 } from '../nube/cuenta';
@@ -223,11 +224,17 @@ export default function PerfilScreen({
       const alta = await registrarse(email, clave);
       setClave('');
       if (alta.faltaConfirmar) {
+        /*
+         * No se afirma que se mandó el mail, porque puede no haberse mandado:
+         * si ese mail ya tenía cuenta, el servidor contesta que sí igual —para
+         * no delatar qué direcciones están registradas— pero no manda nada. El
+         * cartel decía "te mandamos un link" y a veces era mentira.
+         */
         avisar(
           'Revisá tu mail',
-          `Te mandamos un link a ${email.trim()} para confirmar la cuenta. ` +
-            'Tocalo y después entrá desde acá: lo último que falta es elegir ' +
-            'tu nombre de usuario. Fijate también en spam.'
+          `Si ${email.trim()} todavía no tenía cuenta, te llega un link para ` +
+            'confirmarla. Fijate también en spam. Si ya tenías cuenta con ese ' +
+            'mail, entrá con tu contraseña.'
         );
         setModo('entrar');
       }
@@ -248,6 +255,25 @@ export default function PerfilScreen({
         'Revisá tu mail',
         `Si hay una cuenta con ${limpio}, te llega un link para elegir una ` +
           'contraseña nueva. Vence en una hora, y fijate también en spam.'
+      );
+    });
+  };
+
+  const handleReenviar = () => {
+    const limpio = email.trim();
+    if (!limpio.includes('@')) {
+      setError({
+        titulo: 'Escribí tu mail primero',
+        detalle: 'Ponelo arriba y volvé a tocar acá.',
+      });
+      return;
+    }
+    conAviso(async () => {
+      await reenviarConfirmacion(limpio);
+      avisar(
+        'Listo',
+        `Si ${limpio} tiene una cuenta sin confirmar, te acabamos de mandar ` +
+          'otro link. Fijate también en spam.'
       );
     });
   };
@@ -595,11 +621,22 @@ export default function PerfilScreen({
         variant="ghost"
       />
       {modo === 'entrar' ? (
-        <Button
-          title="Olvidé mi contraseña"
-          onPress={handleOlvide}
-          variant="ghost"
-        />
+        <>
+          <Button
+            title="Olvidé mi contraseña"
+            onPress={handleOlvide}
+            variant="ghost"
+          />
+          {/*
+            Si el primer mail se perdió no hay otra forma de salir: registrarse
+            de nuevo con el mismo mail no reenvía nada.
+          */}
+          <Button
+            title="No me llegó el mail de confirmación"
+            onPress={handleReenviar}
+            variant="ghost"
+          />
+        </>
       ) : null}
     </>
   );
