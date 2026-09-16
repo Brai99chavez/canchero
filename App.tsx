@@ -992,7 +992,7 @@ function Root() {
             onUsarTodosChange={setUsarTodos}
             selectedIds={selectedIds}
             onToggle={toggleSelected}
-            onSelectAll={() => setSelectedIds(players.map((p) => p.id))}
+            onSelectAll={setSelectedIds}
             onClear={() => setSelectedIds([])}
             onBuild={handleBuild}
             haySorteo={split !== null}

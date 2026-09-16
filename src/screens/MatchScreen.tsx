@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ajuste, mediaDe } from '../elo';
 import { Objetivo } from '../components/Guia';
+import CampoTexto from '../components/CampoTexto';
 import Opcion from '../components/Opcion';
 import Panel, { DIAGONAL, FondoDegradado } from '../components/Angular';
 import { Presionable } from '../components/motion';
@@ -18,11 +19,41 @@ interface Props {
   onUsarTodosChange: (valor: boolean) => void;
   selectedIds: string[];
   onToggle: (id: string) => void;
-  onSelectAll: () => void;
+  /**
+   * Convoca a los que se ven. Recibe los ids porque con el buscador puesto
+   * "Todos" tiene que ser los que están a la vista y no el plantel entero: si
+   * buscás "mar" y tocás Todos, esperás convocar a los Martín.
+   */
+  onSelectAll: (ids: string[]) => void;
   onClear: () => void;
   onBuild: () => void;
   haySorteo: boolean;
   onVerSorteo: () => void;
+}
+
+/** Una salida del cartel amarillo. Chico, pero claramente tocable. */
+function AccionAviso({
+  texto,
+  onPress,
+}: {
+  texto: string;
+  onPress: () => void;
+}) {
+  return (
+    <Presionable onPress={onPress}>
+      <Panel
+        style={styles.alertaAccion}
+        esquinas={DIAGONAL}
+        chaflan={7}
+        fondo={colors.aviso}
+        opacidadFondo={0.18}
+        borde={colors.aviso}
+        grosor={1}
+      >
+        <Text style={styles.alertaAccionTexto}>{texto}</Text>
+      </Panel>
+    </Presionable>
+  );
 }
 
 export default function MatchScreen({
@@ -68,6 +99,20 @@ export default function MatchScreen({
   );
 
   /*
+   * El buscador aparece recién cuando la lista es larga: con seis jugadores
+   * se ven todos de un vistazo y el campo sería un renglón de más en una
+   * pantalla que ya tiene bastante arriba de la lista.
+   */
+  const [busqueda, setBusqueda] = useState('');
+  const hayBuscador = players.length > 6;
+
+  const visibles = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    if (!texto) return sorted;
+    return sorted.filter((p) => p.nombre.toLowerCase().includes(texto));
+  }, [sorted, busqueda]);
+
+  /*
    * El formato que llenaría dos equipos completos con los que están marcados.
    * Se ofrece, no se aplica: que la app te cambie la elección mientras estás
    * marcando gente molesta, y además a veces se equivoca. Doce personas que
@@ -82,6 +127,31 @@ export default function MatchScreen({
   const sugerencia =
     !usarTodos && sugerido !== null && sugerido !== format ? sugerido : null;
 
+  /** Cuántos se quedan afuera con el formato elegido. */
+  const banco = !usarTodos && count > needed ? count - needed : 0;
+
+  /*
+   * Un solo cartel y no dos. Cuando sobra gente casi siempre pasan las dos
+   * cosas a la vez —hay banco y además entraría un formato más grande— y dos
+   * carteles amarillos seguidos se anulan entre ellos: se vuelven pared y no
+   * se lee ninguno.
+   */
+  const alerta =
+    banco > 0
+      ? {
+          titulo: `${banco} ${banco === 1 ? 'se queda' : 'se quedan'} en el banco`,
+          /*
+           * Con "todos" no hay banco sea cual sea el número: reparte a los que
+           * haya en dos equipos. Es la salida para el que quiere una cantidad
+           * que no es ninguno de los formatos —seis contra seis, ocho contra
+           * ocho— y que no se quede nadie afuera.
+           */
+          todos: true,
+        }
+      : sugerencia !== null
+      ? { titulo: `Marcaste ${count}: alcanzan para fútbol ${sugerencia}`, todos: false }
+      : null;
+
   const porLado = Math.floor(count / 2);
   const hint =
     count < 2
@@ -92,9 +162,7 @@ export default function MatchScreen({
         : `Juegan todos: ${porLado + 1} contra ${porLado}`
       : count < needed
       ? `Faltan ${needed - count} para dos equipos completos (se arma igual con ${porLado} por lado)`
-      : count === needed
-      ? 'Justo para dos equipos completos'
-      : `${count - needed} van al banco`;
+      : 'Justo para dos equipos completos';
 
   return (
     <View style={styles.container}>
@@ -148,7 +216,12 @@ export default function MatchScreen({
           </Text>
           <Text style={styles.hint}>{hint}</Text>
         </View>
-        <Pressable onPress={count > 0 ? onClear : onSelectAll} hitSlop={8}>
+        <Pressable
+          onPress={
+            count > 0 ? onClear : () => onSelectAll(visibles.map((p) => p.id))
+          }
+          hitSlop={8}
+        >
           <Text style={styles.link}>{count > 0 ? 'Limpiar' : 'Todos'}</Text>
         </Pressable>
       </View>
@@ -158,13 +231,10 @@ export default function MatchScreen({
         otras frases grises y pasaba desapercibida, que es lo único que esto
         no se puede permitir — si no se ve, no sirve para nada.
       */}
-      {sugerencia !== null ? (
-        <Pressable
-          onPress={() => elegir(sugerencia)}
-          style={styles.sugerenciaCaja}
-        >
+      {alerta !== null ? (
+        <View style={styles.alertaCaja}>
           <Panel
-            style={styles.sugerencia}
+            style={styles.alerta}
             esquinas={DIAGONAL}
             chaflan={9}
             fondo={colors.aviso}
@@ -172,29 +242,58 @@ export default function MatchScreen({
             borde={colors.aviso}
             grosor={1.5}
           >
-            <Text style={styles.sugerenciaSigno}>!</Text>
-            <View style={styles.sugerenciaTextos}>
-              <Text style={styles.sugerenciaTitulo}>
-                Marcaste {count}: alcanzan para fútbol {sugerencia}
-              </Text>
-              <Text style={styles.sugerenciaAccion}>
-                Tocá acá para cambiar
-              </Text>
+            <View style={styles.alertaLinea}>
+              <Text style={styles.alertaSigno}>!</Text>
+              <Text style={styles.alertaTitulo}>{alerta.titulo}</Text>
+            </View>
+
+            <View style={styles.alertaAcciones}>
+              {sugerencia !== null ? (
+                <AccionAviso
+                  texto={`Jugar fútbol ${sugerencia}`}
+                  onPress={() => elegir(sugerencia)}
+                />
+              ) : null}
+              {alerta.todos ? (
+                <AccionAviso
+                  texto="Que jueguen todos"
+                  onPress={() => elegir('todos')}
+                />
+              ) : null}
             </View>
           </Panel>
-        </Pressable>
+        </View>
+      ) : null}
+
+      {hayBuscador ? (
+        <CampoTexto
+          value={busqueda}
+          onChangeText={setBusqueda}
+          placeholder="Buscar por nombre"
+          contenedor={styles.buscador}
+          style={styles.buscadorTexto}
+          autoCorrect={false}
+        />
       ) : null}
 
       <Objetivo paso="convocar" style={styles.lista}>
       <FlatList
-        data={sorted}
+        data={visibles}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <EmptyState
-            title="No hay jugadores cargados"
-            subtitle="Para armar equipos primero hay que tener a quién repartir. Cargalos desde la pestaña Plantel."
-          />
+          busqueda.trim() ? (
+            <EmptyState
+              title="Sin resultados"
+              subtitle={`Ninguno de los jugadores se llama así. Probá con menos letras.`}
+            />
+          ) : (
+            <EmptyState
+              title="No hay jugadores cargados"
+              subtitle="Para armar equipos primero hay que tener a quién repartir. Cargalos desde la pestaña Plantel."
+            />
+          )
         }
         renderItem={({ item }) => {
           const selected = selectedSet.has(item.id);
@@ -258,20 +357,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  sugerenciaCaja: {
+  buscador: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  buscadorTexto: { paddingVertical: 10, fontSize: 15 },
+  alertaCaja: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  sugerencia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  alerta: {
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
+    gap: spacing.sm,
   },
+  alertaLinea: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // El signo va en su propia columna: la línea de texto arranca siempre en el
   // mismo lugar aunque el número cambie de largo.
-  sugerenciaSigno: {
+  alertaSigno: {
     color: colors.aviso,
     fontSize: 22,
     lineHeight: 26,
@@ -279,20 +382,23 @@ const styles = StyleSheet.create({
     width: 14,
     textAlign: 'center',
   },
-  sugerenciaTextos: { flex: 1 },
-  sugerenciaTitulo: {
+  alertaTitulo: {
+    flex: 1,
     color: colors.text,
     fontSize: 13,
     fontFamily: 'Barlow_700Bold',
     lineHeight: 18,
   },
-  sugerenciaAccion: {
+  // Las salidas van en fila y se acomodan solas: en pantallas angostas los dos
+  // botones no entran al lado del otro.
+  alertaAcciones: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  alertaAccion: { paddingHorizontal: spacing.md, paddingVertical: 6 },
+  alertaAccionTexto: {
     color: colors.aviso,
     fontSize: 11,
     fontFamily: 'Barlow_800ExtraBold',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginTop: 1,
   },
   rotulo: {
     color: colors.textMuted,
