@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -15,6 +15,7 @@ import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
+import { tieneResultado } from '../stats';
 import { Actuacion, Partido } from '../types';
 
 interface Props {
@@ -53,12 +54,31 @@ function Contador({
   );
 }
 
+/**
+ * Qué se puede hacer con el partido que está abierto.
+ *
+ * Un partido del historial ya pasó: entrar a mirarlo es lo normal y
+ * corregirlo la excepción. Antes se abría con todos los campos listos para
+ * escribir, y un roce sin querer cambiaba un marcador que ya estaba bien.
+ */
+type Modo = 'lectura' | 'edicion';
+
+/** Un aporte ya cargado. Ocupa lo mismo que el campo, así no salta al editar. */
+function Dato({ valor }: { valor: number }) {
+  return (
+    <Text style={[styles.dato, valor === 0 && styles.datoCero]}>
+      {valor === 0 ? '–' : valor}
+    </Text>
+  );
+}
+
 export default function MatchResultModal({
   visible,
   partido,
   onClose,
   onGuardar,
 }: Props) {
+  const [modo, setModo] = useState<Modo>('edicion');
   const [golesA, setGolesA] = useState('');
   const { dialogo, preguntar } = useDialogo();
   const [golesB, setGolesB] = useState('');
@@ -71,8 +91,9 @@ export default function MatchResultModal({
    */
   const [tocado, setTocado] = useState({ a: false, b: false });
 
-  useEffect(() => {
-    if (!visible || !partido) return;
+  /** Vuelve a poner en pantalla lo que está guardado, tirando los cambios. */
+  const reiniciar = useCallback(() => {
+    if (!partido) return;
     setGolesA(partido.golesA === null ? '' : String(partido.golesA));
     setGolesB(partido.golesB === null ? '' : String(partido.golesB));
 
@@ -90,9 +111,21 @@ export default function MatchResultModal({
       a: partido.golesA !== null,
       b: partido.golesB !== null,
     });
-  }, [visible, partido]);
+  }, [partido]);
+
+  useEffect(() => {
+    if (!visible || !partido) return;
+    reiniciar();
+    // El que ya tiene resultado se abre para mirar; el que no, para cargarlo,
+    // que es justo lo que se venía a hacer desde la lista de activos.
+    setModo(tieneResultado(partido) ? 'lectura' : 'edicion');
+  }, [visible, partido, reiniciar]);
 
   if (!partido) return null;
+
+  const editando = modo === 'edicion';
+  /** Si el partido ya tenía resultado cuando se abrió. */
+  const yaEstaba = tieneResultado(partido);
 
   const numero = (v: string) => (v === '' ? 0 : Number(v));
 
@@ -203,22 +236,25 @@ export default function MatchResultModal({
         <View style={styles.bloqueNombre}>
           <Etiqueta color={color}>{titulo}</Etiqueta>
         </View>
-        <Text
-          style={[styles.contados, suma > marcador && styles.contadosMal]}
-        >
-          {suma} de {marcador} goles
-        </Text>
+        {/* Sirve para controlar mientras se carga; después es ruido. */}
+        {editando ? (
+          <Text style={[styles.contados, suma > marcador && styles.contadosMal]}>
+            {suma} de {marcador} goles
+          </Text>
+        ) : null}
         <Text style={styles.encabezado}>G · A</Text>
       </View>
       {ids.map((id) => {
         const salio = fuera.includes(id);
         return (
           <View key={id} style={[styles.fila, salio && styles.filaFuera]}>
-            <Pressable onPress={() => alternarFuera(id)} hitSlop={8}>
-              <Text style={salio ? styles.volver : styles.sacar}>
-                {salio ? '+' : '×'}
-              </Text>
-            </Pressable>
+            {editando ? (
+              <Pressable onPress={() => alternarFuera(id)} hitSlop={8}>
+                <Text style={salio ? styles.volver : styles.sacar}>
+                  {salio ? '+' : '×'}
+                </Text>
+              </Pressable>
+            ) : null}
             <Text
               style={[styles.nombre, salio && styles.nombreFuera]}
               numberOfLines={1}
@@ -227,7 +263,7 @@ export default function MatchResultModal({
             </Text>
             {salio ? (
               <Text style={styles.noJugo}>no jugó</Text>
-            ) : (
+            ) : editando ? (
               <>
                 <Contador
                   valor={aportes[id]?.goles ?? ''}
@@ -237,6 +273,11 @@ export default function MatchResultModal({
                   valor={aportes[id]?.asistencias ?? ''}
                   onChange={(v) => setAporte(id, 'asistencias', v)}
                 />
+              </>
+            ) : (
+              <>
+                <Dato valor={numero(aportes[id]?.goles ?? '')} />
+                <Dato valor={numero(aportes[id]?.asistencias ?? '')} />
               </>
             )}
           </View>
@@ -254,8 +295,27 @@ export default function MatchResultModal({
         >
           <HeaderModal
             titulo="Resultado"
-            izquierda={{ label: 'Cancelar', onPress: onClose }}
-            derecha={{ label: 'Completar', onPress: handleGuardar }}
+            izquierda={
+              editando && yaEstaba
+                ? {
+                    // Sale de editar sin tocar nada: vuelve a mostrar lo
+                    // guardado en vez de cerrar y perder de vista el partido.
+                    label: 'Cancelar',
+                    onPress: () => {
+                      reiniciar();
+                      setModo('lectura');
+                    },
+                  }
+                : { label: editando ? 'Cancelar' : 'Cerrar', onPress: onClose }
+            }
+            derecha={
+              editando
+                ? {
+                    label: yaEstaba ? 'Guardar' : 'Completar',
+                    onPress: handleGuardar,
+                  }
+                : { label: 'Editar', onPress: () => setModo('edicion') }
+            }
           />
 
           <ScrollView
@@ -267,48 +327,67 @@ export default function MatchResultModal({
                 <Text style={[styles.marcadorEquipo, { color: colors.teamA }]}>
                   Equipo A
                 </Text>
-                <TextInput
-                  value={golesA}
-                  onChangeText={(t) => {
-                    setTocado((prev) => ({ ...prev, a: true }));
-                    setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
-                  }}
-                  keyboardType="number-pad"
-                  selectTextOnFocus
-                  style={styles.marcadorInput}
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                />
+                {editando ? (
+                  <TextInput
+                    value={golesA}
+                    onChangeText={(t) => {
+                      setTocado((prev) => ({ ...prev, a: true }));
+                      setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
+                    }}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    style={styles.marcadorInput}
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                ) : (
+                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                    {numero(golesA)}
+                  </Text>
+                )}
               </View>
               <Text style={styles.guion}>—</Text>
               <View style={styles.marcadorLado}>
                 <Text style={[styles.marcadorEquipo, { color: colors.teamB }]}>
                   Equipo B
                 </Text>
-                <TextInput
-                  value={golesB}
-                  onChangeText={(t) => {
-                    setTocado((prev) => ({ ...prev, b: true }));
-                    setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
-                  }}
-                  keyboardType="number-pad"
-                  selectTextOnFocus
-                  style={styles.marcadorInput}
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                />
+                {editando ? (
+                  <TextInput
+                    value={golesB}
+                    onChangeText={(t) => {
+                      setTocado((prev) => ({ ...prev, b: true }));
+                      setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
+                    }}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    style={styles.marcadorInput}
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                ) : (
+                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                    {numero(golesB)}
+                  </Text>
+                )}
               </View>
             </View>
 
-            <Text style={styles.ayuda}>
-              Los goles y asistencias son opcionales: dejá en blanco lo que no
-              tengas. Con el marcador solo ya se cuentan victorias y rachas.
-              Si alguien al final no jugó, sacalo con la × y deja de contar.
-              Al completar, el partido pasa a la lista de jugados y entra en las
-              estadísticas.
-              Mientras no toques el marcador, se completa solo con los goles que
-              vayas cargando.
-            </Text>
+            {editando ? (
+              <Text style={styles.ayuda}>
+                Los goles y asistencias son opcionales: dejá en blanco lo que no
+                tengas. Con el marcador solo ya se cuentan victorias y rachas.
+                Si alguien al final no jugó, sacalo con la × y deja de contar.
+                Al completar, el partido pasa al historial y entra en las
+                estadísticas.
+                Mientras no toques el marcador, se completa solo con los goles
+                que vayas cargando.
+              </Text>
+            ) : (
+              <Text style={styles.ayuda}>
+                Este partido ya está jugado. Tocá EDITAR arriba si hay algo que
+                corregir.
+              </Text>
+            )}
 
             {filas(
               partido.equipoA,
@@ -357,6 +436,22 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontFamily: 'Barlow_900Black',
   },
+  // El marcador mirándolo: mismo tamaño que el campo, sin el recuadro que
+  // invita a escribir.
+  marcadorFijo: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    lineHeight: 36,
+  },
+  dato: {
+    width: 46,
+    textAlign: 'center',
+    paddingVertical: 6,
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: 'Barlow_700Bold',
+  },
+  datoCero: { color: colors.textMuted },
   guion: { color: colors.textMuted, fontSize: 22, fontFamily: 'Barlow_400Regular', marginTop: 24 },
   ayuda: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', lineHeight: 17 },
   bloque: { gap: 6 },
