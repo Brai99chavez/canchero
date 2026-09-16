@@ -1,14 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  angulo,
   colors,
   degradados,
-  radius,
   spacing,
   tiempos,
 } from '../theme';
-import { FondoDegradado } from './Angular';
+import Panel, { DIAGONAL } from './Angular';
 import { Objetivo, PasoGuia } from './Guia';
 import {
   BallIcon,
@@ -86,9 +84,12 @@ export function Barra<K extends string>({
 
   return (
     <View style={styles.contenedor}>
-      <View
+      <Panel
         style={styles.barra}
-        onLayout={(e) => setAncho(e.nativeEvent.layout.width)}
+        esquinas={DIAGONAL}
+        fondo={colors.surface}
+        borde={colors.border}
+        onMedida={setAncho}
       >
         {ancho > 0 ? (
           <Animated.View
@@ -118,7 +119,14 @@ export function Barra<K extends string>({
               },
             ]}
           >
-            <FondoDegradado colores={degradados.acento} />
+            <Panel
+              style={StyleSheet.absoluteFill}
+              esquinas={DIAGONAL}
+              chaflan={9}
+              degradado={degradados.acento}
+              borde="transparent"
+              grosor={0}
+            />
           </Animated.View>
         ) : null}
 
@@ -161,7 +169,7 @@ export function Barra<K extends string>({
             </View>
           );
         })}
-      </View>
+      </Panel>
     </View>
   );
 }
@@ -206,34 +214,21 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     backgroundColor: colors.bg,
   },
+  // El fondo y el borde los dibuja el Panel: acá sólo va la forma de la fila.
   barra: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 4,
-    // La pastilla va inclinada: sin esto sus puntas se salen de la barra, y
-    // sus esquinas rectas asoman por fuera de la curva del borde.
-    overflow: 'hidden',
   },
+  /*
+   * La pastilla sólo se mueve; el bloque con las esquinas cortadas lo dibuja
+   * el Panel de adentro. El corte es el mismo de los planteles y los botones,
+   * así que el chaflán de la pastilla queda metido adentro del de la barra.
+   */
   pastilla: {
     position: 'absolute',
     top: 4,
     bottom: 4,
     left: 0,
-    overflow: 'hidden',
-    transform: [{ skewX: angulo.inclinacion }],
-    /*
-     * Las cuatro esquinas redondeadas, siempre. Antes sólo se redondeaban las
-     * de los extremos, para que ahí la curva quedara concéntrica con la de la
-     * barra; en el medio la pastilla era un rectángulo y quedaba dura al lado
-     * de todo lo demás, que es curvo.
-     *
-     * El radio es el de la barra menos su relleno: en los extremos sigue
-     * quedando concéntrica, y en el medio ahora acompaña.
-     */
-    borderRadius: radius.lg - 4,
   },
   celda: { flex: 1 },
   item: {

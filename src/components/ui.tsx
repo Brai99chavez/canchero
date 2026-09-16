@@ -15,7 +15,7 @@ import {
   sombra,
   spacing,
 } from '../theme';
-import Panel, { DIAGONAL, FondoDegradado } from './Angular';
+import Panel, { CHAFLAN, DIAGONAL, FondoDegradado } from './Angular';
 import { Etiqueta } from './Banner';
 import { Presionable } from './motion';
 import { Position, POSITION_COLORS, ratingColor } from '../types';
@@ -73,6 +73,14 @@ interface ButtonProps {
   style?: ViewStyle;
 }
 
+/**
+ * El botón de toda la app.
+ *
+ * La esquina cortada en diagonal es la misma de los planteles: antes los
+ * botones eran un paralelogramo inclinado y las tarjetas un bloque con el
+ * chaflán, así que la app tenía dos formas distintas para lo mismo. El fondo
+ * lo dibuja un SVG porque React Native no sabe cortar esquinas.
+ */
 export function Button({
   title,
   onPress,
@@ -84,38 +92,47 @@ export function Button({
 }: ButtonProps) {
   const isPrimary = variant === 'primary';
   const isDanger = variant === 'danger';
+  const apagado = Boolean(disabled || loading);
+  const relleno = isPrimary
+    ? degradados.acento
+    : isDanger
+    ? degradados.peligro
+    : undefined;
+
   return (
     <Presionable
       onPress={onPress}
-      disabled={disabled || loading}
-      style={[
-        styles.button,
-        isPrimary && styles.buttonPrimary,
-        !isPrimary && styles.buttonGhost,
-        isDanger && styles.buttonDanger,
-        compacto && styles.buttonCompacto,
-        (disabled || loading) && styles.buttonDisabled,
-        style,
-      ]}
+      disabled={apagado}
+      style={[apagado && styles.buttonDisabled, style]}
     >
-      {isPrimary && !disabled && !loading ? (
-        <FondoDegradado colores={degradados.acento} />
-      ) : null}
-      {isDanger ? <FondoDegradado colores={degradados.peligro} /> : null}
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? colors.sobreAcento : colors.text} />
-      ) : (
-        <Text
-          style={[
-            styles.buttonText,
-            compacto && styles.buttonTextCompacto,
-            isPrimary && styles.buttonTextPrimary,
-            isDanger && styles.buttonTextDanger,
-          ]}
-        >
-          {title.toUpperCase()}
-        </Text>
-      )}
+      <Panel
+        style={[styles.button, compacto && styles.buttonCompacto]}
+        esquinas={DIAGONAL}
+        chaflan={compacto ? 9 : CHAFLAN}
+        // Apagado va sin degradado: el relleno lleno se leería como habilitado
+        // aunque esté al 40% de opacidad.
+        degradado={apagado ? undefined : relleno}
+        fondo="transparent"
+        borde={relleno && !apagado ? 'transparent' : colors.border}
+        grosor={relleno && !apagado ? 0 : 1.5}
+      >
+        {loading ? (
+          <ActivityIndicator
+            color={isPrimary ? colors.sobreAcento : colors.text}
+          />
+        ) : (
+          <Text
+            style={[
+              styles.buttonText,
+              compacto && styles.buttonTextCompacto,
+              isPrimary && !apagado && styles.buttonTextPrimary,
+              isDanger && !apagado && styles.buttonTextDanger,
+            ]}
+          >
+            {title.toUpperCase()}
+          </Text>
+        )}
+      </Panel>
     </Presionable>
   );
 }
@@ -255,7 +272,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ skewX: angulo.inclinacion }],
   },
   buttonCompacto: {
     paddingVertical: 8,
@@ -265,22 +281,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.8,
   },
-  buttonPrimary: {
-    backgroundColor: colors.primary,
-    overflow: 'hidden',
-    ...sombra,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.35,
-  },
-  buttonGhost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  buttonDanger: {
-    borderColor: 'transparent',
-    overflow: 'hidden',
-  },
   buttonDisabled: {
     opacity: 0.4,
   },
@@ -289,8 +289,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Barlow_800ExtraBold',
     fontSize: 14,
     letterSpacing: 1,
-    // Endereza el texto contra la inclinación de la caja.
-    transform: [{ skewX: angulo.derecho }],
   },
   buttonTextPrimary: {
     color: colors.sobreAcento,

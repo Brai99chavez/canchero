@@ -136,6 +136,7 @@ export default function Panel({
   grosor = 1,
   chaflan = CHAFLAN,
   esquinas = TODAS,
+  onMedida,
 }: {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -146,6 +147,13 @@ export default function Panel({
   grosor?: number;
   chaflan?: number;
   esquinas?: Esquinas;
+  /**
+   * Qué tamaño terminó teniendo. El panel ya se mide para dibujar el fondo, y
+   * a veces quien lo usa necesita ese mismo número —la barra de pestañas, para
+   * saber cuánto mide cada una— y medirlo de nuevo por afuera sería pedirle al
+   * sistema lo mismo dos veces.
+   */
+  onMedida?: (ancho: number, alto: number) => void;
 }) {
   const [medida, setMedida] = useState({ ancho: 0, alto: 0 });
   const id = useIdDegradado();
@@ -153,12 +161,11 @@ export default function Panel({
   return (
     <View
       style={style}
-      onLayout={(e) =>
-        setMedida({
-          ancho: e.nativeEvent.layout.width,
-          alto: e.nativeEvent.layout.height,
-        })
-      }
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setMedida({ ancho: width, alto: height });
+        onMedida?.(width, height);
+      }}
     >
       {medida.ancho > 0 ? (
         <Svg
