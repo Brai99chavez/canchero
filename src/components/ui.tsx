@@ -306,6 +306,16 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   button: {
+    /*
+     * Crece, pero sin flexBasis en cero. Dos botones al lado del otro se
+     * estiran al alto del más alto —uno tiene el texto en dos líneas y el otro
+     * en una— y sin esto el bloque de adentro se quedaba con su alto de
+     * contenido: mismo espacio, recuadros de distinto tamaño.
+     *
+     * `flex: 1` no sirve acá: pone flexBasis en 0 y en un padre de alto
+     * automático el bloque se aplasta a nada.
+     */
+    flexGrow: 1,
     paddingVertical: 13,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
@@ -333,6 +343,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Barlow_800ExtraBold',
     fontSize: 14,
     letterSpacing: 1,
+    textAlign: 'center',
   },
   buttonTextPrimary: {
     color: colors.sobreAcento,

@@ -11,7 +11,13 @@ import {
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
-import { comoSeLeeCorto, mesDe, nombreDelMes } from '../fechas';
+import {
+  comoSeLeeCorto,
+  comoSeLeeDia,
+  diaDe,
+  mesDe,
+  nombreDelMes,
+} from '../fechas';
 import { reparto, resumenDe, Signo, tieneResultado, winrate } from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
@@ -154,9 +160,10 @@ export default function HistoryScreen({
   }, [jugados]);
 
   const [mes, setMes] = useState<string | null>(null);
+  const [dia, setDia] = useState<string | null>(null);
 
-  // Un mes elegido que se quedó sin partidos —se borraron todos— dejaría la
-  // lista vacía sin que se entienda por qué.
+  // Un mes o un día elegidos que se quedaron sin partidos —se borraron todos—
+  // dejarían la lista vacía sin que se entienda por qué.
   useEffect(() => {
     if (mes && !meses.some((m) => m.clave === mes)) setMes(null);
   }, [meses, mes]);
@@ -166,7 +173,30 @@ export default function HistoryScreen({
     [jugados, mes]
   );
 
-  const lista = vista === 'activos' ? activos : jugadosDelMes;
+  /*
+   * Los días del mes elegido que tienen partidos. Sin mes elegido no se
+   * muestran: serían todos los días de todos los meses, una fila interminable
+   * que no ayuda a encontrar nada.
+   */
+  const dias = useMemo(() => {
+    if (!mes) return [];
+    const vistos = new Map<string, string>();
+    for (const p of jugadosDelMes) vistos.set(diaDe(p.fecha), p.fecha);
+    return [...vistos.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([clave, fecha]) => ({ clave, etiqueta: comoSeLeeDia(fecha) }));
+  }, [jugadosDelMes, mes]);
+
+  useEffect(() => {
+    if (dia && !dias.some((d) => d.clave === dia)) setDia(null);
+  }, [dias, dia]);
+
+  const jugadosFiltrados = useMemo(
+    () => (dia ? jugadosDelMes.filter((p) => diaDe(p.fecha) === dia) : jugadosDelMes),
+    [jugadosDelMes, dia]
+  );
+
+  const lista = vista === 'activos' ? activos : jugadosFiltrados;
 
   function alternar(id: string) {
     setElegidos((prev) => {
@@ -200,28 +230,66 @@ export default function HistoryScreen({
   return (
     <View style={styles.container}>
       {/*
-        El filtro por mes sólo en el historial: los activos son pocos y se
-        están jugando ahora, no hay nada que buscar. Y recién con dos meses
-        cargados, que con uno solo el filtro no filtra nada.
+        El filtro sólo en el historial: los activos son pocos y se están
+        jugando ahora, no hay nada que buscar ahí.
       */}
-      {vista === 'historial' && meses.length > 1 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.mesesCaja}
-          contentContainerStyle={styles.meses}
-          keyboardShouldPersistTaps="handled"
-        >
-          <ChipMes texto="Todos" activo={mes === null} onPress={() => setMes(null)} />
-          {meses.map((m) => (
+      {vista === 'historial' && meses.length > 0 ? (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.mesesCaja}
+            contentContainerStyle={styles.meses}
+            keyboardShouldPersistTaps="handled"
+          >
             <ChipMes
-              key={m.clave}
-              texto={m.etiqueta}
-              activo={mes === m.clave}
-              onPress={() => setMes(mes === m.clave ? null : m.clave)}
+              texto="Todos"
+              activo={mes === null}
+              onPress={() => {
+                setMes(null);
+                setDia(null);
+              }}
             />
-          ))}
-        </ScrollView>
+            {meses.map((m) => (
+              <ChipMes
+                key={m.clave}
+                texto={m.etiqueta}
+                activo={mes === m.clave}
+                onPress={() => {
+                  // Cambiar de mes tira el día elegido: era de otro mes.
+                  setDia(null);
+                  setMes(mes === m.clave ? null : m.clave);
+                }}
+              />
+            ))}
+          </ScrollView>
+
+          {/* Los días aparecen recién con un mes elegido, y sólo si ese mes
+              tiene más de una fecha: con una sola no hay nada que elegir. */}
+          {dias.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.mesesCaja}
+              contentContainerStyle={styles.meses}
+              keyboardShouldPersistTaps="handled"
+            >
+              <ChipMes
+                texto="Todo el mes"
+                activo={dia === null}
+                onPress={() => setDia(null)}
+              />
+              {dias.map((d) => (
+                <ChipMes
+                  key={d.clave}
+                  texto={d.etiqueta}
+                  activo={dia === d.clave}
+                  onPress={() => setDia(dia === d.clave ? null : d.clave)}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
+        </>
       ) : null}
 
       {vista !== 'tabla' && lista.length > 0 ? (

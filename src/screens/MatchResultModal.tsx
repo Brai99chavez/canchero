@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import Panel, { DIAGONAL } from '../components/Angular';
+import { CalendarIcon } from '../components/icons';
+import SelectorFecha from '../components/SelectorFecha';
 import { comoSeLee } from '../fechas';
 import {
   KeyboardAvoidingView,
@@ -395,31 +396,34 @@ export default function MatchResultModal({
             */}
             {editando ? (
               <Pressable onPress={() => setEligiendoDia(true)}>
-                <Panel
+              <Panel
                   style={styles.dia}
                   esquinas={DIAGONAL}
-                  chaflan={8}
-                  fondo="transparent"
-                  borde={colors.border}
+                  chaflan={9}
+                  fondo={colors.primary}
+                  opacidadFondo={0.1}
+                  borde={colors.primary}
                   grosor={1.5}
                 >
-                  <Text style={styles.diaRotulo}>Se jugó</Text>
-                  <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
+                  <CalendarIcon color={colors.primary} size={20} />
+                  <View style={styles.diaTextos}>
+                    <Text style={styles.diaRotulo}>Fecha</Text>
+                    <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
+                  </View>
                   <Text style={styles.diaCambiar}>Cambiar</Text>
                 </Panel>
               </Pressable>
             ) : null}
 
-            {eligiendoDia ? (
-              <DateTimePicker
-                value={dia}
-                mode="date"
-                onChange={(evento, elegido) => {
-                  setEligiendoDia(false);
-                  if (evento.type === 'set' && elegido) setDia(elegido);
-                }}
-              />
-            ) : null}
+            <SelectorFecha
+              visible={eligiendoDia}
+              valor={dia}
+              onElegir={(elegida) => {
+                setDia(elegida);
+                setEligiendoDia(false);
+              }}
+              onClose={() => setEligiendoDia(false)}
+            />
 
             {editando ? (
               <Text style={styles.ayuda}>
@@ -496,22 +500,24 @@ const styles = StyleSheet.create({
   dia: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 11,
   },
+  diaTextos: { flex: 1 },
   diaRotulo: {
-    color: colors.textMuted,
-    fontSize: 11,
+    color: colors.primary,
+    fontSize: 10,
     fontFamily: 'Barlow_800ExtraBold',
-    letterSpacing: 0.6,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
+  // El día en grande: es el dato, no el rótulo.
   diaValor: {
-    flex: 1,
     color: colors.text,
-    fontSize: 14,
-    fontFamily: 'Barlow_700Bold',
+    fontSize: 16,
+    fontFamily: 'Barlow_800ExtraBold',
+    marginTop: 1,
   },
   diaCambiar: {
     color: colors.primary,

@@ -994,8 +994,7 @@ function Root() {
             onSelectAll={setSelectedIds}
             onClear={() => setSelectedIds([])}
             onBuild={handleBuild}
-            haySorteo={split !== null}
-            sorteoGuardado={guardadoId !== null}
+            haySorteo={split !== null && guardadoId === null}
             onVerSorteo={() => setTeamsVisible(true)}
           />
         )}

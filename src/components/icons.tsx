@@ -111,6 +111,18 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** Calendario: el día en que se juega. */
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Trazo {...props}>
+      <Path d="M4 6.5a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2v-12z" />
+      <Path d="M4 9.5h16" />
+      <Path d="M8.5 3v3" />
+      <Path d="M15.5 3v3" />
+    </Trazo>
+  );
+}
+
 /** Globo de diálogo: los amigos y lo que se dijeron. */
 export function ChatIcon(props: IconProps) {
   return (

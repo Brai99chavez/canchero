@@ -51,6 +51,22 @@ export function nombreDelMes(anio: number, mes: number): string {
     : `${MESES[mes]} ${anio}`;
 }
 
+/** Con qué día agrupar una fecha guardada. */
+export function diaDe(iso: string): string {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return iso.slice(0, 10);
+  return `${f.getFullYear()}-${String(f.getMonth()).padStart(2, '0')}-${String(
+    f.getDate()
+  ).padStart(2, '0')}`;
+}
+
+/** El día suelto: "sáb 20". Para el filtro, donde el mes ya está dicho. */
+export function comoSeLeeDia(iso: string): string {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return iso.slice(0, 10);
+  return f.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' });
+}
+
 /** Con qué mes agrupar una fecha guardada. */
 export function mesDe(iso: string): string {
   const f = new Date(iso);

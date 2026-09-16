@@ -27,9 +27,12 @@ interface Props {
   onSelectAll: (ids: string[]) => void;
   onClear: () => void;
   onBuild: () => void;
+  /**
+   * Si quedaron equipos armados y sin guardar. Guardado no cuenta: ahí el
+   * partido ya está en Activos y este cartel sólo repetía lo mismo con otras
+   * palabras.
+   */
   haySorteo: boolean;
-  /** Si ese sorteo ya se guardó como partido y está esperando el resultado. */
-  sorteoGuardado: boolean;
   onVerSorteo: () => void;
 }
 
@@ -71,7 +74,6 @@ export default function MatchScreen({
   onClear,
   onBuild,
   haySorteo,
-  sorteoGuardado,
   onVerSorteo,
 }: Props) {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -178,22 +180,11 @@ export default function MatchScreen({
             borde="transparent"
             grosor={0}
           >
-            {/*
-              Decir cuál de las dos cosas es. "Hay equipos armados" a secas se
-              confundía con los partidos de Activos, y son distintas: esto es
-              el sorteo que quedó en el plantel —el único modo de volver a él
-              sin sortear de nuevo y perder los cambios hechos a mano—, no un
-              partido esperando resultado.
-            */}
             <Text style={styles.avisoTitulo}>
-              {sorteoGuardado
-                ? 'Los equipos del partido en curso'
-                : 'Tenés equipos armados sin guardar'}
+              Tenés equipos armados sin guardar
             </Text>
             <Text style={styles.avisoTexto}>
-              {sorteoGuardado
-                ? 'Tocá para verlos o cambiar a alguien de lado'
-                : 'Tocá para verlos y guardar el partido'}
+              Tocá para verlos y guardar el partido
             </Text>
           </Panel>
         </Presionable>
