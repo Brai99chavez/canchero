@@ -885,211 +885,211 @@ function Root() {
       onSaltar={apagarGuia}
     >
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar style="light" />
+        <StatusBar style="light" />
 
-    {vistaReal === 'plantel' ? (
-      <AppHeader
-        titulo={activo?.nombre ?? 'Plantel'}
-        subtitulo={
-          tab === 'plantel'
-            ? 'Plantel'
-            : tab === 'partido'
-            ? 'Armar partido'
-            : tab === 'activos'
-            ? 'Activos'
-            : tab === 'historial'
-            ? 'Historial'
-            : 'Tabla'
-        }
-        onVolver={() => setVista('lista')}
-        onConfig={() => setConfigId(activoId)}
-      />
-    ) : null}
-
-    <Aparecer
-      llave={vistaReal === 'lista' ? seccion : `${activoId}-${tab}`}
-      style={styles.screen}
-    >
-      {vistaReal === 'lista' && seccion === 'perfil' ? (
-        <PerfilScreen
-          sesion={sesion}
-          cuantosPlanteles={planteles.length}
-          ultimaCopia={
-            ultimaCopia
-              ? ultimaCopia.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : null
+      {vistaReal === 'plantel' ? (
+        <AppHeader
+          titulo={activo?.nombre ?? 'Plantel'}
+          subtitulo={
+            tab === 'plantel'
+              ? 'Plantel'
+              : tab === 'partido'
+              ? 'Armar partido'
+              : tab === 'activos'
+              ? 'Activos'
+              : tab === 'historial'
+              ? 'Historial'
+              : 'Tabla'
           }
-          haySinSubir={haySinSubir}
-          onBackup={handleBackup}
-          onRestaurar={handleRestaurar}
+          onVolver={() => setVista('lista')}
+          onConfig={() => setConfigId(activoId)}
         />
-      ) : vistaReal === 'lista' && seccion === 'amigos' ? (
-        <AmigosScreen
-          amigos={amigos}
-          cargando={cargandoAmigos}
-          tengoUsuario={Boolean(miUsuario)}
-          onRecargar={revisarAmigos}
-          onAbrir={setChatCon}
-          onIrAPerfil={() => setSeccion('perfil')}
-        />
-      ) : vistaReal === 'lista' ? (
-        <SquadsScreen
-          planteles={planteles}
-          predeterminadoId={predeterminadoId}
-          onAbrir={handleAbrirPlantel}
-          onConfig={setConfigId}
-          limitePlanteles={limites(plan).planteles}
-          activos={activos}
-          motivoBloqueo={motivoBloqueado(plan)}
-          avisoPro={AVISO_PRO}
-          envios={envios}
-          onAceptarEnvio={handleAceptarEnvio}
-          onRechazarEnvio={handleRechazarEnvio}
-          onNuevo={() => {
-            if (hayLugar()) setNuevoVisible(true);
-          }}
-          hayLugar={hayLugar}
-          onImportar={handleImportarPlanteles}
-          onReiniciar={handleReiniciar}
-        />
-      ) : tab !== 'plantel' && tab !== 'partido' ? (
-        <HistoryScreen
-          players={players}
-          partidos={partidos}
-          ajustes={ajustes}
-          vista={tab}
-          onCargarResultado={(partido) => setResultadoId(partido.id)}
-          onBorrarPartidos={handleBorrarPartidos}
-        />
-      ) : tab === 'plantel' ? (
-        <PlayersScreen
-          players={players}
-          ajustes={ajustes}
-          onAdd={() => {
-            if (!dejaSeguir(puedeAgregarJugador(players.length, plan))) return;
-            setEditing(null);
-            setFormVisible(true);
-          }}
-          onEdit={(player) => {
-            // Se edita la media base: si se mandara la ajustada, al guardar
-            // el bono quedaría escrito y se volvería a sumar encima.
-            setEditing(players.find((p) => p.id === player.id) ?? player);
-            setFormVisible(true);
-          }}
-        />
+      ) : null}
+
+      <Aparecer
+        llave={vistaReal === 'lista' ? seccion : `${activoId}-${tab}`}
+        style={styles.screen}
+      >
+        {vistaReal === 'lista' && seccion === 'perfil' ? (
+          <PerfilScreen
+            sesion={sesion}
+            cuantosPlanteles={planteles.length}
+            ultimaCopia={
+              ultimaCopia
+                ? ultimaCopia.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : null
+            }
+            haySinSubir={haySinSubir}
+            onBackup={handleBackup}
+            onRestaurar={handleRestaurar}
+          />
+        ) : vistaReal === 'lista' && seccion === 'amigos' ? (
+          <AmigosScreen
+            amigos={amigos}
+            cargando={cargandoAmigos}
+            tengoUsuario={Boolean(miUsuario)}
+            onRecargar={revisarAmigos}
+            onAbrir={setChatCon}
+            onIrAPerfil={() => setSeccion('perfil')}
+          />
+        ) : vistaReal === 'lista' ? (
+          <SquadsScreen
+            planteles={planteles}
+            predeterminadoId={predeterminadoId}
+            onAbrir={handleAbrirPlantel}
+            onConfig={setConfigId}
+            limitePlanteles={limites(plan).planteles}
+            activos={activos}
+            motivoBloqueo={motivoBloqueado(plan)}
+            avisoPro={AVISO_PRO}
+            envios={envios}
+            onAceptarEnvio={handleAceptarEnvio}
+            onRechazarEnvio={handleRechazarEnvio}
+            onNuevo={() => {
+              if (hayLugar()) setNuevoVisible(true);
+            }}
+            hayLugar={hayLugar}
+            onImportar={handleImportarPlanteles}
+            onReiniciar={handleReiniciar}
+          />
+        ) : tab !== 'plantel' && tab !== 'partido' ? (
+          <HistoryScreen
+            players={players}
+            partidos={partidos}
+            ajustes={ajustes}
+            vista={tab}
+            onCargarResultado={(partido) => setResultadoId(partido.id)}
+            onBorrarPartidos={handleBorrarPartidos}
+          />
+        ) : tab === 'plantel' ? (
+          <PlayersScreen
+            players={players}
+            ajustes={ajustes}
+            onAdd={() => {
+              if (!dejaSeguir(puedeAgregarJugador(players.length, plan))) return;
+              setEditing(null);
+              setFormVisible(true);
+            }}
+            onEdit={(player) => {
+              // Se edita la media base: si se mandara la ajustada, al guardar
+              // el bono quedaría escrito y se volvería a sumar encima.
+              setEditing(players.find((p) => p.id === player.id) ?? player);
+              setFormVisible(true);
+            }}
+          />
+        ) : (
+          <MatchScreen
+            players={players}
+            ajustes={ajustes}
+            format={format}
+            onFormatChange={setFormat}
+            usarTodos={usarTodos}
+            onUsarTodosChange={setUsarTodos}
+            selectedIds={selectedIds}
+            onToggle={toggleSelected}
+            onSelectAll={setSelectedIds}
+            onClear={() => setSelectedIds([])}
+            onBuild={handleBuild}
+            haySorteo={split !== null}
+            onVerSorteo={() => setTeamsVisible(true)}
+          />
+        )}
+      </Aparecer>
+
+      {/*
+        Adentro de un plantel manda la barra del plantel; afuera, la de las
+        secciones. Nunca las dos: dos barras iguales una encima de la otra no
+        se entienden.
+      */}
+      {vistaReal === 'plantel' ? (
+        <TabBar activa={tab} onChange={setTab} />
       ) : (
-        <MatchScreen
-          players={players}
-          ajustes={ajustes}
-          format={format}
-          onFormatChange={setFormat}
-          usarTodos={usarTodos}
-          onUsarTodosChange={setUsarTodos}
-          selectedIds={selectedIds}
-          onToggle={toggleSelected}
-          onSelectAll={setSelectedIds}
-          onClear={() => setSelectedIds([])}
-          onBuild={handleBuild}
-          haySorteo={split !== null}
-          onVerSorteo={() => setTeamsVisible(true)}
+        <NavPrincipal
+          activa={seccion}
+          onChange={setSeccion}
+          pendientes={pendientesDeAmigos}
         />
       )}
-    </Aparecer>
 
-    {/*
-      Adentro de un plantel manda la barra del plantel; afuera, la de las
-      secciones. Nunca las dos: dos barras iguales una encima de la otra no
-      se entienden.
-    */}
-    {vistaReal === 'plantel' ? (
-      <TabBar activa={tab} onChange={setTab} />
-    ) : (
-      <NavPrincipal
-        activa={seccion}
-        onChange={setSeccion}
-        pendientes={pendientesDeAmigos}
+      <PlayerFormModal
+        visible={formVisible}
+        player={editing}
+        ajuste={editing ? ajustes[editing.id] : undefined}
+        resumen={editing ? resumenDe(editing.id, partidos) : undefined}
+        onClose={() => {
+          setFormVisible(false);
+          setEditing(null);
+        }}
+        onSave={handleSavePlayer}
+        onDelete={handleDeletePlayer}
       />
-    )}
 
-    <PlayerFormModal
-      visible={formVisible}
-      player={editing}
-      ajuste={editing ? ajustes[editing.id] : undefined}
-      resumen={editing ? resumenDe(editing.id, partidos) : undefined}
-      onClose={() => {
-        setFormVisible(false);
-        setEditing(null);
-      }}
-      onSave={handleSavePlayer}
-      onDelete={handleDeletePlayer}
-    />
+      <SquadConfigModal
+        visible={enConfig !== null}
+        plantel={enConfig}
+        esPredeterminado={enConfig?.id === predeterminadoId}
+        haySesion={Boolean(sesion)}
+        onFotosSubidas={handleFotosSubidas}
+        onClose={() => setConfigId(null)}
+        onGuardar={(cambios) =>
+          enConfig && handleGuardarConfig(enConfig.id, cambios)
+        }
+        onBorrar={() => enConfig && handleBorrarPlantel(enConfig.id)}
+      />
 
-    <SquadConfigModal
-      visible={enConfig !== null}
-      plantel={enConfig}
-      esPredeterminado={enConfig?.id === predeterminadoId}
-      haySesion={Boolean(sesion)}
-      onFotosSubidas={handleFotosSubidas}
-      onClose={() => setConfigId(null)}
-      onGuardar={(cambios) =>
-        enConfig && handleGuardarConfig(enConfig.id, cambios)
-      }
-      onBorrar={() => enConfig && handleBorrarPlantel(enConfig.id)}
-    />
+      <RecuperarModal
+        pedido={recuperacion}
+        onClose={() => setRecuperacion(null)}
+        onListo={() => {
+          setRecuperacion(null);
+          setSeccion('perfil');
+        }}
+      />
 
-    <RecuperarModal
-      pedido={recuperacion}
-      onClose={() => setRecuperacion(null)}
-      onListo={() => {
-        setRecuperacion(null);
-        setSeccion('perfil');
-      }}
-    />
+      <ChatScreen
+        con={chatCon}
+        refrescos={refrescos}
+        onClose={() => {
+          setChatCon(null);
+          revisarAmigos();
+        }}
+        onAceptar={handleAceptarEnvio}
+        onRechazar={handleRechazarEnvio}
+      />
 
-    <ChatScreen
-      con={chatCon}
-      refrescos={refrescos}
-      onClose={() => {
-        setChatCon(null);
-        revisarAmigos();
-      }}
-      onAceptar={handleAceptarEnvio}
-      onRechazar={handleRechazarEnvio}
-    />
+      {dialogo}
 
-    {dialogo}
+      <NewSquadModal
+        visible={nuevoVisible}
+        onClose={() => setNuevoVisible(false)}
+        onCrear={handleCrearPlantel}
+      />
 
-    <NewSquadModal
-      visible={nuevoVisible}
-      onClose={() => setNuevoVisible(false)}
-      onCrear={handleCrearPlantel}
-    />
+      <TeamsModal
+        visible={teamsVisible}
+        split={split}
+        plantel={activo?.nombre ?? 'Plantel'}
+        medias={medias}
+        guardado={guardadoId !== null}
+        onClose={() => setTeamsVisible(false)}
+        onReshuffle={handleReshuffle}
+        onGuardar={handleGuardarPartido}
+        onSwap={handleSwap}
+        onDescartar={() => {
+          guardarSorteo(null);
+          setTeamsVisible(false);
+        }}
+      />
 
-    <TeamsModal
-      visible={teamsVisible}
-      split={split}
-      plantel={activo?.nombre ?? 'Plantel'}
-      medias={medias}
-      guardado={guardadoId !== null}
-      onClose={() => setTeamsVisible(false)}
-      onReshuffle={handleReshuffle}
-      onGuardar={handleGuardarPartido}
-      onSwap={handleSwap}
-      onDescartar={() => {
-        guardarSorteo(null);
-        setTeamsVisible(false);
-      }}
-    />
-
-    <MatchResultModal
-      visible={resultadoId !== null}
-      partido={partidos.find((p) => p.id === resultadoId) ?? null}
-      onClose={() => setResultadoId(null)}
-      onGuardar={handleGuardarResultado}
-    />
+      <MatchResultModal
+        visible={resultadoId !== null}
+        partido={partidos.find((p) => p.id === resultadoId) ?? null}
+        onClose={() => setResultadoId(null)}
+        onGuardar={handleGuardarResultado}
+      />
       </SafeAreaView>
     </ProveedorGuia>
   );
