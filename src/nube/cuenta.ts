@@ -1,7 +1,6 @@
 import { olvidarTelefono } from './avisos';
 import { urlDeRecuperacion } from './enlaces';
-import { leerPerfil } from './perfil';
-import { Plan } from '../plan';
+import { olvidarPerfil } from './perfil';
 import { alPerderSesion, authClient, clienteObligatorio } from './cliente';
 
 export interface Sesion {
@@ -160,6 +159,7 @@ export function alCambiarSesion(
  * conectada para siempre con una sesión muerta.
  */
 alPerderSesion(() => {
+  olvidarPerfil();
   // Sin cliente no hay sesión que soltar, así que ni se intenta.
   authClient
     ?.signOut()
@@ -266,19 +266,7 @@ export async function salir(): Promise<void> {
   // anterior.
   await olvidarTelefono();
   await clienteObligatorio().signOut();
+  olvidarPerfil();
   avisar(null);
 }
 
-/**
- * El plan según el servidor. Ante cualquier problema se asume gratis, que es
- * el lado seguro para equivocarse: mostrar los límites de más es un cartel,
- * dar Pro de más es regalar el producto.
- */
-export async function planDeLaCuenta(): Promise<Plan> {
-  try {
-    const perfil = await leerPerfil();
-    return perfil.plan === 'pro' ? 'pro' : 'gratis';
-  } catch {
-    return 'gratis';
-  }
-}

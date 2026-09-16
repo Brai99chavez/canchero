@@ -54,17 +54,67 @@ export function problemaDelUsuario(nombre: string): string | null {
   return null;
 }
 
-export function leerPerfil(): Promise<Perfil> {
-  return pedir<Perfil>('/perfil');
+/**
+ * Lo último que se supo del perfil, guardado en memoria.
+ *
+ * Sin esto se pedía cada vez que se entra a la sección —y encima dos veces, que
+ * el plan sale del mismo lugar—, así que cambiar de pestaña despertaba la base
+ * para traer algo que casi nunca cambia. Y mientras tanto se veía "trayendo tu
+ * perfil", que es un parpadeo por nada.
+ *
+ * Vive mientras vive la app: no se guarda en el teléfono. Es poca cosa y así no
+ * hay que preocuparse por dejar el nombre de nadie escrito en el disco.
+ */
+let enMemoria: Perfil | null = null;
+
+/** Lo que ya se sabe, sin pedir nada. Null si todavía no se trajo. */
+export function perfilEnMemoria(): Perfil | null {
+  return enMemoria;
+}
+
+/**
+ * El perfil. Si ya se trajo antes, eso mismo; con `refrescar` se vuelve a
+ * preguntar, que es lo que hace el tirón hacia abajo de la pantalla.
+ */
+let enVuelo: Promise<Perfil> | null = null;
+
+export function leerPerfil(refrescar = false): Promise<Perfil> {
+  if (enMemoria && !refrescar) return Promise.resolve(enMemoria);
+  /*
+   * Si ya hay un pedido en camino se devuelve ese mismo. Al entrar se pedía el
+   * perfil y el plan a la vez —salen del mismo lugar— y como ninguno de los
+   * dos había terminado todavía, los dos fallaban el caché y salían dos
+   * pedidos iguales.
+   */
+  if (!enVuelo) {
+    enVuelo = pedir<Perfil>('/perfil')
+      .then((traido) => {
+        enMemoria = traido;
+        return traido;
+      })
+      .finally(() => {
+        enVuelo = null;
+      });
+  }
+  return enVuelo;
+}
+
+/** Al cerrar sesión: lo que sabíamos era de la persona que se fue. */
+export function olvidarPerfil(): void {
+  enMemoria = null;
+  enVuelo = null;
 }
 
 /**
  * Guarda lo que cambió. Lo que no se manda no se toca: cambiar la foto no
  * borra el nombre.
  */
-export function guardarPerfil(cambios: {
+export async function guardarPerfil(cambios: {
   usuario?: string | null;
   foto?: string | null;
 }): Promise<Perfil> {
-  return pedir<Perfil>('/perfil', { metodo: 'PUT', cuerpo: cambios });
+  // El servidor devuelve cómo quedó: con eso se actualiza lo que tenemos, sin
+  // pedirlo de nuevo.
+  enMemoria = await pedir<Perfil>('/perfil', { metodo: 'PUT', cuerpo: cambios });
+  return enMemoria;
 }

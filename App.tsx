@@ -40,7 +40,6 @@ import TeamsModal from './src/screens/TeamsModal';
 import { hayNube } from './src/nube/cliente';
 import {
   alCambiarSesion,
-  planDeLaCuenta,
   sesionActual,
   Sesion,
 } from './src/nube/cuenta';
@@ -216,10 +215,22 @@ function Root() {
       // haya sesión, y hay que propagarlos cuando se vuelva a entrar.
       return;
     }
-    planDeLaCuenta().then(setPlan);
+    /*
+     * Un solo pedido: el plan y el nombre de usuario salen los dos del perfil.
+     *
+     * Ante cualquier problema se asume gratis, que es el lado seguro para
+     * equivocarse: mostrar los límites de más es un cartel, dar Pro de más es
+     * regalar el producto.
+     */
     leerPerfil()
-      .then((p) => setMiUsuario(p.usuario))
-      .catch(() => setMiUsuario(null));
+      .then((perfil) => {
+        setPlan(perfil.plan === 'pro' ? 'pro' : 'gratis');
+        setMiUsuario(perfil.usuario);
+      })
+      .catch(() => {
+        setPlan(PLAN);
+        setMiUsuario(null);
+      });
   }, [sesion]);
 
   /**

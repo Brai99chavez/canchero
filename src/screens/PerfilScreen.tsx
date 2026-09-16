@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,7 @@ import {
   leerPerfil,
   normalizar,
   Perfil,
+  perfilEnMemoria,
   problemaDelUsuario,
 } from '../nube/perfil';
 import { cleanupPhotos, discardPhoto, pickPhoto } from '../photos';
@@ -79,9 +81,14 @@ export default function PerfilScreen({
   const [error, setError] = useState<Explicacion | null>(null);
   const { dialogo, avisar, preguntar } = useDialogo();
 
-  /** Lo que hay guardado en la cuenta. Null mientras no llegó. */
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [usuario, setUsuario] = useState('');
+  /*
+   * Arranca con lo último que se supo, si es que ya se supo algo. Volver a la
+   * sección no tiene por qué mostrar "trayendo tu perfil" ni despertar la base
+   * para traer algo que casi nunca cambia.
+   */
+  const [perfil, setPerfil] = useState<Perfil | null>(() => perfilEnMemoria());
+  const [refrescando, setRefrescando] = useState(false);
+  const [usuario, setUsuario] = useState(() => perfilEnMemoria()?.usuario ?? '');
   /**
    * El cambio de foto que todavía no se guardó. Tres estados y no dos:
    *
@@ -119,28 +126,36 @@ export default function PerfilScreen({
   useEffect(() => () => ponerFotoPendiente(undefined), [ponerFotoPendiente]);
 
   /** Trae el perfil al abrir con la sesión puesta, y al iniciarla. */
+  const traerPerfil = useCallback(
+    (refrescar: boolean) => {
+      if (!sesion) return Promise.resolve();
+      return leerPerfil(refrescar)
+        .then((traido) => {
+          setPerfil(traido);
+          setUsuario(traido.usuario ?? '');
+          ponerFotoPendiente(undefined);
+          setErrorPerfil(null);
+          setGuardado(false);
+        })
+        .catch((problema) => setErrorPerfil(explicar(problema)));
+    },
+    [sesion, ponerFotoPendiente]
+  );
+
   useEffect(() => {
     if (!sesion) {
       setPerfil(null);
       return;
     }
-    let vigente = true;
-    leerPerfil()
-      .then((traido) => {
-        if (!vigente) return;
-        setPerfil(traido);
-        setUsuario(traido.usuario ?? '');
-        ponerFotoPendiente(undefined);
-        setErrorPerfil(null);
-        setGuardado(false);
-      })
-      .catch((problema) => {
-        if (vigente) setErrorPerfil(explicar(problema));
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [sesion, ponerFotoPendiente]);
+    // Sin `refrescar`: si ya está en memoria esto no pide nada.
+    traerPerfil(false);
+  }, [sesion, traerPerfil]);
+
+  /** El tirón hacia abajo: la forma de pedirlo de nuevo a propósito. */
+  const handleRefrescar = () => {
+    setRefrescando(true);
+    traerPerfil(true).finally(() => setRefrescando(false));
+  };
 
   const valido = email.trim().includes('@') && clave.length >= 8;
 
