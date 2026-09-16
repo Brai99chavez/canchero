@@ -186,6 +186,7 @@ export default function HistoryScreen({
 
       {vista !== 'tabla' ? (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           data={lista}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
@@ -252,6 +253,7 @@ export default function HistoryScreen({
         />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           data={tabla}
           keyExtractor={(item) => item.jugador.id}
           contentContainerStyle={styles.list}

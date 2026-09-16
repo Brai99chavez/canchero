@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
 import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
-import CierraTeclado from '../components/Teclado';
 import { Etiqueta } from '../components/Banner';
 import { colors, spacing } from '../theme';
 import { tieneResultado } from '../stats';
@@ -297,126 +296,124 @@ export default function MatchResultModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <CierraTeclado>
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <HeaderModal
+            titulo="Resultado"
+            izquierda={
+              editando && yaEstaba
+                ? {
+                    // Sale de editar sin tocar nada: vuelve a mostrar lo
+                    // guardado en vez de cerrar y perder de vista el partido.
+                    label: 'Cancelar',
+                    onPress: () => {
+                      reiniciar();
+                      setModo('lectura');
+                    },
+                  }
+                : { label: editando ? 'Cancelar' : 'Cerrar', onPress: onClose }
+            }
+            derecha={
+              editando
+                ? {
+                    label: yaEstaba ? 'Guardar' : 'Completar',
+                    onPress: handleGuardar,
+                  }
+                : { label: 'Editar', onPress: () => setModo('edicion') }
+            }
+          />
+
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}
           >
-            <HeaderModal
-              titulo="Resultado"
-              izquierda={
-                editando && yaEstaba
-                  ? {
-                      // Sale de editar sin tocar nada: vuelve a mostrar lo
-                      // guardado en vez de cerrar y perder de vista el partido.
-                      label: 'Cancelar',
-                      onPress: () => {
-                        reiniciar();
-                        setModo('lectura');
-                      },
-                    }
-                  : { label: editando ? 'Cancelar' : 'Cerrar', onPress: onClose }
-              }
-              derecha={
-                editando
-                  ? {
-                      label: yaEstaba ? 'Guardar' : 'Completar',
-                      onPress: handleGuardar,
-                    }
-                  : { label: 'Editar', onPress: () => setModo('edicion') }
-              }
-            />
-
-            <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.marcador}>
-                <View style={styles.marcadorLado}>
-                  <Text style={[styles.marcadorEquipo, { color: colors.teamA }]}>
-                    Equipo A
+            <View style={styles.marcador}>
+              <View style={styles.marcadorLado}>
+                <Text style={[styles.marcadorEquipo, { color: colors.teamA }]}>
+                  Equipo A
+                </Text>
+                {editando ? (
+                  <CampoTexto
+                    value={golesA}
+                    onChangeText={(t) => {
+                      setTocado((prev) => ({ ...prev, a: true }));
+                      setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
+                    }}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    contenedor={styles.marcadorCaja}
+                    style={styles.marcadorInput}
+                    placeholder="0"
+                  />
+                ) : (
+                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                    {numero(golesA)}
                   </Text>
-                  {editando ? (
-                    <CampoTexto
-                      value={golesA}
-                      onChangeText={(t) => {
-                        setTocado((prev) => ({ ...prev, a: true }));
-                        setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
-                      }}
-                      keyboardType="number-pad"
-                      selectTextOnFocus
-                      contenedor={styles.marcadorCaja}
-                      style={styles.marcadorInput}
-                      placeholder="0"
-                    />
-                  ) : (
-                    <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
-                      {numero(golesA)}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.guion}>—</Text>
-                <View style={styles.marcadorLado}>
-                  <Text style={[styles.marcadorEquipo, { color: colors.teamB }]}>
-                    Equipo B
-                  </Text>
-                  {editando ? (
-                    <CampoTexto
-                      value={golesB}
-                      onChangeText={(t) => {
-                        setTocado((prev) => ({ ...prev, b: true }));
-                        setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
-                      }}
-                      keyboardType="number-pad"
-                      selectTextOnFocus
-                      contenedor={styles.marcadorCaja}
-                      style={styles.marcadorInput}
-                      placeholder="0"
-                    />
-                  ) : (
-                    <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
-                      {numero(golesB)}
-                    </Text>
-                  )}
-                </View>
+                )}
               </View>
-
-              {editando ? (
-                <Text style={styles.ayuda}>
-                  Los goles y asistencias son opcionales: dejá en blanco lo que no
-                  tengas. Con el marcador solo ya se cuentan victorias y rachas.
-                  Si alguien al final no jugó, sacalo con la × y deja de contar.
-                  Al completar, el partido pasa al historial y entra en las
-                  estadísticas.
-                  Mientras no toques el marcador, se completa solo con los goles
-                  que vayas cargando.
+              <Text style={styles.guion}>—</Text>
+              <View style={styles.marcadorLado}>
+                <Text style={[styles.marcadorEquipo, { color: colors.teamB }]}>
+                  Equipo B
                 </Text>
-              ) : (
-                <Text style={styles.ayuda}>
-                  Este partido ya está jugado. Tocá EDITAR arriba si hay algo que
-                  corregir.
-                </Text>
-              )}
+                {editando ? (
+                  <CampoTexto
+                    value={golesB}
+                    onChangeText={(t) => {
+                      setTocado((prev) => ({ ...prev, b: true }));
+                      setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
+                    }}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    contenedor={styles.marcadorCaja}
+                    style={styles.marcadorInput}
+                    placeholder="0"
+                  />
+                ) : (
+                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                    {numero(golesB)}
+                  </Text>
+                )}
+              </View>
+            </View>
 
-              {filas(
-                partido.equipoA,
-                'Equipo A',
-                colors.teamA,
-                sumaA,
-                numero(golesA)
-              )}
-              {filas(
-                partido.equipoB,
-                'Equipo B',
-                colors.teamB,
-                sumaB,
-                numero(golesB)
-              )}
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </CierraTeclado>
+            {editando ? (
+              <Text style={styles.ayuda}>
+                Los goles y asistencias son opcionales: dejá en blanco lo que no
+                tengas. Con el marcador solo ya se cuentan victorias y rachas.
+                Si alguien al final no jugó, sacalo con la × y deja de contar.
+                Al completar, el partido pasa al historial y entra en las
+                estadísticas.
+                Mientras no toques el marcador, se completa solo con los goles
+                que vayas cargando.
+              </Text>
+            ) : (
+              <Text style={styles.ayuda}>
+                Este partido ya está jugado. Tocá EDITAR arriba si hay algo que
+                corregir.
+              </Text>
+            )}
+
+            {filas(
+              partido.equipoA,
+              'Equipo A',
+              colors.teamA,
+              sumaA,
+              numero(golesA)
+            )}
+            {filas(
+              partido.equipoB,
+              'Equipo B',
+              colors.teamB,
+              sumaB,
+              numero(golesB)
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       {dialogo}
     </Modal>

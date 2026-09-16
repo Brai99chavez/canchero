@@ -8,15 +8,18 @@ import { Keyboard, TouchableWithoutFeedback } from 'react-native';
  * pantalla mientras tanto: escribís el nombre de un jugador, querés tocar
  * Guardar, y el botón está abajo del teclado.
  *
- * No se traga los toques: el sistema de gestos de React Native le da primero
- * la chance a lo que esté abajo del dedo, así que un botón sigue andando de un
- * solo toque y sólo llega acá lo que nadie usó. Por eso los listados y las
- * pantallas con scroll llevan además `keyboardShouldPersistTaps="handled"`:
- * sin eso, el primer toque con el teclado abierto lo consume el scroll y hay
- * que tocar el botón dos veces.
+ * IMPORTANTE: no envolver nada que tenga adentro un ScrollView o un FlatList.
+ * Esto se queda con el toque apenas empieza y el scroll nunca recibe el
+ * movimiento, así que la lista deja de correr. Pasó: los partidos activos no
+ * se podían scrollear para ver los dos equipos.
  *
- * Va por modal y no una sola vez en la raíz porque cada modal es su propia
- * ventana del sistema: lo que envuelve a la app no alcanza a los de adentro.
+ * Ahí no hace falta igual. Un ScrollView con `keyboardShouldPersistTaps="handled"`
+ * ya cierra el teclado solo cuando el toque no lo usa ninguno de sus hijos, que
+ * es exactamente lo mismo que hace esto. Por eso todas las listas de la app
+ * llevan esa prop, y esto queda sólo para las pantallas que no scrollean.
+ *
+ * Y va por pantalla, no una vez en la raíz: cada modal es su propia ventana
+ * del sistema, y lo que envuelve a la app no alcanza a los de adentro.
  */
 export default function CierraTeclado({
   children,

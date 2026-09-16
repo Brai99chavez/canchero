@@ -152,6 +152,7 @@ export default function PlayersScreen({
           />
 
           <ScrollView
+            keyboardShouldPersistTaps="handled"
             horizontal
             showsHorizontalScrollIndicator={false}
             // Sin esto se estira y se queda con el alto que le sobra a la
@@ -159,7 +160,6 @@ export default function PlayersScreen({
             // lo que haya, y la lista quedaba flotando en el medio.
             style={styles.filtrosCaja}
             contentContainerStyle={styles.filtros}
-            keyboardShouldPersistTaps="handled"
           >
             <Chip
               texto="Todos"
@@ -193,11 +193,11 @@ export default function PlayersScreen({
       ) : null}
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={filtered}
         keyExtractor={(item) => item.id}
         style={styles.lista}
         contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           query || puesto ? (
             <EmptyState

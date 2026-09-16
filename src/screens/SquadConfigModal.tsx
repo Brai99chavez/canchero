@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
 import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
-import CierraTeclado from '../components/Teclado';
 import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
 import { colors, radius, spacing } from '../theme';
@@ -116,77 +115,75 @@ export default function SquadConfigModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleCerrar}>
-      <CierraTeclado>
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <HeaderModal
+            titulo="Config del plantel"
+            izquierda={{ label: 'Cancelar', onPress: handleCerrar }}
+            derecha={{
+              label: 'Guardar',
+              onPress: handleGuardar,
+              disabled: !puedeGuardar,
+            }}
+          />
+
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}
           >
-            <HeaderModal
-              titulo="Config del plantel"
-              izquierda={{ label: 'Cancelar', onPress: handleCerrar }}
-              derecha={{
-                label: 'Guardar',
-                onPress: handleGuardar,
-                disabled: !puedeGuardar,
-              }}
+            <Seccion>Nombre</Seccion>
+            <CampoTexto
+              value={nombre}
+              onChangeText={setNombre}
+              autoCapitalize="words"
             />
 
-            <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Seccion>Nombre</Seccion>
-              <CampoTexto
-                value={nombre}
-                onChangeText={setNombre}
-                autoCapitalize="words"
-              />
-
-              <Seccion>Al abrir la app</Seccion>
-              <View style={styles.switchRow}>
-                <View style={styles.switchTexto}>
-                  <Text style={styles.switchTitulo}>Abrir este plantel</Text>
-                  <Text style={styles.ayuda}>
-                    Con esto activado la app entra directo acá. Si lo apagás,
-                    arranca mostrando la lista de planteles.
-                  </Text>
-                </View>
-                <Switch
-                  value={predeterminado}
-                  onValueChange={setPredeterminado}
-                  trackColor={{
-                    false: colors.surfaceAlt,
-                    true: colors.primaryDark,
-                  }}
-                  thumbColor={predeterminado ? colors.primary : colors.textMuted}
-                />
-              </View>
-
-              {hayCambios ? (
-                <Text style={styles.aviso}>
-                  Hay cambios sin guardar. Tocá Guardar arriba a la derecha.
+            <Seccion>Al abrir la app</Seccion>
+            <View style={styles.switchRow}>
+              <View style={styles.switchTexto}>
+                <Text style={styles.switchTitulo}>Abrir este plantel</Text>
+                <Text style={styles.ayuda}>
+                  Con esto activado la app entra directo acá. Si lo apagás,
+                  arranca mostrando la lista de planteles.
                 </Text>
-              ) : null}
-
-              <Seccion>Respaldo</Seccion>
-              <Text style={styles.ayuda}>
-                Exporta sólo este plantel: {plantel.jugadores.length}{' '}
-                {plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'}. Guarda
-                nombre, posición y stats; las fotos quedan en el teléfono.
-              </Text>
-              <Button title="Exportar este plantel" onPress={handleExportar} />
-
-              <Seccion>Zona peligrosa</Seccion>
-              <Button
-                title="Borrar plantel"
-                variant="danger"
-                onPress={handleBorrar}
+              </View>
+              <Switch
+                value={predeterminado}
+                onValueChange={setPredeterminado}
+                trackColor={{
+                  false: colors.surfaceAlt,
+                  true: colors.primaryDark,
+                }}
+                thumbColor={predeterminado ? colors.primary : colors.textMuted}
               />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </CierraTeclado>
+            </View>
+
+            {hayCambios ? (
+              <Text style={styles.aviso}>
+                Hay cambios sin guardar. Tocá Guardar arriba a la derecha.
+              </Text>
+            ) : null}
+
+            <Seccion>Respaldo</Seccion>
+            <Text style={styles.ayuda}>
+              Exporta sólo este plantel: {plantel.jugadores.length}{' '}
+              {plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'}. Guarda
+              nombre, posición y stats; las fotos quedan en el teléfono.
+            </Text>
+            <Button title="Exportar este plantel" onPress={handleExportar} />
+
+            <Seccion>Zona peligrosa</Seccion>
+            <Button
+              title="Borrar plantel"
+              variant="danger"
+              onPress={handleBorrar}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <EnviarModal
         visible={enviarVisible}

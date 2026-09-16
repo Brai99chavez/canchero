@@ -278,10 +278,10 @@ export default function MatchScreen({
 
       <Objetivo paso="convocar" style={styles.lista}>
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={visibles}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           busqueda.trim() ? (
             <EmptyState

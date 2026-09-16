@@ -206,6 +206,7 @@ export default function SquadsScreen({
       ))}
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={planteles}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}

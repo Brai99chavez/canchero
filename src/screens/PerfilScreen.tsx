@@ -592,8 +592,8 @@ export default function PerfilScreen({
       ) : null}
 
       <ScrollView
-        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
       >
         {!sesion
           ? vistaEntrar

@@ -314,7 +314,10 @@ export default function TeamsModal({
           </Text>
         </Panel>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           {vista === 'lista' ? (
             <>
               <TeamCard
