@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Panel, { DIAGONAL } from '../components/Angular';
+import { comoSeLee } from '../fechas';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -24,6 +26,7 @@ interface Props {
   partido: Partido | null;
   onClose: () => void;
   onGuardar: (cambios: {
+    fecha: string;
     equipoA: string[];
     equipoB: string[];
     golesA: number;
@@ -91,6 +94,9 @@ export default function MatchResultModal({
    * los goles que se van cargando. En cuanto lo escribís vos, deja de moverse.
    */
   const [tocado, setTocado] = useState({ a: false, b: false });
+  /** El día en que se jugó. Se puede corregir al editar. */
+  const [dia, setDia] = useState(() => new Date());
+  const [eligiendoDia, setEligiendoDia] = useState(false);
 
   /** Vuelve a poner en pantalla lo que está guardado, tirando los cambios. */
   const reiniciar = useCallback(() => {
@@ -108,6 +114,8 @@ export default function MatchResultModal({
     }
     setAportes(inicial);
     setFuera([]);
+    const guardada = new Date(partido.fecha);
+    setDia(Number.isNaN(guardada.getTime()) ? new Date() : guardada);
     setTocado({
       a: partido.golesA !== null,
       b: partido.golesB !== null,
@@ -182,6 +190,7 @@ export default function MatchResultModal({
       .filter((a) => a.goles > 0 || a.asistencias > 0);
 
     onGuardar({
+      fecha: dia.toISOString(),
       equipoA: partido!.equipoA.filter(jugo),
       equipoB: partido!.equipoB.filter(jugo),
       golesA: golesFinalA,
@@ -380,6 +389,38 @@ export default function MatchResultModal({
               </View>
             </View>
 
+            {/*
+              El día también se corrige acá: si el partido se guardó con la
+              fecha equivocada, este es el único lugar donde se puede arreglar.
+            */}
+            {editando ? (
+              <Pressable onPress={() => setEligiendoDia(true)}>
+                <Panel
+                  style={styles.dia}
+                  esquinas={DIAGONAL}
+                  chaflan={8}
+                  fondo="transparent"
+                  borde={colors.border}
+                  grosor={1.5}
+                >
+                  <Text style={styles.diaRotulo}>Se jugó</Text>
+                  <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
+                  <Text style={styles.diaCambiar}>Cambiar</Text>
+                </Panel>
+              </Pressable>
+            ) : null}
+
+            {eligiendoDia ? (
+              <DateTimePicker
+                value={dia}
+                mode="date"
+                onChange={(evento, elegido) => {
+                  setEligiendoDia(false);
+                  if (evento.type === 'set' && elegido) setDia(elegido);
+                }}
+              />
+            ) : null}
+
             {editando ? (
               <Text style={styles.ayuda}>
                 Los goles y asistencias son opcionales: dejá en blanco lo que no
@@ -452,6 +493,33 @@ const styles = StyleSheet.create({
   },
   datoCero: { color: colors.textMuted },
   guion: { color: colors.textMuted, fontSize: 22, fontFamily: 'Barlow_400Regular', marginTop: 24 },
+  dia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  diaRotulo: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  diaValor: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontFamily: 'Barlow_700Bold',
+  },
+  diaCambiar: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   ayuda: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', lineHeight: 17 },
   bloque: { gap: 6 },
   bloqueTitulo: {

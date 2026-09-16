@@ -542,7 +542,7 @@ function Root() {
     [players, selectedIds, format, usarTodos, partidos, guardarSorteo]
   );
 
-  const handleGuardarPartido = useCallback(() => {
+  const handleGuardarPartido = useCallback((fecha: Date) => {
     if (!split) return;
     const nombres: Record<string, string> = {};
     for (const p of [...split.teamA, ...split.teamB, ...split.bench]) {
@@ -550,7 +550,7 @@ function Root() {
     }
     const partido: Partido = {
       id: newId(),
-      fecha: new Date().toISOString(),
+      fecha: fecha.toISOString(),
       formato: format,
       equipoA: split.teamA.map((p) => p.id),
       equipoB: split.teamB.map((p) => p.id),
@@ -600,6 +600,7 @@ function Root() {
 
   const handleGuardarResultado = useCallback(
     (cambios: {
+      fecha: string;
       equipoA: string[];
       equipoB: string[];
       golesA: number;
@@ -994,6 +995,7 @@ function Root() {
             onClear={() => setSelectedIds([])}
             onBuild={handleBuild}
             haySorteo={split !== null}
+            sorteoGuardado={guardadoId !== null}
             onVerSorteo={() => setTeamsVisible(true)}
           />
         )}

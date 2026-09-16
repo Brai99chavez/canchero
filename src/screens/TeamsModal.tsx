@@ -1,4 +1,6 @@
 import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { comoSeLee } from '../fechas';
 import { reparto } from '../stats';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -39,7 +41,8 @@ interface Props {
   guardado: boolean;
   onClose: () => void;
   onReshuffle: () => void;
-  onGuardar: () => void;
+  /** Guarda el partido con el día que se haya elegido. */
+  onGuardar: (fecha: Date) => void;
   onSwap: (unoId: string, otroId: string) => void;
   onDescartar: () => void;
 }
@@ -208,6 +211,14 @@ export default function TeamsModal({
   onSwap,
   onDescartar,
 }: Props) {
+  /** El día que se va a guardar. Arranca en hoy cada vez que se abre. */
+  const [dia, setDia] = useState(() => new Date());
+  const [eligiendoDia, setEligiendoDia] = useState(false);
+
+  useEffect(() => {
+    if (visible) setDia(new Date());
+  }, [visible]);
+
   const [vista, setVista] = useState<Vista>('lista');
   /** Primer jugador de un intercambio: el segundo toque completa el cambio. */
   const [elegidoId, setElegidoId] = useState<string | null>(null);
@@ -386,9 +397,44 @@ export default function TeamsModal({
         </View>
 
         <View style={styles.footer}>
+          {/*
+            El día se elige antes de guardar y no después: los equipos se
+            sortean el jueves para el sábado tan seguido como se sortean y se
+            juegan en el momento. Por defecto es hoy, que es el caso común.
+          */}
+          {guardado ? null : (
+            <Pressable onPress={() => setEligiendoDia(true)}>
+              <Panel
+                style={styles.dia}
+                esquinas={DIAGONAL}
+                chaflan={8}
+                fondo="transparent"
+                borde={colors.border}
+                grosor={1.5}
+              >
+                <Text style={styles.diaRotulo}>Se juega</Text>
+                <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
+                <Text style={styles.diaCambiar}>Cambiar</Text>
+              </Panel>
+            </Pressable>
+          )}
+
+          {eligiendoDia ? (
+            <DateTimePicker
+              value={dia}
+              mode="date"
+              onChange={(evento, elegido) => {
+                // En Android el selector es un diálogo del sistema: se cierra
+                // solo y avisa si se eligió algo o si lo cancelaron.
+                setEligiendoDia(false);
+                if (evento.type === 'set' && elegido) setDia(elegido);
+              }}
+            />
+          ) : null}
+
           <Button
             title={guardado ? 'Partido guardado ✓' : 'Guardar partido'}
-            onPress={onGuardar}
+            onPress={() => onGuardar(dia)}
             disabled={guardado}
           />
           <View style={styles.footerFila}>
@@ -535,6 +581,34 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
+  },
+  dia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginBottom: spacing.sm,
+  },
+  diaRotulo: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  diaValor: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontFamily: 'Barlow_700Bold',
+  },
+  diaCambiar: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   footer: {
     padding: spacing.lg,

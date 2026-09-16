@@ -3,6 +3,7 @@ import Panel, { DIAGONAL } from '../components/Angular';
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,6 +11,7 @@ import {
 import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
+import { comoSeLeeCorto, mesDe, nombreDelMes } from '../fechas';
 import { reparto, resumenDe, Signo, tieneResultado, winrate } from '../stats';
 import { angulo, colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
@@ -39,10 +41,33 @@ const COLOR_SIGNO: Record<Signo, string> = {
   P: colors.danger,
 };
 
-function fechaCorta(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+/** Uno de los meses del filtro. */
+function ChipMes({
+  texto,
+  activo,
+  onPress,
+}: {
+  texto: string;
+  activo: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress}>
+      <Panel
+        style={styles.chipMes}
+        esquinas={DIAGONAL}
+        chaflan={8}
+        fondo={activo ? colors.primary : 'transparent'}
+        opacidadFondo={activo ? 0.13 : undefined}
+        borde={activo ? colors.primary : colors.border}
+        grosor={1.5}
+      >
+        <Text style={[styles.chipMesTexto, activo && styles.chipMesActivo]}>
+          {texto}
+        </Text>
+      </Panel>
+    </Pressable>
+  );
 }
 
 function Forma({ ultimos }: { ultimos: Signo[] }) {
@@ -111,7 +136,37 @@ export default function HistoryScreen({
       });
   }, [players, partidos]);
 
-  const lista = vista === 'activos' ? activos : jugados;
+  /*
+   * Los meses que tienen partidos, del más nuevo al más viejo. Salen de lo que
+   * hay y no de un calendario: ofrecer meses vacíos es hacer tocar para no
+   * encontrar nada.
+   */
+  const meses = useMemo(() => {
+    const vistos = new Map<string, { anio: number; mes: number }>();
+    for (const p of jugados) {
+      const f = new Date(p.fecha);
+      if (Number.isNaN(f.getTime())) continue;
+      vistos.set(mesDe(p.fecha), { anio: f.getFullYear(), mes: f.getMonth() });
+    }
+    return [...vistos.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([clave, { anio, mes }]) => ({ clave, etiqueta: nombreDelMes(anio, mes) }));
+  }, [jugados]);
+
+  const [mes, setMes] = useState<string | null>(null);
+
+  // Un mes elegido que se quedó sin partidos —se borraron todos— dejaría la
+  // lista vacía sin que se entienda por qué.
+  useEffect(() => {
+    if (mes && !meses.some((m) => m.clave === mes)) setMes(null);
+  }, [meses, mes]);
+
+  const jugadosDelMes = useMemo(
+    () => (mes ? jugados.filter((p) => mesDe(p.fecha) === mes) : jugados),
+    [jugados, mes]
+  );
+
+  const lista = vista === 'activos' ? activos : jugadosDelMes;
 
   function alternar(id: string) {
     setElegidos((prev) => {
@@ -144,6 +199,31 @@ export default function HistoryScreen({
 
   return (
     <View style={styles.container}>
+      {/*
+        El filtro por mes sólo en el historial: los activos son pocos y se
+        están jugando ahora, no hay nada que buscar. Y recién con dos meses
+        cargados, que con uno solo el filtro no filtra nada.
+      */}
+      {vista === 'historial' && meses.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.mesesCaja}
+          contentContainerStyle={styles.meses}
+          keyboardShouldPersistTaps="handled"
+        >
+          <ChipMes texto="Todos" activo={mes === null} onPress={() => setMes(null)} />
+          {meses.map((m) => (
+            <ChipMes
+              key={m.clave}
+              texto={m.etiqueta}
+              activo={mes === m.clave}
+              onPress={() => setMes(mes === m.clave ? null : m.clave)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+
       {vista !== 'tabla' && lista.length > 0 ? (
         <View style={styles.barra}>
           {elegidos ? (
@@ -223,7 +303,7 @@ export default function HistoryScreen({
                   grosor={marcado ? 1.5 : 1}
                 >
                 <View style={styles.partidoCabecera}>
-                  <Text style={styles.fecha}>{fechaCorta(item.fecha)}</Text>
+                  <Text style={styles.fecha}>{comoSeLeeCorto(item.fecha)}</Text>
                   <Text style={styles.formato}>
                     {reparto(item.equipoA.length, item.equipoB.length)}
                   </Text>
@@ -324,6 +404,23 @@ export default function HistoryScreen({
 }
 
 const styles = StyleSheet.create({
+  // Sin esto el scroll horizontal se estira y se queda con el alto que le
+  // sobra a la lista, que queda flotando en el medio.
+  mesesCaja: { flexGrow: 0 },
+  meses: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  chipMes: { paddingHorizontal: spacing.md, paddingVertical: 7 },
+  chipMesTexto: {
+    color: colors.textMuted,
+    fontSize: 11.5,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  chipMesActivo: { color: colors.primary },
   barra: {
     flexDirection: 'row',
     alignItems: 'center',
