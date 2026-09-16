@@ -26,12 +26,22 @@ function tipoDe(uri: string): string {
   return 'image/jpeg';
 }
 
-/** Sube una foto del teléfono y devuelve la URL con la que se ve. */
-export async function subirFoto(uri: string): Promise<string> {
+/**
+ * Sube una foto del teléfono y devuelve la URL con la que se ve.
+ *
+ * `carpeta` separa las de los jugadores de la del perfil. Importa: la limpieza
+ * de huérfanas barre las de jugadores contra lo que referencian los planteles,
+ * y la del perfil no aparece en ningún plantel, así que ahí adentro se
+ * borraría sola.
+ */
+export async function subirFoto(
+  uri: string,
+  carpeta: 'jugadores' | 'perfil' = 'jugadores'
+): Promise<string> {
   const tipo = tipoDe(uri);
   const permiso = await pedir<Permiso>('/fotos/permiso', {
     metodo: 'POST',
-    cuerpo: { tipo },
+    cuerpo: { tipo, carpeta },
   });
 
   // Los bytes en crudo: R2 espera el archivo tal cual, no un formulario.

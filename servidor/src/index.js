@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { auth } from './auth.js';
 import { consultar } from './db.js';
 import { hayMails } from './mails.js';
+import { guardarPerfil, leerPerfil } from './perfil.js';
 import { planDe, recortarAlPlan } from './planes.js';
 import {
   borrarFoto,
@@ -66,13 +67,36 @@ app.use('/perfil', async (c, siguiente) => {
 });
 
 /**
- * El plan de la cuenta. Lo lee la app para saber si mostrar los límites, pero
- * no hay forma de escribirlo desde acá: eso lo hace el webhook del cobro, con
- * su propia clave. Un APK modificado no puede volverse Pro.
+ * El perfil: el plan, el nombre con el que te encuentran y la foto.
+ *
+ * El plan sale de acá pero no entra: escribirlo es cosa del webhook del cobro,
+ * con su propia clave. Un APK modificado no puede volverse Pro mandando un
+ * PUT, y por eso `PUT /perfil` ignora cualquier `plan` que le llegue.
  */
 app.get('/perfil', async (c) => {
   const usuario = c.get('usuario');
-  return c.json({ email: usuario.email, plan: await planDe(usuario.id) });
+  return c.json({ email: usuario.email, ...(await leerPerfil(usuario.id)) });
+});
+
+app.put('/perfil', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  if (!cuerpo || typeof cuerpo !== 'object') {
+    return c.json({ error: 'Falta el cuerpo del pedido.' }, 400);
+  }
+
+  // Sólo estos dos campos, elegidos a mano: pasar el cuerpo entero dejaría
+  // que un cliente modificado se escriba el plan.
+  const cambios = {};
+  if ('usuario' in cuerpo) cambios.usuario = cuerpo.usuario;
+  if ('foto' in cuerpo) cambios.foto = cuerpo.foto;
+
+  try {
+    const perfil = await guardarPerfil(usuario.id, cambios);
+    return c.json({ email: usuario.email, ...perfil });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
 });
 
 /**
@@ -84,7 +108,9 @@ app.post('/fotos/permiso', async (c) => {
   const usuario = c.get('usuario');
   const cuerpo = await c.req.json().catch(() => null);
   try {
-    return c.json(await permisoDeSubida(usuario.id, cuerpo?.tipo));
+    return c.json(
+      await permisoDeSubida(usuario.id, cuerpo?.tipo, cuerpo?.carpeta)
+    );
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
   }

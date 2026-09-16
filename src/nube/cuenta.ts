@@ -1,11 +1,7 @@
 import { urlDeRecuperacion } from './enlaces';
+import { leerPerfil } from './perfil';
 import { Plan } from '../plan';
-import {
-  alPerderSesion,
-  authClient,
-  clienteObligatorio,
-  pedir,
-} from './cliente';
+import { alPerderSesion, authClient, clienteObligatorio } from './cliente';
 
 export interface Sesion {
   id: string;
@@ -246,7 +242,7 @@ export async function salir(): Promise<void> {
  */
 export async function planDeLaCuenta(): Promise<Plan> {
   try {
-    const perfil = await pedir<{ plan: string }>('/perfil');
+    const perfil = await leerPerfil();
     return perfil.plan === 'pro' ? 'pro' : 'gratis';
   } catch {
     return 'gratis';

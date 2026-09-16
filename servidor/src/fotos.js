@@ -9,7 +9,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 /**
- * Las fotos de los jugadores, en Cloudflare R2.
+ * Las fotos, en Cloudflare R2: las de los jugadores y la del perfil.
  *
  * El servidor no toca los bytes: firma un permiso de subida y la app manda el
  * archivo derecho a R2. Si pasaran por acá, cada foto ocuparía el contenedor
@@ -46,6 +46,21 @@ function getCliente() {
   return cliente;
 }
 
+/** La raíz pública del bucket, para verificar que una URL sea nuestra. */
+export function publicaDe() {
+  return publica;
+}
+
+/**
+ * Dónde puede escribir una cuenta. Es una lista cerrada y no lo que mande la
+ * app: con una carpeta libre se podría escribir en `publico/`, que es de donde
+ * salen las imágenes de los mails.
+ *
+ * `jugadores` lo barre la limpieza de huérfanas; `perfil` no, porque ahí hay
+ * una sola foto y la reemplaza el propio perfil al cambiarla.
+ */
+const CARPETAS = new Set(['jugadores', 'perfil']);
+
 /**
  * Un permiso para subir una foto, que vale unos minutos.
  *
@@ -54,15 +69,18 @@ function getCliente() {
  * al azar, para que cambiar la foto de un jugador no reemplace la anterior y
  * la app no tenga que pelear con la caché.
  */
-export async function permisoDeSubida(usuarioId, tipo) {
+export async function permisoDeSubida(usuarioId, tipo, carpeta = 'jugadores') {
   const extension = TIPOS[tipo];
   if (!extension) {
     throw Object.assign(new Error('Formato no soportado. Usá JPG, PNG o WebP.'), {
       status: 400,
     });
   }
+  if (!CARPETAS.has(carpeta)) {
+    throw Object.assign(new Error('Destino no válido.'), { status: 400 });
+  }
 
-  const key = `${usuarioId}/jugadores/${randomBytes(16).toString('hex')}.${extension}`;
+  const key = `${usuarioId}/${carpeta}/${randomBytes(16).toString('hex')}.${extension}`;
   const url = await getSignedUrl(
     getCliente(),
     new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: tipo }),
@@ -110,8 +128,15 @@ export async function limpiarHuerfanas(usuarioId, usadas, gracia = MINUTOS_DE_GR
     if (esNuestra(url)) enUso.add(url.slice(publica.length + 1));
   }
 
-  // Un margen antes de tocar nada: una foto recién subida puede estar
-  // esperando el plantel que la va a nombrar, y borrarla ahí la perdería.
+  /*
+   * Un margen antes de tocar nada: una foto recién subida puede estar
+   * esperando el plantel que la va a nombrar, y borrarla ahí la perdería.
+   *
+   * Se compara contra el reloj de esta máquina y la fecha la pone R2, que
+   * puede ir unos segundos corrido. Con 15 minutos de margen eso no importa;
+   * con un margen de cero sí, y por eso las pruebas usan uno negativo en vez
+   * de cero cuando quieren que barra todo.
+   */
   const limite = Date.now() - gracia * 60 * 1000;
 
   let continuacion;
