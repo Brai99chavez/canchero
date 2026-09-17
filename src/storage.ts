@@ -331,7 +331,29 @@ export async function saveGuia(estado: EstadoGuia): Promise<void> {
   }
 }
 
-/** Borra todo lo guardado y deja la app como recién instalada. */
+/**
+ * Borra los planteles de este teléfono, y nada más.
+ *
+ * Es lo que corre al cerrar sesión: está todo en la cuenta, así que no se
+ * pierde nada, y dejarlo era lo que hacía que los planteles de uno aparecieran
+ * en la cuenta del que entrara después.
+ *
+ * La guía NO entra acá a propósito. Enseña a usar la app, no guarda nada tuyo:
+ * cambiar de cuenta no te convierte en alguien que nunca vio la app, y volver
+ * a explicarle todo al que ya lo hizo es tratarlo de nuevo cada vez que sale.
+ */
+export async function borrarDatosDeLaCuenta(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([PLANTELES_KEY, PLAYERS_KEY]);
+  } catch {
+    // Si no se puede borrar, al menos la app queda con el estado nuevo.
+  }
+}
+
+/**
+ * Borra todo lo guardado y deja la app como recién instalada, la guía
+ * incluida. Esto sí es para el que pidió empezar de cero a propósito.
+ */
 export async function borrarTodo(): Promise<void> {
   try {
     await AsyncStorage.multiRemove([PLANTELES_KEY, PLAYERS_KEY, GUIA_KEY]);

@@ -1,6 +1,6 @@
 import { olvidarTelefono } from './avisos';
 import { urlDeRecuperacion } from './enlaces';
-import { borrarTodo } from '../storage';
+import { borrarDatosDeLaCuenta } from '../storage';
 import { olvidarPerfil } from './perfil';
 import { alPerderSesion, authClient, clienteObligatorio } from './cliente';
 
@@ -320,11 +320,14 @@ export async function salir(): Promise<void> {
   await clienteObligatorio().signOut();
   olvidarPerfil();
   /*
-   * Y se borra lo que hay en el teléfono. Está todo en la cuenta, así que no
-   * se pierde nada; dejarlo era lo que hacía que los planteles de uno
+   * Y se borran los planteles de este teléfono. Están todos en la cuenta, así
+   * que no se pierde nada; dejarlos era lo que hacía que los de uno
    * aparecieran en la cuenta del que entrara después.
+   *
+   * Los planteles y nada más: la guía se queda. Salir no te convierte en
+   * alguien que nunca vio la app.
    */
-  await borrarTodo();
+  await borrarDatosDeLaCuenta();
   avisar(null);
 }
 
