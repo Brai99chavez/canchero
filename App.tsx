@@ -147,6 +147,19 @@ const ESPERA_MAXIMA = 60_000;
 /** Cuánto se queda el cartel de que volvió la conexión antes de irse solo. */
 const AVISO_VOLVIO = 3500;
 
+/**
+ * Lo mínimo que se ve el cartel de "bajando", aunque la bajada termine antes.
+ *
+ * `expo-updates` empieza a descargar solo al arrancar la app, antes de que
+ * corra nada de esto. Así que cuando acá se pide el archivo, muchas veces ya
+ * está en el teléfono y la promesa vuelve al instante: el cartel aparecía y
+ * desaparecía en el mismo cuadro, y desde afuera parecía que no pasaba nada.
+ *
+ * Esperar un poco no es disimular una demora que no existe: algo pasó de
+ * verdad, y esto es lo único que lo cuenta.
+ */
+const MINIMO_BAJANDO = 1400;
+
 
 
 
@@ -1221,15 +1234,24 @@ function Root() {
   useEffect(() => {
     if (!ready) return;
     let vigente = true;
+    let reloj: ReturnType<typeof setTimeout> | undefined;
+
     hayActualizacion().then((hay) => {
       if (!hay || !vigente) return;
+      const desde = Date.now();
       setActualizacion('bajando');
       bajarActualizacion().then((quedoLista) => {
-        if (vigente) setActualizacion(quedoLista ? 'lista' : null);
+        if (!vigente) return;
+        const falta = Math.max(0, MINIMO_BAJANDO - (Date.now() - desde));
+        reloj = setTimeout(() => {
+          if (vigente) setActualizacion(quedoLista ? 'lista' : null);
+        }, falta);
       });
     });
+
     return () => {
       vigente = false;
+      clearTimeout(reloj);
     };
   }, [ready]);
 
