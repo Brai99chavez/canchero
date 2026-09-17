@@ -28,11 +28,7 @@ import {
   Sesion,
 } from '../nube/cuenta';
 import { subirFoto } from '../nube/fotos';
-import {
-  EnPapelera,
-  restaurarDePapelera,
-  verPapelera,
-} from '../nube/sync';
+import { Papelera, restaurarDePapelera, verPapelera } from '../nube/sync';
 import Panel, { DIAGONAL } from '../components/Angular';
 import { comoSeLeeCorto } from '../fechas';
 import {
@@ -50,9 +46,6 @@ import { colors, fuentes, spacing } from '../theme';
 
 interface Props {
   sesion: Sesion | null;
-  /** Cuántos planteles hay en el teléfono, para explicar qué se va a subir. */
-  cuantosPlanteles: number;
-  ultimaCopia: string | null;
   /** Si hay cambios en el teléfono que todavía no llegaron a la cuenta. */
   haySinSubir: boolean;
   /** Vuelve a traer lo que haya en la papelera y lo recuperado. */
@@ -61,22 +54,26 @@ interface Props {
 
 type Modo = 'entrar' | 'registro';
 /** Las dos mitades de la pantalla de cuenta. */
-type Pestania = 'respaldo' | 'perfil';
+type Pestania = 'papelera' | 'perfil';
 
 /** El id con el que se guardan las copias locales de la foto de perfil. */
 const FOTO_PERFIL = 'perfil';
 
 /**
- * La sección Perfil: quién sos y qué se guarda de lo tuyo.
+ * La sección Perfil: quién sos y qué borraste.
  *
- * Adentro hay dos mitades, porque son dos cosas distintas: Perfil es "yo" —la
- * foto, el nombre con el que te encuentran— y Respaldo es "mis datos". Abre en
- * Perfil, que es lo que se mira y se toca; el respaldo se usa de vez en cuando.
+ * Adentro hay dos mitades: Perfil es "yo" —la foto, el nombre con el que te
+ * encuentran— y Papelera es la vuelta atrás de haber borrado sin querer. Abre
+ * en Perfil, que es lo que se mira y se toca.
+ *
+ * Lo que había antes de cómo viene el guardado no está más. Que todo esté en
+ * la cuenta es lo normal, y contarlo era pedirle a la persona que se ocupe de
+ * algo de lo que no se tiene que ocupar. Lo único que vale la pena avisar es
+ * lo contrario —que falta subir algo—, y para eso alcanza con el cartelito de
+ * arriba.
  */
 export default function PerfilScreen({
   sesion,
-  cuantosPlanteles,
-  ultimaCopia,
   haySinSubir,
   onRecuperado,
 }: Props) {
@@ -119,10 +116,7 @@ export default function PerfilScreen({
   /** Lo mismo, para poder limpiar al cerrar sin depender del render. */
   const pendienteRef = useRef<string | null | undefined>(undefined);
   /** Lo que hay en la papelera. Null mientras no se miró. */
-  const [papelera, setPapelera] = useState<{
-    planteles: EnPapelera[];
-    dias: number;
-  } | null>(null);
+  const [papelera, setPapelera] = useState<Papelera | null>(null);
   const [recuperando, setRecuperando] = useState<string | null>(null);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [errorPerfil, setErrorPerfil] = useState<Explicacion | null>(null);
@@ -179,11 +173,11 @@ export default function PerfilScreen({
     if (!sesion) return;
     verPapelera()
       .then(setPapelera)
-      .catch(() => setPapelera({ planteles: [], dias: 30 }));
+      .catch(() => setPapelera({ planteles: [], dias: 30, tope: 5 }));
   }, [sesion]);
 
   useEffect(() => {
-    if (pestania === 'respaldo') mirarPapelera();
+    if (pestania === 'papelera') mirarPapelera();
   }, [pestania, mirarPapelera]);
 
   const handleRecuperar = async (id: string) => {
@@ -201,7 +195,13 @@ export default function PerfilScreen({
     }
   };
 
-  /** El tirón hacia abajo: la forma de pedirlo de nuevo a propósito. */
+  /**
+   * El tirón hacia abajo: la forma de pedir el perfil de nuevo a propósito.
+   *
+   * Hace falta porque el perfil se guarda en memoria y no se vuelve a pedir
+   * solo: sin esto, cambiar la foto desde otro teléfono no se vería nunca
+   * hasta cerrar y abrir la app.
+   */
   const handleRefrescar = () => {
     setRefrescando(true);
     traerPerfil(true).finally(() => setRefrescando(false));
@@ -532,32 +532,14 @@ export default function PerfilScreen({
     </>
   );
 
-  const vistaRespaldo = (
+  const vistaPapelera = (
     <>
       {error ? <Aviso titulo={error.titulo} detalle={error.detalle} /> : null}
 
-      <Seccion>Tus datos</Seccion>
       <Text style={styles.ayuda}>
-        Todo lo que hacés se guarda solo en tu cuenta: los planteles, los
-        jugadores con sus fotos y los partidos. No hay nada que apretar.
-      </Text>
-      <Text style={[styles.estado, haySinSubir && styles.estadoPendiente]}>
-        {haySinSubir
-          ? 'Falta subir algo. Se sube solo cuando vuelva internet.'
-          : ultimaCopia
-          ? `Todo guardado — ${ultimaCopia}.`
-          : 'Todo guardado.'}
-      </Text>
-      <Text style={styles.nota}>
-        Los {cuantosPlanteles}{' '}
-        {cuantosPlanteles === 1 ? 'plantel' : 'planteles'} de este teléfono
-        están en tu cuenta. Si entrás desde otro, los vas a encontrar ahí.
-      </Text>
-
-      <Seccion style={styles.seccion}>Papelera</Seccion>
-      <Text style={styles.ayuda}>
-        Lo que borrás se guarda acá por {papelera?.dias ?? 30} días antes de
-        irse del todo. Es la vuelta atrás de haber borrado sin querer.
+        Acá quedan los últimos {papelera?.tope ?? 5} planteles que borraste,
+        por {papelera?.dias ?? 7} días. De acá se saca una sola vez: si volvés
+        a borrar uno que ya recuperaste, esa vez se borra para siempre.
       </Text>
 
       {papelera === null ? (
@@ -715,7 +697,21 @@ export default function PerfilScreen({
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.titulo}>{sesion ? 'TU CUENTA' : 'CUENTA'}</Text>
+      <View style={styles.cabecera}>
+        <Text style={styles.titulo}>{sesion ? 'TU CUENTA' : 'CUENTA'}</Text>
+        {/*
+          Cómo viene el guardado, chiquito y sólo cuando hay algo que decir.
+          Estar al día es lo normal: anunciarlo era un cartel para leer y
+          olvidar. Que falte subir algo sí importa, porque es lo único que
+          puede perderse si el teléfono se rompe antes de que vuelva la señal.
+        */}
+        {haySinSubir ? (
+          <View style={styles.pendiente}>
+            <View style={styles.punto} />
+            <Text style={styles.pendienteTexto}>SIN SUBIR</Text>
+          </View>
+        ) : null}
+      </View>
 
       {/* Sin sesión no hay nada que separar: es una sola pantalla. */}
       {sesion ? (
@@ -726,9 +722,9 @@ export default function PerfilScreen({
             onPress={() => setPestania('perfil')}
           />
           <Opcion
-            label="Respaldo"
-            activa={pestania === 'respaldo'}
-            onPress={() => setPestania('respaldo')}
+            label="Papelera"
+            activa={pestania === 'papelera'}
+            onPress={() => setPestania('papelera')}
           />
         </View>
       ) : null}
@@ -736,11 +732,22 @@ export default function PerfilScreen({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
+        refreshControl={
+          sesion ? (
+            <RefreshControl
+              refreshing={refrescando}
+              onRefresh={handleRefrescar}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          ) : undefined
+        }
       >
         {!sesion
           ? vistaEntrar
-          : pestania === 'respaldo'
-          ? vistaRespaldo
+          : pestania === 'papelera'
+          ? vistaPapelera
           : vistaPerfil}
       </ScrollView>
 
@@ -751,13 +758,19 @@ export default function PerfilScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  cabecera: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   titulo: {
+    flex: 1,
     color: colors.text,
     fontSize: 22,
     fontFamily: fuentes.display,
     letterSpacing: 1,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
   },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   pestanias: {
@@ -768,12 +781,19 @@ const styles = StyleSheet.create({
   },
   seccion: { marginTop: spacing.xl },
   mail: { color: colors.text, fontSize: 16, fontFamily: fuentes.bold },
-  estadoPendiente: { color: colors.danger },
-  estado: {
-    color: colors.primary,
-    fontSize: 12,
-    fontFamily: fuentes.bold,
-    letterSpacing: 0.3,
+  // Ámbar y no rojo: no está roto, sólo falta que vuelva internet.
+  pendiente: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  punto: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.aviso,
+  },
+  pendienteTexto: {
+    color: colors.aviso,
+    fontSize: 10,
+    fontFamily: fuentes.extra,
+    letterSpacing: 0.8,
   },
   // La arroba no forma parte del nombre, pero es como se lo escribe y se lo
   // lee en cualquier otro lado.
@@ -841,6 +861,7 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.regular,
     marginTop: 1,
   },
+
   cargando: {
     color: colors.textMuted,
     fontSize: 13,

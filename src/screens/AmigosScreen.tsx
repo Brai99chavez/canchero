@@ -15,7 +15,6 @@ import { Presionable } from '../components/motion';
 import { Aviso, Button, EmptyState } from '../components/ui';
 import {
   Amigo,
-  listarAmigos,
   pedirAmistad,
   responderAmistad,
 } from '../nube/amigos';

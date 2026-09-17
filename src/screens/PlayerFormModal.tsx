@@ -25,7 +25,7 @@ import { Ajuste } from '../elo';
 import { discardPhoto, pickPhoto } from '../photos';
 import { newId } from '../storage';
 import { Seccion } from '../components/Banner';
-import { colors, radius, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 import {
   DEFAULT_STATS,
   Player,
@@ -467,17 +467,6 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 13,
     fontFamily: 'Barlow_700Bold',
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: 'Barlow_400Regular',
   },
   seccionPlana: {
     marginTop: 0,

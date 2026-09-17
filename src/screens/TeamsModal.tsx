@@ -23,7 +23,6 @@ import ShareCard from '../components/ShareCard';
 import { Button, PositionPill, RatingBadge, StatBar } from '../components/ui';
 import { angulo, colors, degradados, radius, spacing } from '../theme';
 import {
-  Format,
   overall,
   Player,
   STAT_KEYS,
@@ -481,23 +480,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-  },
-  vista: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    transform: [{ skewX: angulo.inclinacion }],
-  },
-  vistaTexto: {
-    color: colors.text,
-    fontSize: 13,
-    fontFamily: 'Barlow_800ExtraBold',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    transform: [{ skewX: angulo.derecho }],
   },
   ayuda: {
     marginHorizontal: spacing.lg,

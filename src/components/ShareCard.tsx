@@ -3,8 +3,6 @@ import { reparto } from '../stats';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 import {
-  Format,
-  overall,
   Player,
   teamOverall,
   TeamSplit,

@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Panel, { DIAGONAL } from '../components/Angular';
 import CampoTexto from '../components/CampoTexto';
-import { useDialogo } from '../components/Dialogo';
 import HeaderModal from '../components/HeaderModal';
 import { SendIcon } from '../components/icons';
 import { Presionable } from '../components/motion';

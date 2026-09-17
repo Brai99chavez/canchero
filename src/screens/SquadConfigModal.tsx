@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -102,11 +101,35 @@ export default function SquadConfigModal({
 
   function handleBorrar() {
     if (!plantel) return;
+
+    const cuantos = `${plantel.jugadores.length} ${
+      plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'
+    }`;
+
+    /*
+     * De la papelera se saca una sola vez. Al que ya salió hay que avisarle
+     * antes, no después: es la última pantalla donde se puede arrepentir, y lo
+     * que se va no vuelve de ningún lado.
+     */
+    if (plantel.yaVolvio) {
+      preguntar({
+        titulo: 'Esto no se puede deshacer',
+        mensaje:
+          `"${plantel.nombre}" ya lo sacaste de la papelera una vez. Si lo ` +
+          `borrás ahora se elimina para siempre: los ${cuantos}, sus fotos y ` +
+          'los partidos jugados. No va a quedar en la papelera. ¿Seguimos?',
+        confirmar: 'Borrar para siempre',
+        peligro: true,
+        onConfirmar: onBorrar,
+      });
+      return;
+    }
+
     preguntar({
       titulo: 'Borrar plantel',
       mensaje:
-        `Se elimina "${plantel.nombre}" con sus ${plantel.jugadores.length} ` +
-        'jugadores, y también sus fotos. No se puede deshacer.',
+        `Se elimina "${plantel.nombre}" con sus ${cuantos}. Queda en la ` +
+        'papelera de tu cuenta y lo podés recuperar desde ahí, una vez.',
       confirmar: 'Borrar',
       peligro: true,
       onConfirmar: onBorrar,
@@ -214,17 +237,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 64, gap: spacing.sm },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: 'Barlow_400Regular',
-  },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

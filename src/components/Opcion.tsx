@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { colors, degradados, fuentes, spacing } from '../theme';
 import Panel, { DIAGONAL } from './Angular';
 import { Presionable } from './motion';

@@ -7,8 +7,8 @@ import Opcion from '../components/Opcion';
 import Panel, { DIAGONAL, FondoDegradado } from '../components/Angular';
 import { Presionable } from '../components/motion';
 import { Button, EmptyState, PositionPill, RatingBadge } from '../components/ui';
-import { angulo, colors, degradados, spacing } from '../theme';
-import { Format, FORMATS, overall, Player } from '../types';
+import { colors, degradados, spacing } from '../theme';
+import { Format, FORMATS, Player } from '../types';
 
 interface Props {
   players: Player[];
@@ -391,20 +391,6 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   formatRowPrimera: { marginTop: spacing.xs },
-  formatText: {
-    color: colors.text,
-    fontFamily: 'Anton_400Regular',
-    fontSize: 15,
-    letterSpacing: 0.5,
-    transform: [{ skewX: angulo.derecho }],
-  },
-  formatHint: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: 'Barlow_400Regular',
-    marginTop: 2,
-    transform: [{ skewX: angulo.derecho }],
-  },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -465,9 +451,6 @@ const styles = StyleSheet.create({
     height: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkOn: {
-    borderColor: colors.primary,
   },
   checkMark: {
     color: colors.sobreAcento,

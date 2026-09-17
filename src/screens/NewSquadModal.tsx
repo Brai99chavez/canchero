@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -14,7 +13,7 @@ import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import CierraTeclado from '../components/Teclado';
 import { Seccion } from '../components/Banner';
-import { colors, radius, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -85,16 +84,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { padding: spacing.lg, gap: spacing.sm },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: 'Barlow_400Regular',
-  },
   ayuda: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', lineHeight: 17 },
 });

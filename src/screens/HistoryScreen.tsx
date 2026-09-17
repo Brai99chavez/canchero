@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { useDialogo } from '../components/Dialogo';
-import Opcion from '../components/Opcion';
 import { Button, EmptyState, RatingBadge } from '../components/ui';
 import {
   comoSeLeeCorto,
@@ -19,7 +18,7 @@ import {
   nombreDelMes,
 } from '../fechas';
 import { reparto, resumenDe, Signo, tieneResultado, winrate } from '../stats';
-import { angulo, colors, radius, spacing } from '../theme';
+import { colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
 import { Partido, Player } from '../types';
 
@@ -516,14 +515,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   container: { flex: 1 },
-  pestaniaTexto: {
-    color: colors.text,
-    fontSize: 13,
-    fontFamily: 'Barlow_800ExtraBold',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    transform: [{ skewX: angulo.derecho }],
-  },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
@@ -560,12 +551,6 @@ const styles = StyleSheet.create({
   },
   dgBien: { color: colors.primary },
   dgMal: { color: colors.danger },
-  dgPie: {
-    color: colors.textMuted,
-    fontSize: 9.5,
-    fontFamily: 'Barlow_600SemiBold',
-    letterSpacing: 0.2,
-  },
   filaTabla: {
     flexDirection: 'row',
     alignItems: 'center',

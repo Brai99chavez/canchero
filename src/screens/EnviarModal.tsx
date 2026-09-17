@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Explicacion, explicar } from '../nube/cuenta';
 import { enviarPlantel } from '../nube/envios';
 import { normalizar } from '../nube/perfil';
 import Hoja from '../components/Hoja';
 import CampoTexto from '../components/CampoTexto';
 import { Aviso, Button } from '../components/ui';
-import { colors, fuentes, spacing } from '../theme';
+import { colors, fuentes } from '../theme';
 import { Squad } from '../types';
 
 /**
