@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -25,6 +26,9 @@ import { Actuacion, Partido } from '../types';
 interface Props {
   visible: boolean;
   partido: Partido | null;
+  /** Si se piden los goles y asistencias de cada uno. Es del plantel. */
+  detalle: boolean;
+  onDetalle: (valor: boolean) => void;
   onClose: () => void;
   onGuardar: (cambios: {
     fecha: string;
@@ -80,6 +84,8 @@ function Dato({ valor }: { valor: number }) {
 export default function MatchResultModal({
   visible,
   partido,
+  detalle,
+  onDetalle,
   onClose,
   onGuardar,
 }: Props) {
@@ -427,13 +433,9 @@ export default function MatchResultModal({
 
             {editando ? (
               <Text style={styles.ayuda}>
-                Los goles y asistencias son opcionales: dejá en blanco lo que no
-                tengas. Con el marcador solo ya se cuentan victorias y rachas.
-                Si alguien al final no jugó, sacalo con la × y deja de contar.
-                Al completar, el partido pasa al historial y entra en las
-                estadísticas.
-                Mientras no toques el marcador, se completa solo con los goles
-                que vayas cargando.
+                Con el marcador alcanza: así se cuentan las victorias, las
+                rachas y el nivel de cada uno. Al completar, el partido pasa al
+                historial.
               </Text>
             ) : (
               <Text style={styles.ayuda}>
@@ -442,20 +444,60 @@ export default function MatchResultModal({
               </Text>
             )}
 
-            {filas(
-              partido.equipoA,
-              'Equipo A',
-              colors.teamA,
-              sumaA,
-              numero(golesA)
-            )}
-            {filas(
-              partido.equipoB,
-              'Equipo B',
-              colors.teamB,
-              sumaB,
-              numero(golesB)
-            )}
+            {/*
+              Apagado, que es como está casi siempre: en un picado nadie lleva
+              la cuenta de quién metió cada gol. El que sí la lleva lo prende
+              una vez y le queda prendido para ese plantel.
+            */}
+            {editando ? (
+              <View style={styles.switchRow}>
+                <View style={styles.switchTexto}>
+                  <Text style={styles.switchTitulo}>
+                    Cargar el detalle del partido
+                  </Text>
+                  <Text style={styles.ayuda}>
+                    Opcional. Quién hizo los goles y las asistencias, y si
+                    alguno al final no jugó.
+                  </Text>
+                </View>
+                <Switch
+                  value={detalle}
+                  onValueChange={onDetalle}
+                  trackColor={{
+                    false: colors.surfaceAlt,
+                    true: colors.primaryDark,
+                  }}
+                  thumbColor={detalle ? colors.primary : colors.textMuted}
+                />
+              </View>
+            ) : null}
+
+            {detalle ? (
+              <>
+                {editando ? (
+                  <Text style={styles.ayuda}>
+                    Dejá en blanco lo que no tengas. Si alguien al final no
+                    jugó, sacalo con la × y deja de contar. Y mientras no
+                    toques el marcador, se completa solo con lo que cargues.
+                  </Text>
+                ) : null}
+
+                {filas(
+                  partido.equipoA,
+                  'Equipo A',
+                  colors.teamA,
+                  sumaA,
+                  numero(golesA)
+                )}
+                {filas(
+                  partido.equipoB,
+                  'Equipo B',
+                  colors.teamB,
+                  sumaB,
+                  numero(golesB)
+                )}
+              </>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -527,6 +569,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   ayuda: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', lineHeight: 17 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  switchTexto: { flex: 1 },
+  switchTitulo: {
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: 'Barlow_700Bold',
+    marginBottom: 2,
+  },
   bloque: { gap: 6 },
   bloqueTitulo: {
     flexDirection: 'row',

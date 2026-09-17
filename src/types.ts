@@ -143,6 +143,19 @@ export interface Squad {
   convocatoria: Convocatoria;
   sorteo: Sorteo | null;
   /**
+   * Si al cargar un resultado se piden los goles y asistencias de cada uno.
+   *
+   * Apagado por defecto, porque en un picado nadie lleva esa cuenta: terminás
+   * 11 a 8 y a los diez minutos ya nadie sabe si fueron tres o cuatro del
+   * Colo. Pedir un dato que la gente no tiene no da un dato vacío, da un dato
+   * inventado, y un goleador inventado en la tabla es peor que no tener tabla.
+   *
+   * El Elo no lo necesita: se calcula con el marcador del equipo y nada más.
+   * Esto es sólo para el grupo que sí lleva la cuenta y quiere su tabla de
+   * goleadores. Por eso viaja con el plantel: es del grupo, no del teléfono.
+   */
+  detalle?: boolean;
+  /**
    * Si este plantel ya salió una vez de la papelera.
    *
    * Lo decide el servidor y acá sólo se guarda, porque hace falta antes de

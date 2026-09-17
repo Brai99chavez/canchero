@@ -26,7 +26,11 @@ interface PlantelDeLaNube {
   id: string;
   nombre: string;
   llegada: string;
-  datos: { jugadores?: unknown; partidos?: unknown } | null;
+  datos: {
+    jugadores?: unknown;
+    partidos?: unknown;
+    detalle?: boolean;
+  } | null;
   borrado?: boolean;
   /** Cuándo salió de la papelera, si salió alguna vez. */
   restaurado_en?: string | null;
@@ -48,6 +52,8 @@ function aFila(p: Squad) {
         esLocal(j.foto) ? { ...j, foto: undefined } : j
       ),
       partidos: p.partidos,
+      // Es una preferencia del grupo, no del teléfono: viaja con el plantel.
+      detalle: p.detalle === true,
     },
   };
 }
@@ -214,6 +220,7 @@ function aplicar(locales: Squad[], traidos: PlantelDeLaNube[]): Squad[] {
         llegada: fila.llegada,
         jugadores: fila.datos?.jugadores,
         partidos: fila.datos?.partidos,
+        detalle: fila.datos?.detalle,
         // Viene del servidor, o sea que ya está subido: se marca con lo mismo
         // que se va a guardar en `subido` para que no se vuelva a mandar.
         actualizado: existente?.actualizado,

@@ -45,6 +45,8 @@ interface Props {
   onGuardar: (fecha: Date) => void;
   onSwap: (unoId: string, otroId: string) => void;
   onDescartar: () => void;
+  /** Vuelve a la convocatoria con estos mismos jugadores tildados. */
+  onCambiarJugadores: () => void;
 }
 
 type Vista = 'lista' | 'cancha';
@@ -210,6 +212,7 @@ export default function TeamsModal({
   onGuardar,
   onSwap,
   onDescartar,
+  onCambiarJugadores,
 }: Props) {
   /** El día que se va a guardar. Arranca en hoy cada vez que se abre. */
   const [dia, setDia] = useState(() => new Date());
@@ -454,6 +457,16 @@ export default function TeamsModal({
               style={styles.mitad}
             />
           </View>
+          {/*
+            Para cuando falta alguien o se suma uno de último momento. Va
+            aparte y en una fila propia porque es lo único que cambia quiénes
+            juegan: los otros dos reparten o tiran lo que ya está.
+          */}
+          <Button
+            title="Cambiar jugadores"
+            variant="ghost"
+            onPress={onCambiarJugadores}
+          />
         </View>
       </SafeAreaView>
     </Modal>

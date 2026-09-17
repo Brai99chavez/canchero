@@ -630,17 +630,40 @@ function Root() {
 
   const guardarSorteo = useCallback(
     (nuevo: TeamSplit | null, partidoId: string | null = null) => {
-      editarPlantel((p) => ({
-        ...p,
-        sorteo: nuevo
-          ? {
-              equipoA: nuevo.teamA.map((j) => j.id),
-              equipoB: nuevo.teamB.map((j) => j.id),
-              banco: nuevo.bench.map((j) => j.id),
-              partidoId,
-            }
-          : null,
-      }));
+      editarPlantel((p) => {
+        /*
+         * Si el sorteo que se está reemplazando ya estaba guardado y todavía
+         * no se jugó, ese partido se va con él.
+         *
+         * Sin esto quedaba de fantasma: volver a sortear desvinculaba el
+         * sorteo del partido guardado, pero el partido seguía en Activos sin
+         * resultado y sin forma de llegar a él, para siempre. Uno por cada vez
+         * que alguien tocó "volver a sortear" después de guardar.
+         *
+         * Sólo se saca el que no tiene resultado: uno ya jugado es historia y
+         * no se toca.
+         */
+        const viejo = p.sorteo?.partidoId;
+        const partidos =
+          viejo && viejo !== partidoId
+            ? p.partidos.filter(
+                (x) => x.id !== viejo || x.golesA !== null || x.golesB !== null
+              )
+            : p.partidos;
+
+        return {
+          ...p,
+          partidos,
+          sorteo: nuevo
+            ? {
+                equipoA: nuevo.teamA.map((j) => j.id),
+                equipoB: nuevo.teamB.map((j) => j.id),
+                banco: nuevo.bench.map((j) => j.id),
+                partidoId,
+              }
+            : null,
+        };
+      });
     },
     [editarPlantel]
   );
@@ -811,6 +834,29 @@ function Root() {
 
   const handleBuild = useCallback(() => draw(null), [draw]);
   const handleReshuffle = useCallback(() => draw(split), [draw, split]);
+
+  /**
+   * Vuelve a la convocatoria para cambiar quiénes juegan.
+   *
+   * La selección se rearma con los que están en el partido y no se deja la que
+   * hubiera quedado de antes: entre que se armó y que falta alguien pudo pasar
+   * cualquier cosa, y lo que la persona tiene delante son estos equipos.
+   *
+   * El sorteo se deja en pantalla. Recién al volver a sortear se reemplaza, y
+   * ahí el partido guardado —si lo había— se va con él.
+   */
+  const handleCambiarJugadores = useCallback(() => {
+    if (split) {
+      setSelectedIds([
+        ...split.teamA.map((p) => p.id),
+        ...split.teamB.map((p) => p.id),
+        ...split.bench.map((p) => p.id),
+      ]);
+    }
+    setTeamsVisible(false);
+    setVista('plantel');
+    setTab('partido');
+  }, [split, setSelectedIds]);
 
   // Cada plantel se acuerda de su propia convocatoria, así que abrir otro
   // no borra nada: simplemente se muestra la suya.
@@ -1461,11 +1507,16 @@ function Root() {
           guardarSorteo(null);
           setTeamsVisible(false);
         }}
+        onCambiarJugadores={handleCambiarJugadores}
       />
 
       <MatchResultModal
         visible={resultadoId !== null}
         partido={partidos.find((p) => p.id === resultadoId) ?? null}
+        detalle={activo?.detalle === true}
+        onDetalle={(valor) =>
+          editarPlantel((p) => ({ ...p, detalle: valor }))
+        }
         onClose={() => setResultadoId(null)}
         onGuardar={handleGuardarResultado}
       />

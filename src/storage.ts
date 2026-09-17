@@ -198,6 +198,8 @@ export function sanitizePlantel(raw: any, indice: number): Squad | null {
       : [],
     convocatoria: sanitizeConvocatoria(raw.convocatoria),
     sorteo: sanitizeSorteo(raw.sorteo),
+    // Ante la duda, apagado: es lo que casi nadie quiere llenar.
+    detalle: raw.detalle === true,
     // Ante la duda, que no volvió: un aviso de más al borrar asusta sin
     // motivo, y uno de menos borra algo para siempre sin avisar.
     yaVolvio: raw.yaVolvio === true,
