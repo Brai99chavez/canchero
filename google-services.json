@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "775875326062",
+    "project_id": "canchero-b00d1",
+    "storage_bucket": "canchero-b00d1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775875326062:android:99865f37430581c463767f",
+        "android_client_info": {
+          "package_name": "com.bclandinglab.canchero"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB31m5SzxiAoVsDeawc4Z9ieHPh2iyysrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

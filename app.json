@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kubrik.canchero"
+      "bundleIdentifier": "com.bclandinglab.canchero"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,9 +19,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.kubrik.canchero",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
+      "package": "com.bclandinglab.canchero",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -61,6 +64,12 @@
       },
       "apiUrl": "https://canchero.onrender.com"
     },
-    "owner": "brai_chavez"
+    "owner": "brai_chavez",
+    "updates": {
+      "url": "https://u.expo.dev/80a393da-b38f-4f6d-80e9-cbd3c1ab9226"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    }
   }
 }

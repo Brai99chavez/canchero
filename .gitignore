@@ -42,3 +42,4 @@ yarn-error.*
 tools/salida/
 tools/__pycache__/
 .tmp-prueba/
+.tmp-*
