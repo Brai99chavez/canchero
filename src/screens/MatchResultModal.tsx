@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
+import { Presionable } from '../components/motion';
 import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
@@ -41,6 +42,34 @@ interface Props {
 }
 
 type Aportes = Record<string, { goles: string; asistencias: string }>;
+
+/**
+ * Un botón de más o de menos para el marcador.
+ *
+ * Va abajo del número y no a los costados: con los dos marcadores y el guión
+ * en el medio, cuatro botones al lado no entran en un teléfono angosto.
+ */
+function Paso({
+  signo,
+  onPress,
+}: {
+  signo: '+' | '−';
+  onPress: () => void;
+}) {
+  return (
+    <Presionable onPress={onPress} style={styles.paso} hitSlop={6}>
+      <Panel
+        style={styles.pasoCaja}
+        esquinas={DIAGONAL}
+        chaflan={7}
+        fondo={colors.surface}
+        borde={colors.border}
+      >
+        <Text style={styles.pasoTexto}>{signo}</Text>
+      </Panel>
+    </Presionable>
+  );
+}
 
 /** Campo numérico chico: sólo dígitos, vacío cuenta como cero. */
 function Contador({
@@ -176,6 +205,20 @@ export default function MatchResultModal({
     if (!tocado.b && partido.equipoB.includes(id)) {
       setGolesB(String(suma(partido.equipoB)));
     }
+  }
+
+  /**
+   * Sube o baja un gol del marcador.
+   *
+   * Marca el lado como tocado a mano, igual que escribirlo: tocar el más es
+   * decidir el marcador, y desde ahí deja de completarse solo con la suma de
+   * los goles individuales.
+   */
+  function cambiarGol(lado: 'a' | 'b', paso: number) {
+    const actual = numero(lado === 'a' ? golesA : golesB);
+    const siguiente = Math.min(99, Math.max(0, actual + paso));
+    setTocado((prev) => ({ ...prev, [lado]: true }));
+    (lado === 'a' ? setGolesA : setGolesB)(String(siguiente));
   }
 
   function alternarFuera(id: string) {
@@ -352,18 +395,24 @@ export default function MatchResultModal({
                   Equipo A
                 </Text>
                 {editando ? (
-                  <CampoTexto
-                    value={golesA}
-                    onChangeText={(t) => {
-                      setTocado((prev) => ({ ...prev, a: true }));
-                      setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
-                    }}
-                    keyboardType="number-pad"
-                    selectTextOnFocus
-                    contenedor={styles.marcadorCaja}
-                    style={styles.marcadorInput}
-                    placeholder="0"
-                  />
+                  <>
+                    <CampoTexto
+                      value={golesA}
+                      onChangeText={(t) => {
+                        setTocado((prev) => ({ ...prev, a: true }));
+                        setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
+                      }}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                      contenedor={styles.marcadorCaja}
+                      style={styles.marcadorInput}
+                      placeholder="0"
+                    />
+                    <View style={styles.pasos}>
+                      <Paso signo="−" onPress={() => cambiarGol('a', -1)} />
+                      <Paso signo="+" onPress={() => cambiarGol('a', 1)} />
+                    </View>
+                  </>
                 ) : (
                   <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
                     {numero(golesA)}
@@ -376,18 +425,24 @@ export default function MatchResultModal({
                   Equipo B
                 </Text>
                 {editando ? (
-                  <CampoTexto
-                    value={golesB}
-                    onChangeText={(t) => {
-                      setTocado((prev) => ({ ...prev, b: true }));
-                      setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
-                    }}
-                    keyboardType="number-pad"
-                    selectTextOnFocus
-                    contenedor={styles.marcadorCaja}
-                    style={styles.marcadorInput}
-                    placeholder="0"
-                  />
+                  <>
+                    <CampoTexto
+                      value={golesB}
+                      onChangeText={(t) => {
+                        setTocado((prev) => ({ ...prev, b: true }));
+                        setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
+                      }}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                      contenedor={styles.marcadorCaja}
+                      style={styles.marcadorInput}
+                      placeholder="0"
+                    />
+                    <View style={styles.pasos}>
+                      <Paso signo="−" onPress={() => cambiarGol('b', -1)} />
+                      <Paso signo="+" onPress={() => cambiarGol('b', 1)} />
+                    </View>
+                  </>
                 ) : (
                   <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
                     {numero(golesB)}
@@ -518,6 +573,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   marcadorLado: { alignItems: 'center', gap: spacing.sm },
+  pasos: { flexDirection: 'row', gap: spacing.sm },
+  paso: { width: 38 },
+  pasoCaja: { alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
+  pasoTexto: {
+    color: colors.primary,
+    fontSize: 19,
+    lineHeight: 24,
+    fontFamily: 'Barlow_800ExtraBold',
+  },
   marcadorEquipo: { fontSize: 13, fontFamily: 'Barlow_800ExtraBold' },
   marcadorCaja: { width: 84, paddingHorizontal: 0 },
   marcadorInput: {
