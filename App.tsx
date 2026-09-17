@@ -1093,10 +1093,20 @@ function Root() {
    * que se marcaba antes de llamar, si esa primera vuelta no llegaba a correr
    * —porque todavía no se sabía de quién eran los datos— no se reintentaba
    * nunca y la cuenta quedaba sin sus planteles hasta que se tocara algo.
+   *
+   * Y se olvida al salir, que es lo que faltaba: cerrar sesión borra lo
+   * guardado en el teléfono, así que si volvía a entrar la MISMA persona, esto
+   * decía "de ésa ya traje" y se salteaba la bajada. Quedaba la pantalla
+   * vacía, con todo sano en el servidor, hasta que se cerrara la app entera y
+   * la memoria arrancara de cero.
    */
   const trajoDe = useRef<string | null>(null);
   useEffect(() => {
-    if (!ready || !sesion || duenoLocal !== sesion.id) return;
+    if (!sesion) {
+      trajoDe.current = null;
+      return;
+    }
+    if (!ready || duenoLocal !== sesion.id) return;
     if (trajoDe.current === sesion.id) return;
     trajoDe.current = sesion.id;
     sincronizarAhora();
