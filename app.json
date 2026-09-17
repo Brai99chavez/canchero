@@ -56,13 +56,15 @@
         {
           "color": "#4BF0A5"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {
         "projectId": "80a393da-b38f-4f6d-80e9-cbd3c1ab9226"
       },
-      "apiUrl": "https://canchero.onrender.com"
+      "apiUrl": "https://canchero.onrender.com",
+      "sentryDsn": ""
     },
     "owner": "brai_chavez",
     "updates": {

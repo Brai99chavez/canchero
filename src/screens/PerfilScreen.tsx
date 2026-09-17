@@ -10,6 +10,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
+import { idDeLaVersion } from '../actualizar';
 import { SILUETA } from '../assets';
 import { Seccion } from '../components/Banner';
 import CampoTexto from '../components/CampoTexto';
@@ -120,6 +122,30 @@ export default function PerfilScreen({
   const [papelera, setPapelera] = useState<Papelera | null>(null);
   const [recuperando, setRecuperando] = useState<string | null>(null);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  /**
+   * Qué versión está corriendo.
+   *
+   * El número de la app no alcanza: con las actualizaciones por aire, dos
+   * personas con "1.0.0" pueden tener JavaScript distinto. Los ocho caracteres
+   * del id son lo que de verdad identifica el código que tiene puesto, y son
+   * pocos como para que alguien te los lea por mensaje.
+   */
+  const [version, setVersion] = useState(
+    `Canchero ${Constants.expoConfig?.version ?? ''}`.trim()
+  );
+
+  useEffect(() => {
+    let vigente = true;
+    idDeLaVersion().then((id) => {
+      if (!vigente || !id) return;
+      setVersion(
+        (v) => `${v} · ${id.replace(/-/g, '').slice(0, 8)}`
+      );
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
   /** La baja se pide en dos pasos: primero se abre, después se confirma. */
   const [borrando, setBorrando] = useState(false);
   const [claveBaja, setClaveBaja] = useState('');
@@ -833,6 +859,13 @@ export default function PerfilScreen({
           : pestania === 'papelera'
           ? vistaPapelera
           : vistaPerfil}
+
+        {/*
+          La versión, abajo de todo y en chico. Está tanto en la pantalla de
+          entrar como en Perfil, que son los dos lugares donde alguien la va a
+          ir a buscar cuando le pidas "fijate qué versión tenés".
+        */}
+        <Text style={styles.version}>{version}</Text>
       </ScrollView>
 
       {dialogo}
@@ -951,6 +984,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fuentes.regular,
     marginTop: spacing.md,
+  },
+  // Apagada del todo: está para cuando la buscás, no para que se lea sola.
+  version: {
+    color: colors.textMuted,
+    opacity: 0.55,
+    fontSize: 11,
+    fontFamily: fuentes.regular,
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
   nota: {
     color: colors.textMuted,

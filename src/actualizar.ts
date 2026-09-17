@@ -79,6 +79,26 @@ export async function bajarActualizacion(): Promise<boolean> {
   }
 }
 
+/**
+ * Qué versión está corriendo, para mostrarla y para poder preguntarla.
+ *
+ * El número de la app no alcanza. Con las actualizaciones por aire, dos
+ * personas con "1.0.0" pueden tener JavaScript distinto: una aplicó la última
+ * y la otra no. Cuando alguien dice "no me anda", lo que hace falta saber es
+ * exactamente qué código tiene, y eso lo dice el id de la actualización.
+ *
+ * `null` es la versión que vino adentro del APK, sin ninguna encima.
+ */
+export async function idDeLaVersion(): Promise<string | null> {
+  const mod = await updates();
+  if (!mod?.isEnabled) return null;
+  try {
+    return mod.updateId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Arranca de nuevo con la versión que ya está bajada. */
 export async function aplicarActualizacion(): Promise<void> {
   const mod = await updates();

@@ -24,6 +24,7 @@ import {
   hayActualizacion,
 } from './src/actualizar';
 import { buildTeams } from './src/balance';
+import { prenderElReporte, quienEs } from './src/errores';
 import { ajustesDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
 import { Logotipo } from './src/components/Logo';
@@ -162,6 +163,12 @@ const MINIMO_BAJANDO = 1400;
 
 
 
+
+/*
+ * Lo primero de todo, antes de dibujar nada: si algo se rompe al arrancar,
+ * que también se sepa.
+ */
+prenderElReporte();
 
 export default function App() {
   return (
@@ -368,6 +375,15 @@ function Root() {
     if (!sesion) return;
     registrarTelefono();
   }, [sesion]);
+
+  /*
+   * Para poder juntar los errores de una misma persona. Va el id de la cuenta
+   * y nada más: ni el mail ni el nombre, que no hacen falta para arreglar un
+   * bug y son datos de alguien.
+   */
+  useEffect(() => {
+    quienEs(idSesion);
+  }, [idSesion]);
 
   useEffect(
     () =>
