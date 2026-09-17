@@ -57,7 +57,7 @@ function Paso({
   onPress: () => void;
 }) {
   return (
-    <Presionable onPress={onPress} style={styles.paso} hitSlop={6}>
+    <Presionable onPress={onPress} style={styles.paso} hitSlop={10}>
       <Panel
         style={styles.pasoCaja}
         esquinas={DIAGONAL}
@@ -573,26 +573,32 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   marcadorLado: { alignItems: 'center', gap: spacing.sm },
+  // Los dos botones juntos miden lo mismo que el marcador de arriba: así la
+  // columna de cada equipo es un bloque y no tres cosas de anchos distintos.
   pasos: { flexDirection: 'row', gap: spacing.sm },
-  paso: { width: 38 },
-  pasoCaja: { alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
+  paso: { width: 49 },
+  pasoCaja: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+  },
   pasoTexto: {
     color: colors.primary,
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 26,
+    lineHeight: 32,
     fontFamily: 'Barlow_800ExtraBold',
   },
   marcadorEquipo: { fontSize: 13, fontFamily: 'Barlow_800ExtraBold' },
-  marcadorCaja: { width: 84, paddingHorizontal: 0 },
+  marcadorCaja: { width: 106, paddingHorizontal: 0 },
   marcadorInput: {
     textAlign: 'center',
-    paddingVertical: 12,
-    fontSize: 30,
+    paddingVertical: 14,
+    fontSize: 38,
     fontFamily: 'Barlow_900Black',
   },
   // Mirándolo: mismo cuerpo que el campo, sin el recuadro que invita a
   // escribir.
-  marcadorFijo: { width: 84, color: colors.text, lineHeight: 36 },
+  marcadorFijo: { width: 106, color: colors.text, lineHeight: 46 },
   dato: {
     width: 46,
     textAlign: 'center',
