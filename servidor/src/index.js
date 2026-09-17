@@ -41,6 +41,7 @@ import {
 } from './planes.js';
 import {
   borrarFoto,
+  borrarLasFotosDe,
   hayFotos,
   limpiarHuerfanas,
   permisoDeSubida,
@@ -166,6 +167,13 @@ app.use('/mensajes/*', async (c, siguiente) => {
 });
 
 app.use('/envios/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
+app.use('/cuenta/*', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
   c.set('usuario', sesion.user);
@@ -408,6 +416,48 @@ app.post('/fotos/borrar', async (c) => {
     await borrarFoto(usuario.id, url).catch(() => {});
   }
   return c.json({ ok: true });
+});
+
+/**
+ * Darse de baja: se va la cuenta y todo lo que cuelga de ella.
+ *
+ * Play Store lo exige para cualquier app con cuentas, pero además
+ * corresponde: si alguien guardó acá los nombres y las caras de sus amigos,
+ * tiene que poder llevárselos.
+ *
+ * Se pide la contraseña de nuevo. No es burocracia: esto no se puede deshacer
+ * y no hay papelera que valga, así que un teléfono desbloqueado en la mesa no
+ * puede alcanzar para borrarle a alguien tres años de partidos.
+ *
+ * Una sola sentencia limpia la base entera: todo lo que cuelga del usuario
+ * —planteles, amistades, mensajes, envíos, dispositivos, perfil, y las tablas
+ * de sesión— está declarado `on delete cascade`.
+ */
+app.post('/cuenta/borrar', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  const clave = typeof cuerpo?.password === 'string' ? cuerpo.password : '';
+  if (!clave) return c.json({ error: 'Falta la contraseña.' }, 400);
+
+  try {
+    await auth.api.signInEmail({
+      body: { email: usuario.email, password: clave },
+    });
+  } catch {
+    return c.json({ error: 'La contraseña no es correcta.' }, 401);
+  }
+
+  /*
+   * La fila primero y las fotos después, y el orden importa: si fallara el
+   * borrado de la base después de haber volado las fotos, la cuenta quedaría
+   * viva y con las caras rotas, que es lo peor de los dos mundos. Al revés,
+   * lo que puede quedar es alguna foto sin dueño en R2 — recuperable con un
+   * barrido, y nadie puede llegar a ella.
+   */
+  await consultar('delete from "user" where id = $1', [usuario.id]);
+  const fotos = await borrarLasFotosDe(usuario.id).catch(() => 0);
+
+  return c.json({ ok: true, fotos });
 });
 
 /**

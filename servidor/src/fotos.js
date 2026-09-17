@@ -208,3 +208,44 @@ export async function limpiarHuerfanas(usuarioId, usadas, gracia = MINUTOS_DE_GR
 
   return borradas;
 }
+
+/**
+ * Borra TODAS las fotos de una cuenta: las de los jugadores y la del perfil.
+ *
+ * Es para cuando alguien se da de baja. A diferencia de la limpieza de
+ * huérfanas, acá no hay margen de gracia ni nada que conservar: la cuenta se
+ * va entera y sus archivos con ella.
+ *
+ * El prefijo es la cuenta y nada más, así que barre las dos carpetas de una.
+ * Y no puede tocar lo de otro: todas las claves arrancan con el id del dueño.
+ */
+export async function borrarLasFotosDe(usuarioId) {
+  if (!hayFotos) return 0;
+
+  let continuacion;
+  let borradas = 0;
+  do {
+    const pagina = await getCliente().send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: `${usuarioId}/`,
+        ContinuationToken: continuacion,
+      })
+    );
+
+    const todas = (pagina.Contents ?? []).map((o) => ({ Key: o.Key }));
+    if (todas.length > 0) {
+      await getCliente().send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: todas, Quiet: true },
+        })
+      );
+      borradas += todas.length;
+    }
+
+    continuacion = pagina.IsTruncated ? pagina.NextContinuationToken : undefined;
+  } while (continuacion);
+
+  return borradas;
+}

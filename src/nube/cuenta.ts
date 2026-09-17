@@ -1,8 +1,9 @@
 import { olvidarTelefono } from './avisos';
 import { urlDeRecuperacion } from './enlaces';
+import { borrarTodasLasFotos } from '../photos';
 import { borrarDatosDeLaCuenta } from '../storage';
 import { olvidarPerfil } from './perfil';
-import { alPerderSesion, authClient, clienteObligatorio } from './cliente';
+import { alPerderSesion, authClient, clienteObligatorio, pedir } from './cliente';
 
 export interface Sesion {
   id: string;
@@ -309,6 +310,28 @@ export async function entrarConCodigo(codigo: string): Promise<Sesion> {
   const sesion = { id: data.user.id, email: data.user.email };
   avisar(sesion);
   return sesion;
+}
+
+/**
+ * Darse de baja. Se va la cuenta y todo lo que hay adentro, para siempre.
+ *
+ * Pide la contraseña porque no hay vuelta atrás: no va a la papelera, no
+ * queda una copia, no hay a quién escribirle. Un teléfono desbloqueado arriba
+ * de una mesa no puede alcanzar para borrarle a alguien tres años de partidos.
+ *
+ * Después se limpia el teléfono igual que al salir: lo que había acá ya no
+ * tiene dueño en ningún lado.
+ */
+export async function borrarLaCuenta(password: string): Promise<void> {
+  await olvidarTelefono();
+  await pedir('/cuenta/borrar', { metodo: 'POST', cuerpo: { password } });
+
+  // La sesión ya no vale del lado del servidor; esto limpia la de acá.
+  await clienteObligatorio().signOut().catch(() => {});
+  olvidarPerfil();
+  await borrarDatosDeLaCuenta();
+  await borrarTodasLasFotos();
+  avisar(null);
 }
 
 export async function salir(): Promise<void> {

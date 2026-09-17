@@ -18,6 +18,7 @@ import { useDialogo } from '../components/Dialogo';
 import Opcion from '../components/Opcion';
 import { Aviso, Button } from '../components/ui';
 import {
+  borrarLaCuenta,
   entrar,
   pedirRecuperacion,
   Explicacion,
@@ -119,6 +120,10 @@ export default function PerfilScreen({
   const [papelera, setPapelera] = useState<Papelera | null>(null);
   const [recuperando, setRecuperando] = useState<string | null>(null);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  /** La baja se pide en dos pasos: primero se abre, después se confirma. */
+  const [borrando, setBorrando] = useState(false);
+  const [claveBaja, setClaveBaja] = useState('');
+  const [dandoDeBaja, setDandoDeBaja] = useState(false);
   const [errorPerfil, setErrorPerfil] = useState<Explicacion | null>(null);
   const [guardado, setGuardado] = useState(false);
 
@@ -315,6 +320,36 @@ export default function PerfilScreen({
         `Si ${limpio} tiene una cuenta sin confirmar, te acabamos de mandar ` +
           'otro link. Fijate también en spam.'
       );
+    });
+  };
+
+  /**
+   * La baja, con la última pregunta antes de que no haya vuelta.
+   *
+   * El diálogo dice qué se va y usa las palabras de verdad —"para siempre",
+   * "no se puede deshacer"— en vez de un "¿estás seguro?" que nadie lee.
+   */
+  const handleBorrarCuenta = () => {
+    preguntar({
+      titulo: 'Esto no se puede deshacer',
+      mensaje:
+        'Se borra tu cuenta con todo lo que tiene adentro: los planteles, los ' +
+        'jugadores con sus fotos, los partidos jugados, tus amigos y los ' +
+        'mensajes. No queda una copia en ningún lado y no hay a quién pedírsela.',
+      confirmar: 'Borrar para siempre',
+      peligro: true,
+      onConfirmar: async () => {
+        setDandoDeBaja(true);
+        setErrorPerfil(null);
+        try {
+          await borrarLaCuenta(claveBaja);
+          // No hace falta limpiar nada más: al irse la sesión, la app entera
+          // vuelve sola a la pantalla de entrar.
+        } catch (problema) {
+          setErrorPerfil(explicar(problema));
+          setDandoDeBaja(false);
+        }
+      },
     });
   };
 
@@ -527,6 +562,55 @@ export default function PerfilScreen({
             variant="ghost"
             style={styles.salir}
           />
+
+          <Seccion style={styles.seccion}>Borrar la cuenta</Seccion>
+          <Text style={styles.ayuda}>
+            Se va todo: tus planteles, los jugadores con sus fotos, los
+            partidos jugados, tus amigos y los mensajes. No queda una copia y
+            no se puede deshacer.
+          </Text>
+
+          {/*
+            La contraseña de nuevo. No es burocracia: esto no va a la papelera
+            ni se puede pedir de vuelta, y un teléfono desbloqueado arriba de
+            una mesa no puede alcanzar para borrarle a alguien sus partidos.
+          */}
+          {borrando ? (
+            <>
+              <CampoTexto
+                value={claveBaja}
+                onChangeText={(t) => {
+                  setClaveBaja(t);
+                  setErrorPerfil(null);
+                }}
+                placeholder="Tu contraseña"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <Button
+                title="Borrar mi cuenta para siempre"
+                variant="danger"
+                disabled={claveBaja.length < 8}
+                loading={dandoDeBaja}
+                onPress={handleBorrarCuenta}
+              />
+              <Button
+                title="Mejor no"
+                variant="ghost"
+                onPress={() => {
+                  setBorrando(false);
+                  setClaveBaja('');
+                }}
+              />
+            </>
+          ) : (
+            <Button
+              title="Borrar la cuenta"
+              variant="ghost"
+              onPress={() => setBorrando(true)}
+            />
+          )}
         </>
       )}
     </>
