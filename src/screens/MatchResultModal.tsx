@@ -185,14 +185,6 @@ export default function MatchResultModal({
     setModo(tieneResultado(partido) ? 'lectura' : 'edicion');
   }, [visible, partido, reiniciar]);
 
-  if (!partido) return null;
-
-  const editando = modo === 'edicion';
-  /** Si el partido ya tenía resultado cuando se abrió. */
-  const yaEstaba = tieneResultado(partido);
-
-  const numero = (v: string) => (v === '' ? 0 : Number(v));
-
   /**
    * El golpe del número cuando cambia el marcador.
    *
@@ -203,6 +195,11 @@ export default function MatchResultModal({
    * Vuelve con un resorte, no con una transición pareja: lo que se estira y
    * vuelve de golpe se siente físico, y lo que vuelve a velocidad constante
    * se siente animado.
+   *
+   * Va ACÁ ARRIBA, con los demás hooks y antes del corte de abajo. Puesto
+   * después, en los dibujos sin partido no se ejecutaba y en los que sí, sí:
+   * React exige que sean siempre los mismos y en el mismo orden, y al ver que
+   * cambiaba la cantidad tiraba la app entera.
    */
   const pulsoA = useRef(new Animated.Value(0)).current;
   const pulsoB = useRef(new Animated.Value(0)).current;
@@ -236,6 +233,15 @@ export default function MatchResultModal({
       },
     ],
   });
+
+  if (!partido) return null;
+
+  const editando = modo === 'edicion';
+  /** Si el partido ya tenía resultado cuando se abrió. */
+  const yaEstaba = tieneResultado(partido);
+
+  const numero = (v: string) => (v === '' ? 0 : Number(v));
+
 
   /** Goles cargados jugador por jugador, sin contar a los que no jugaron. */
   function sumaDe(ids: string[]): number {
