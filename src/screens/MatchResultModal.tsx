@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Panel, { DIAGONAL } from '../components/Angular';
 import { CalendarIcon } from '../components/icons';
 import SelectorFecha from '../components/SelectorFecha';
 import { comoSeLee } from '../fechas';
 import {
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -56,16 +58,33 @@ function Paso({
   signo: '+' | '−';
   onPress: () => void;
 }) {
+  /*
+   * Mientras se lo tiene apretado se rellena y el signo se da vuelta de color.
+   * El hundido que trae `Presionable` solo no alcanzaba acá: es un botón que
+   * se toca varias veces seguidas, y sin una confirmación clara uno no sabe si
+   * el toque entró o le erró.
+   */
+  const [tocando, setTocando] = useState(false);
+
   return (
-    <Presionable onPress={onPress} style={styles.paso} hitSlop={10}>
+    <Presionable
+      onPress={onPress}
+      onPressIn={() => setTocando(true)}
+      onPressOut={() => setTocando(false)}
+      escala={0.88}
+      style={styles.paso}
+      hitSlop={10}
+    >
       <Panel
         style={styles.pasoCaja}
         esquinas={DIAGONAL}
         chaflan={7}
-        fondo={colors.surface}
-        borde={colors.border}
+        fondo={tocando ? colors.primary : colors.surface}
+        borde={tocando ? colors.primary : colors.border}
       >
-        <Text style={styles.pasoTexto}>{signo}</Text>
+        <Text style={[styles.pasoTexto, tocando && styles.pasoTextoTocado]}>
+          {signo}
+        </Text>
       </Panel>
     </Presionable>
   );
@@ -174,6 +193,50 @@ export default function MatchResultModal({
 
   const numero = (v: string) => (v === '' ? 0 : Number(v));
 
+  /**
+   * El golpe del número cuando cambia el marcador.
+   *
+   * Sumar lo agranda y restar lo achica, y no es adorno: son dos acciones
+   * opuestas con el mismo aspecto, y sin eso la única forma de saber cuál
+   * saliste es mirar el número. Así el movimiento lo dice antes de leerlo.
+   *
+   * Vuelve con un resorte, no con una transición pareja: lo que se estira y
+   * vuelve de golpe se siente físico, y lo que vuelve a velocidad constante
+   * se siente animado.
+   */
+  const pulsoA = useRef(new Animated.Value(0)).current;
+  const pulsoB = useRef(new Animated.Value(0)).current;
+
+  const pulsar = useCallback((anim: Animated.Value, paso: number) => {
+    anim.setValue(0);
+    Animated.sequence([
+      Animated.timing(anim, {
+        toValue: Math.sign(paso),
+        duration: 90,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(anim, {
+        toValue: 0,
+        useNativeDriver: true,
+        speed: 16,
+        bounciness: 10,
+      }),
+    ]).start();
+  }, []);
+
+  /** De -1 a 1: el achique de restar, el quieto, y el estirón de sumar. */
+  const escalaDe = (anim: Animated.Value) => ({
+    transform: [
+      {
+        scale: anim.interpolate({
+          inputRange: [-1, 0, 1],
+          outputRange: [0.88, 1, 1.18],
+        }),
+      },
+    ],
+  });
+
   /** Goles cargados jugador por jugador, sin contar a los que no jugaron. */
   function sumaDe(ids: string[]): number {
     return ids
@@ -217,8 +280,12 @@ export default function MatchResultModal({
   function cambiarGol(lado: 'a' | 'b', paso: number) {
     const actual = numero(lado === 'a' ? golesA : golesB);
     const siguiente = Math.min(99, Math.max(0, actual + paso));
+    // Si ya estaba en el tope no pasa nada, y el número tampoco se mueve: una
+    // animación por un cambio que no ocurrió es mentirle al que la mira.
+    if (siguiente === actual) return;
     setTocado((prev) => ({ ...prev, [lado]: true }));
     (lado === 'a' ? setGolesA : setGolesB)(String(siguiente));
+    pulsar(lado === 'a' ? pulsoA : pulsoB, paso);
   }
 
   function alternarFuera(id: string) {
@@ -396,18 +463,20 @@ export default function MatchResultModal({
                 </Text>
                 {editando ? (
                   <>
-                    <CampoTexto
-                      value={golesA}
-                      onChangeText={(t) => {
-                        setTocado((prev) => ({ ...prev, a: true }));
-                        setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
-                      }}
-                      keyboardType="number-pad"
-                      selectTextOnFocus
-                      contenedor={styles.marcadorCaja}
-                      style={styles.marcadorInput}
-                      placeholder="0"
-                    />
+                    <Animated.View style={escalaDe(pulsoA)}>
+                      <CampoTexto
+                        value={golesA}
+                        onChangeText={(t) => {
+                          setTocado((prev) => ({ ...prev, a: true }));
+                          setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
+                        }}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                        contenedor={styles.marcadorCaja}
+                        style={styles.marcadorInput}
+                        placeholder="0"
+                      />
+                    </Animated.View>
                     <View style={styles.pasos}>
                       <Paso signo="−" onPress={() => cambiarGol('a', -1)} />
                       <Paso signo="+" onPress={() => cambiarGol('a', 1)} />
@@ -426,18 +495,20 @@ export default function MatchResultModal({
                 </Text>
                 {editando ? (
                   <>
-                    <CampoTexto
-                      value={golesB}
-                      onChangeText={(t) => {
-                        setTocado((prev) => ({ ...prev, b: true }));
-                        setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
-                      }}
-                      keyboardType="number-pad"
-                      selectTextOnFocus
-                      contenedor={styles.marcadorCaja}
-                      style={styles.marcadorInput}
-                      placeholder="0"
-                    />
+                    <Animated.View style={escalaDe(pulsoB)}>
+                      <CampoTexto
+                        value={golesB}
+                        onChangeText={(t) => {
+                          setTocado((prev) => ({ ...prev, b: true }));
+                          setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
+                        }}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                        contenedor={styles.marcadorCaja}
+                        style={styles.marcadorInput}
+                        placeholder="0"
+                      />
+                    </Animated.View>
                     <View style={styles.pasos}>
                       <Paso signo="−" onPress={() => cambiarGol('b', -1)} />
                       <Paso signo="+" onPress={() => cambiarGol('b', 1)} />
@@ -588,6 +659,8 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     fontFamily: 'Barlow_800ExtraBold',
   },
+  // Relleno el botón, el verde deja de servir para el signo.
+  pasoTextoTocado: { color: colors.sobreAcento },
   marcadorEquipo: { fontSize: 13, fontFamily: 'Barlow_800ExtraBold' },
   marcadorCaja: { width: 106, paddingHorizontal: 0 },
   marcadorInput: {
