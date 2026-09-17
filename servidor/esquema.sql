@@ -183,3 +183,32 @@ alter table envios add constraint estado_valido
 
 create index if not exists envios_por_plantel
   on envios (de, plantel_id) where estado = 'pendiente';
+
+-- Cuándo fue la última vez que se sacó este plantel de la papelera.
+--
+-- Es lo que impide usar la papelera para tener más planteles de los que el
+-- plan deja. Sin esto se puede borrar uno de los activos, recuperar uno de la
+-- papelera, usarlo, volver a borrarlo y recuperar el siguiente: rotando así se
+-- usan todos los que haya guardados, de a dos por vez.
+--
+-- De la papelera se saca una vez: si este campo tiene algo, el próximo borrado
+-- de ese plantel es definitivo y la app lo avisa antes de hacerlo. Así la
+-- rotación se corta sola, y sin bloquear nunca el rescate de otro plantel que
+-- hayas borrado sin querer, que es para lo que la papelera existe.
+--
+-- Además marca las lápidas: una fila borrada con este campo puesto es un
+-- plantel eliminado para siempre. Queda vacía y borrada para que los otros
+-- teléfonos se enteren —si desapareciera la darían por viva y la volverían a
+-- subir— y se barre a los mismos días que el resto de la papelera.
+alter table planteles add column if not exists restaurado_en timestamptz;
+
+-- Si el borrado fue definitivo. Marca la lápida: la fila vacía que queda de un
+-- plantel eliminado para siempre, que sigue ahí sólo para que los otros
+-- teléfonos se enteren de que se borró.
+--
+-- Va en su propia columna y no se deduce de `restaurado_en`, que era lo de
+-- antes. No alcanzaba: una app vieja —que no sabe avisar que el borrado es
+-- definitivo— manda a la papelera un plantel que ya se había recuperado, y esa
+-- fila tiene la misma forma que una lápida sin serlo. Con eso, el plantel le
+-- quedaba invisible y sin poder recuperarse al que no hizo nada malo.
+alter table planteles add column if not exists definitivo boolean not null default false;

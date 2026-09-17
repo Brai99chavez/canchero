@@ -13,7 +13,13 @@ import {
   sacarAmigo,
 } from './amigos.js';
 import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
-import { DIAS_DE_PAPELERA, vaciarPapeleraVieja } from './papelera.js';
+import {
+  borrarParaSiempre,
+  DIAS_DE_PAPELERA,
+  EN_LA_PAPELERA,
+  recortarPapelera,
+  vaciarPapeleraVieja,
+} from './papelera.js';
 import {
   aceptar,
   cancelarEnviosDe,
@@ -27,7 +33,12 @@ import {
   normalizar,
   problemaDelUsuario,
 } from './perfil.js';
-import { hayLugar, planDe, recortarAlPlan } from './planes.js';
+import {
+  planDe,
+  recortarAlPlan,
+  topeDePapelera,
+  topeDePlanteles,
+} from './planes.js';
 import {
   borrarFoto,
   hayFotos,
@@ -414,28 +425,42 @@ app.get('/planteles', async (c) => {
   const usuario = c.get('usuario');
   const desde = c.req.query('desde');
 
+  /*
+   * El reloj del servidor, no el del teléfono. El próximo `desde` sale de acá:
+   * si saliera del teléfono, un celular atrasado unos segundos se perdería los
+   * cambios de esa ventana para siempre.
+   *
+   * Y se toma ANTES de leer las filas, no después. Al revés había una ventana
+   * que perdía cambios para siempre: un plantel guardado desde otro teléfono
+   * justo entre la lectura y el `now()` no salía en las filas —todavía no
+   * estaba— pero quedaba con fecha anterior al corte que se llevaba éste, así
+   * que el próximo `?desde=` tampoco lo iba a traer. Tomándolo antes, lo que
+   * cae en esa ventana se manda dos veces, y mandar algo dos veces no cuesta
+   * nada: llega igual y se aplica igual.
+   */
+  const { rows: ahora } = await consultar(`select now() as ahora`);
+
+  /*
+   * `restaurado_en` viaja porque la app necesita saber, antes de borrar, si
+   * este plantel ya salió de la papelera una vez: si ya salió, el próximo
+   * borrado es definitivo y hay que avisarlo. Se decide en el teléfono para
+   * poder avisar sin internet, que es cuando el borrado igual funciona.
+   */
   const { rows } = desde
     ? await consultar(
-        `select id, nombre, llegada, datos, borrado, actualizado
+        `select id, nombre, llegada, datos, borrado, actualizado, restaurado_en
            from planteles
           where dueno = $1 and actualizado > $2
           order by llegada asc`,
         [usuario.id, desde]
       )
     : await consultar(
-        `select id, nombre, llegada, datos, borrado, actualizado
+        `select id, nombre, llegada, datos, borrado, actualizado, restaurado_en
            from planteles
           where dueno = $1 and not borrado
           order by llegada asc`,
         [usuario.id]
       );
-
-  /*
-   * El reloj del servidor, no el del teléfono. El próximo `desde` sale de acá:
-   * si saliera del teléfono, un celular atrasado unos segundos se perdería los
-   * cambios de esa ventana para siempre.
-   */
-  const { rows: ahora } = await consultar(`select now() as ahora`);
 
   return c.json({ planteles: rows, hasta: ahora[0].ahora });
 });
@@ -452,87 +477,160 @@ app.put('/planteles/:id', async (c) => {
     return c.json({ error: 'Falta el plantel.' }, 400);
   }
 
-  /*
-   * El límite se cuenta acá y no se confía en lo que diga la app. Un plantel
-   * que ya existe siempre se puede seguir guardando: lo que el plan limita es
-   * cuántos tenés, no que puedas editar los que tenés.
-   */
   const plan = await planDe(usuario.id);
-  const { rows: cuantos } = await consultar(
-    `select count(*)::int as n from planteles
-      where dueno = $1 and not borrado and id <> $2`,
-    [usuario.id, id]
-  );
-  const { rows: existe } = await consultar(
-    `select 1 from planteles where dueno = $1 and id = $2 and not borrado`,
-    [usuario.id, id]
-  );
-  if (existe.length === 0 && !hayLugar(cuantos[0].n, plan)) {
-    return c.json(
-      { error: 'Llegaste al límite de planteles de tu plan.', limite: true },
-      409
-    );
-  }
+  const tope = topeDePlanteles(plan);
 
-  await consultar(
+  /*
+   * El límite se cuenta acá y no se confía en lo que diga la app, y se cuenta
+   * adentro del mismo insert a propósito.
+   *
+   * Antes eran tres pedidos: contar, ver si ya existía, y recién después
+   * guardar. Entre el conteo y el insert no había nada que impidiera que otro
+   * teléfono de la misma cuenta guardara el suyo, y los dos pasaban el control
+   * con el mismo número — dos teléfonos sincronizando a la vez dejaban tres
+   * planteles en un plan de dos. Así la condición se evalúa en el momento de
+   * escribir, que es el único momento en que vale.
+   *
+   * Un plantel que ya existe siempre se puede seguir guardando: lo que el plan
+   * limita es cuántos tenés, no que puedas editar los que tenés. Uno que está
+   * en la papelera no cuenta como que existe: revivirlo ocupa un lugar igual
+   * que crear otro, y si no sería la forma de saltarse el tope.
+   */
+  const { rows } = await consultar(
     `insert into planteles (id, dueno, nombre, llegada, datos, borrado, borrado_en, actualizado)
-     values ($1, $2, $3, $4, $5, false, null, now())
+     select $1, $2, $3, $4, $5, false, null, now()
+      where exists (
+              select 1 from planteles
+               where dueno = $2 and id = $1 and not borrado
+            )
+         or (
+              select count(*) from planteles
+               where dueno = $2 and not borrado
+            ) < $6
      on conflict (dueno, id) do update
        set nombre = excluded.nombre,
            llegada = excluded.llegada,
            datos = excluded.datos,
            borrado = false,
            borrado_en = null,
-           actualizado = now()`,
+           actualizado = now()
+     returning actualizado`,
     [
       id,
       usuario.id,
       p.nombre,
       p.llegada ?? new Date().toISOString(),
       JSON.stringify(p.datos ?? {}),
+      Number.isFinite(tope) ? tope : Number.MAX_SAFE_INTEGER,
     ]
   );
 
-  const { rows } = await consultar(
-    `select actualizado from planteles where dueno = $1 and id = $2`,
-    [usuario.id, id]
-  );
+  // Sin filas es que la condición no se cumplió: no había lugar.
+  if (rows.length === 0) {
+    return c.json(
+      { error: 'Llegaste al límite de planteles de tu plan.', limite: true },
+      409
+    );
+  }
+
   return c.json({ ok: true, actualizado: rows[0].actualizado });
 });
 
 /** Lo que está en la papelera, de lo más nuevo a lo más viejo. */
 app.get('/planteles/papelera', async (c) => {
   const usuario = c.get('usuario');
+  /*
+   * También filtra por el plazo, y no sólo por estar borrado. Vaciar lo viejo
+   * corre cuando alguien borra algo y no con un reloj, así que una cuenta
+   * quieta puede tener adentro cosas de hace meses: si se mostraran, los días
+   * que dice la pantalla serían mentira.
+   */
   const { rows } = await consultar(
-    `select id, nombre, llegada, datos, borrado_en from planteles
-      where dueno = $1 and borrado and borrado_en is not null
+    `select id, nombre, llegada, datos, borrado_en
+       from planteles
+      where dueno = $1 and ${EN_LA_PAPELERA}
+        and borrado_en > now() - ($2 || ' days')::interval
       order by borrado_en desc`,
-    [usuario.id]
+    [usuario.id, String(DIAS_DE_PAPELERA)]
   );
-  return c.json({ planteles: rows, dias: DIAS_DE_PAPELERA });
+  // El tope viaja para que la app pueda decir cuántos guarda sin tener una
+  // copia del número que se desincronice de éste.
+  return c.json({
+    planteles: rows,
+    dias: DIAS_DE_PAPELERA,
+    tope: topeDePapelera(await planDe(usuario.id)),
+  });
 });
 
-/** Saca uno de la papelera. Vuelve como estaba, con todo lo que tenía. */
+/**
+ * Saca uno de la papelera. Vuelve como estaba, con todo lo que tenía.
+ *
+ * Dos condiciones, y las dos van adentro del update. Contarlas antes y
+ * escribir después dejaría pasar dos pedidos a la vez, que es justo lo que hay
+ * que evitar.
+ *
+ *   1. Que no haya pasado el plazo. Vaciar lo viejo corre cuando alguien borra
+ *      algo y no con un reloj, así que una cuenta quieta puede tener adentro
+ *      cosas de hace meses: sin este control se podrían recuperar, y los días
+ *      que dice la pantalla serían mentira.
+ *   2. Que haya lugar en el plan.
+ *
+ * Que se haya sacado antes no se controla acá: uno que ya salió una vez no
+ * vuelve a la papelera nunca —el segundo borrado es definitivo— así que no
+ * puede estar adentro para sacarlo de nuevo.
+ */
 app.post('/planteles/:id/restaurar', async (c) => {
   const usuario = c.get('usuario');
-  const plan = await planDe(usuario.id);
-  const { rows: cuantos } = await consultar(
-    `select count(*)::int as n from planteles where dueno = $1 and not borrado`,
-    [usuario.id]
+  const id = c.req.param('id');
+  const tope = topeDePlanteles(await planDe(usuario.id));
+
+  const { rowCount } = await consultar(
+    `update planteles
+        set borrado = false,
+            borrado_en = null,
+            restaurado_en = now(),
+            actualizado = now()
+      where dueno = $1 and id = $2 and ${EN_LA_PAPELERA}
+        and borrado_en > now() - ($4 || ' days')::interval
+        and (
+          select count(*) from planteles where dueno = $1 and not borrado
+        ) < $3`,
+    [
+      usuario.id,
+      id,
+      Number.isFinite(tope) ? tope : Number.MAX_SAFE_INTEGER,
+      String(DIAS_DE_PAPELERA),
+    ]
   );
-  if (!hayLugar(cuantos[0].n, plan)) {
+
+  if (rowCount === 0) {
+    /*
+     * No se restauró, y hay dos motivos posibles. Distinguirlos cuesta otro
+     * pedido, pero sólo se paga cuando ya falló: en el camino bueno esto no
+     * corre.
+     */
+    const { rows } = await consultar(
+      `select (count(*) filter (
+                where id = $2 and ${EN_LA_PAPELERA}
+                  and borrado_en > now() - ($3 || ' days')::interval
+              ))::int as a_tiempo
+         from planteles where dueno = $1`,
+      [usuario.id, id, String(DIAS_DE_PAPELERA)]
+    );
+
+    /*
+     * Uno que pasó el plazo cuenta como que no está, aunque la fila siga: para
+     * el que mira, se fue de la papelera. Es lo mismo que muestra la lista.
+     */
+    if (rows[0].a_tiempo === 0) {
+      return c.json({ error: 'Ese plantel ya no está.' }, 404);
+    }
     return c.json(
       { error: 'No te entra otro plantel en tu plan.', limite: true },
       409
     );
   }
 
-  const { rowCount } = await consultar(
-    `update planteles set borrado = false, borrado_en = null, actualizado = now()
-      where dueno = $1 and id = $2 and borrado`,
-    [usuario.id, c.req.param('id')]
-  );
-  if (rowCount === 0) return c.json({ error: 'Ese plantel ya no está.' }, 404);
   return c.json({ ok: true });
 });
 
@@ -624,21 +722,43 @@ async function fotosEnUso(usuarioId) {
 app.delete('/planteles/:id', async (c) => {
   const usuario = c.get('usuario');
   const id = c.req.param('id');
-  await consultar(
-    `update planteles set borrado = true, borrado_en = now(), actualizado = now()
-     where dueno = $1 and id = $2 and not borrado`,
-    [usuario.id, id]
-  );
+
+  /*
+   * El segundo borrado de un plantel que ya salió una vez de la papelera es
+   * definitivo: se van los jugadores, los partidos y las fotos, y queda sólo
+   * la lápida para que los otros teléfonos se enteren. La app avisa antes de
+   * llegar acá; esto es lo que lo hace de verdad.
+   *
+   * Si no era de ésos, `borrarParaSiempre` no toca nada y va a la papelera.
+   */
+  const definitivo = await borrarParaSiempre(usuario.id, id);
+
+  if (!definitivo.borrado) {
+    await consultar(
+      `update planteles set borrado = true, borrado_en = now(), actualizado = now()
+       where dueno = $1 and id = $2 and not borrado`,
+      [usuario.id, id]
+    );
+  }
 
   // Lo que se compartió de este plantel y todavía nadie aceptó se cancela: lo
   // que iban a recibir ya no existe.
   await cancelarEnviosDe(usuario.id, id).catch(() => 0);
   /*
-   * Vaciar lo viejo deja fotos sin dueño: se barren contra lo que sigue
-   * referenciado, que ahora incluye lo que está en la papelera.
+   * Los dos límites de la papelera, cada vez que entra algo: los días y la
+   * cantidad. Vaciar deja fotos sin dueño, y las del que se borró para siempre
+   * también quedan sueltas: se barren todas juntas contra lo que sigue
+   * referenciado, que incluye lo que quedó en la papelera.
    */
   try {
-    const sueltas = await vaciarPapeleraVieja(usuario.id);
+    const sueltas = [
+      ...definitivo.fotos,
+      ...(await vaciarPapeleraVieja(usuario.id)),
+      ...(await recortarPapelera(
+        usuario.id,
+        topeDePapelera(await planDe(usuario.id))
+      )),
+    ];
     if (sueltas.length > 0) {
       await limpiarHuerfanas(usuario.id, await fotosEnUso(usuario.id));
     }
@@ -646,7 +766,7 @@ app.delete('/planteles/:id', async (c) => {
     // Que no se pueda vaciar lo viejo no tiene por qué frenar el borrado.
   }
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, definitivo: definitivo.borrado });
 });
 
 app.onError((error, c) => {

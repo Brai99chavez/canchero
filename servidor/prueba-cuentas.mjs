@@ -166,7 +166,14 @@ ok('mail inválido se rechaza', r.estado >= 400);
  * se agregó es una forma de pedir el reenvío a propósito.
  */
 titulo('reenviar la confirmación');
-const antesDeReenviar = LOG ? ultimoLink(/verify-email[^\s"'<]*/g) : null;
+/*
+ * El link que sale en el mail es el nuestro (`/verificar?token=`), no el que
+ * trae Better Auth de fábrica: el de fábrica contesta un JSON en el navegador
+ * y el nuestro devuelve a la app con la sesión puesta.
+ */
+const VERIFICACION = /https?:\/\/[^\s"'<]*\/verificar\?token=[^\s"'<]*/g;
+
+const antesDeReenviar = LOG ? ultimoLink(VERIFICACION) : null;
 
 r = await a.pedir('/api/auth/sign-up/email', {
   metodo: 'POST',
@@ -175,7 +182,7 @@ r = await a.pedir('/api/auth/sign-up/email', {
 await esperar(400);
 ok(
   'registrarse de nuevo NO manda otro mail',
-  !LOG || ultimoLink(/verify-email[^\s"'<]*/g) === antesDeReenviar
+  !LOG || ultimoLink(VERIFICACION) === antesDeReenviar
 );
 
 r = await a.pedir('/api/auth/send-verification-email', {
@@ -186,7 +193,7 @@ ok('pero se puede pedir el reenvío', r.estado === 200, r.texto);
 await esperar(400);
 ok(
   'y ahí sí llega uno nuevo',
-  !LOG || ultimoLink(/verify-email[^\s"'<]*/g) !== antesDeReenviar
+  !LOG || ultimoLink(VERIFICACION) !== antesDeReenviar
 );
 
 r = await a.pedir('/api/auth/send-verification-email', {
@@ -211,7 +218,7 @@ ok('sin sesión, los planteles dan 401', r.estado === 401);
 // ═══════════════════════════════════════════════════════ confirmar
 titulo('confirmar el mail');
 await esperar(700);
-const linkVerif = ultimoLink(/https?:\/\/[^\s"'<]*verify-email[^\s"'<]*/g);
+const linkVerif = ultimoLink(VERIFICACION);
 ok('se generó el link de confirmación', !!linkVerif);
 
 if (linkVerif) {
