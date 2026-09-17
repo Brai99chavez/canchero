@@ -198,7 +198,9 @@ export default function PlayerFormModal({
                 : 'Nuevo jugador'
             }
             izquierda={{
-              label: editing ? 'Cancelar' : 'Cerrar',
+              // Editando uno que ya existe, el botón no sale: revierte y se
+              // queda. Es lo único que acá se descarta.
+              label: editing && player ? 'Descartar' : 'Volver',
               onPress: editing ? handleCancel : onClose,
             }}
             derecha={{

@@ -48,7 +48,7 @@ export default function NewSquadModal({ visible, onClose, onCrear }: Props) {
           >
             <HeaderModal
               titulo="Nuevo plantel"
-              izquierda={{ label: 'Cancelar', onPress: onClose }}
+              izquierda={{ label: 'Volver', onPress: onClose }}
               derecha={{
                 label: 'Crear',
                 onPress: handleCrear,

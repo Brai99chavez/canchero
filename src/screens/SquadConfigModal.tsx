@@ -142,7 +142,7 @@ export default function SquadConfigModal({
         >
           <HeaderModal
             titulo="Config del plantel"
-            izquierda={{ label: 'Cancelar', onPress: handleCerrar }}
+            izquierda={{ label: 'Volver', onPress: handleCerrar }}
             derecha={{
               label: 'Guardar',
               onPress: handleGuardar,

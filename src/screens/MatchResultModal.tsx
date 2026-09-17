@@ -440,13 +440,13 @@ export default function MatchResultModal({
                 ? {
                     // Sale de editar sin tocar nada: vuelve a mostrar lo
                     // guardado en vez de cerrar y perder de vista el partido.
-                    label: 'Cancelar',
+                    label: 'Descartar',
                     onPress: () => {
                       reiniciar();
                       setModo('lectura');
                     },
                   }
-                : { label: editando ? 'Cancelar' : 'Cerrar', onPress: onClose }
+                : { label: 'Volver', onPress: onClose }
             }
             derecha={
               editando

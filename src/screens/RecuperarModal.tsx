@@ -89,7 +89,7 @@ export default function RecuperarModal({ pedido, onClose, onListo }: Props) {
         >
           <HeaderModal
             titulo="Contraseña nueva"
-            izquierda={{ label: 'Cerrar', onPress: onClose }}
+            izquierda={{ label: 'Volver', onPress: onClose }}
           />
 
           <ScrollView

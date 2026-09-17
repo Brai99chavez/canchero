@@ -288,7 +288,7 @@ export default function TeamsModal({
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <HeaderModal
           titulo="Equipos"
-          izquierda={{ label: 'Cerrar', onPress: onClose }}
+          izquierda={{ label: 'Volver', onPress: onClose }}
           derecha={{ label: 'Compartir', onPress: handleShare }}
         />
 
