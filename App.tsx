@@ -106,7 +106,11 @@ import {
 } from './src/types';
 
 import type { TabKey as Tab } from './src/components/TabBar';
-/** La app arranca en la lista, salvo que haya un plantel por defecto. */
+/**
+ * La app siempre arranca en la lista. Se podía marcar un plantel para entrar
+ * directo ahí, y se sacó: la lista dejó de ser una antesala cuando pasó a
+ * tener los amigos, lo que te mandaron y tu perfil.
+ */
 type Vista = 'lista' | 'plantel';
 
 /**
@@ -169,7 +173,7 @@ function Root() {
   const [tiempoCumplido, setTiempoCumplido] = useState(false);
   const [planteles, setPlanteles] = useState<Squad[]>([]);
   const [activoId, setActivoId] = useState('');
-  const [predeterminadoId, setPredeterminadoId] = useState<string | null>(null);
+
   const [vista, setVista] = useState<Vista>('lista');
   const [tab, setTab] = useState<Tab>('plantel');
 
@@ -435,7 +439,6 @@ function Root() {
 
       setPlanteles(esMio ? guardado.planteles : []);
       setActivoId(esMio ? guardado.activoId : '');
-      setPredeterminadoId(esMio ? guardado.predeterminadoId : null);
       setBorrados(esMio ? guardado.borrados : []);
       setEstadoSync(
         esMio
@@ -443,7 +446,13 @@ function Root() {
           : { subido: {}, hasta: null }
       );
       setDuenoLocal(dueno);
-      setVista(esMio && guardado.predeterminadoId ? 'plantel' : 'lista');
+      /*
+       * Siempre arranca en la lista. Antes se podía marcar un plantel para
+       * entrar directo ahí, y eso dejaba del otro lado de un botón de volver
+       * lo que hoy es la puerta de entrada: los amigos, los planteles que te
+       * mandaron y tu perfil.
+       */
+      setVista('lista');
       setReady(true);
     });
 
@@ -466,7 +475,6 @@ function Root() {
     savePlanteles({
       planteles,
       activoId,
-      predeterminadoId,
       borrados: borradosPendientes,
       subido: estadoSync.subido,
       hasta: estadoSync.hasta,
@@ -475,7 +483,6 @@ function Root() {
   }, [
     planteles,
     activoId,
-    predeterminadoId,
     borradosPendientes,
     estadoSync,
     duenoLocal,
@@ -832,9 +839,6 @@ function Root() {
       setPlanteles((prev) =>
         prev.map((p) => (p.id === id ? { ...p, nombre: cambios.nombre } : p))
       );
-      setPredeterminadoId((prev) =>
-        cambios.predeterminado ? id : prev === id ? null : prev
-      );
       setConfigId(null);
     },
     []
@@ -853,14 +857,13 @@ function Root() {
       const quedan = planteles.filter((p) => p.id !== id);
       setPlanteles(quedan);
       setConfigId(null);
-      if (id === predeterminadoId) setPredeterminadoId(null);
       if (id === activoId) {
         // El plantel que se estaba usando ya no existe: se vuelve a la lista.
         setVista('lista');
         setActivoId(quedan.length > 0 ? quedan[0].id : '');
       }
     },
-    [planteles, activoId, predeterminadoId]
+    [planteles, activoId]
   );
 
   /**
@@ -885,7 +888,6 @@ function Root() {
 
     setPlanteles([]);
     setActivoId('');
-    setPredeterminadoId(null);
     setConfigId(null);
     setTeamsVisible(false);
     setResultadoId(null);
@@ -1316,7 +1318,7 @@ function Root() {
         ) : vistaReal === 'lista' ? (
           <SquadsScreen
             planteles={planteles}
-            predeterminadoId={predeterminadoId}
+
             onAbrir={handleAbrirPlantel}
             onConfig={setConfigId}
             limitePlanteles={limites(plan).planteles}
@@ -1406,7 +1408,7 @@ function Root() {
       <SquadConfigModal
         visible={enConfig !== null}
         plantel={enConfig}
-        esPredeterminado={enConfig?.id === predeterminadoId}
+
         amigos={amigos}
         onFotosSubidas={handleFotosSubidas}
         onIrAAmigos={() => setSeccion('amigos')}

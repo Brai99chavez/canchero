@@ -5,9 +5,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialogo } from '../components/Dialogo';
@@ -16,19 +14,18 @@ import HeaderModal from '../components/HeaderModal';
 import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
 import { Amigo } from '../nube/amigos';
-import { colors, radius, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 import { Squad } from '../types';
 import EnviarModal from './EnviarModal';
 
 export interface CambiosPlantel {
   nombre: string;
-  predeterminado: boolean;
 }
 
 interface Props {
   visible: boolean;
   plantel: Squad | null;
-  esPredeterminado: boolean;
+
   /** A quiénes se les puede pasar el plantel. */
   amigos: Amigo[];
   onClose: () => void;
@@ -43,7 +40,7 @@ interface Props {
 export default function SquadConfigModal({
   visible,
   plantel,
-  esPredeterminado,
+
   amigos,
   onClose,
   onGuardar,
@@ -54,19 +51,17 @@ export default function SquadConfigModal({
   // Todo se edita en borrador y recién se aplica con Guardar.
   const [nombre, setNombre] = useState('');
   const { dialogo, avisar, preguntar } = useDialogo();
-  const [predeterminado, setPredeterminado] = useState(false);
+
   const [enviarVisible, setEnviarVisible] = useState(false);
 
   useEffect(() => {
     if (!visible || !plantel) return;
     setNombre(plantel.nombre);
-    setPredeterminado(esPredeterminado);
-  }, [visible, plantel, esPredeterminado]);
+  }, [visible, plantel]);
 
   if (!plantel) return null;
 
-  const hayCambios =
-    nombre.trim() !== plantel.nombre || predeterminado !== esPredeterminado;
+  const hayCambios = nombre.trim() !== plantel.nombre;
   const puedeGuardar = nombre.trim().length > 0 && hayCambios;
 
   function handleGuardar() {
@@ -75,7 +70,7 @@ export default function SquadConfigModal({
       avisar('Falta el nombre', 'El plantel necesita un nombre.');
       return;
     }
-    onGuardar({ nombre: limpio, predeterminado });
+    onGuardar({ nombre: limpio });
   }
 
   function handleCerrar() {
@@ -166,26 +161,6 @@ export default function SquadConfigModal({
               autoCapitalize="words"
             />
 
-            <Seccion>Al abrir la app</Seccion>
-            <View style={styles.switchRow}>
-              <View style={styles.switchTexto}>
-                <Text style={styles.switchTitulo}>Abrir este plantel</Text>
-                <Text style={styles.ayuda}>
-                  Con esto activado la app entra directo acá. Si lo apagás,
-                  arranca mostrando la lista de planteles.
-                </Text>
-              </View>
-              <Switch
-                value={predeterminado}
-                onValueChange={setPredeterminado}
-                trackColor={{
-                  false: colors.surfaceAlt,
-                  true: colors.primaryDark,
-                }}
-                thumbColor={predeterminado ? colors.primary : colors.textMuted}
-              />
-            </View>
-
             {hayCambios ? (
               <Text style={styles.aviso}>
                 Hay cambios sin guardar. Tocá Guardar arriba a la derecha.
@@ -234,23 +209,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 64, gap: spacing.sm },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  switchTexto: { flex: 1 },
-  switchTitulo: {
-    color: colors.text,
-    fontSize: 15,
-    fontFamily: 'Barlow_700Bold',
-    marginBottom: 2,
-  },
   ayuda: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular', lineHeight: 17 },
   aviso: {
     color: colors.primary,

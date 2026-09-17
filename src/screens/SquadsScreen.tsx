@@ -10,7 +10,7 @@ import { GearIcon, PlusIcon } from '../components/icons';
 import Panel, {
   DIAGONAL,
 } from '../components/Angular';
-import { Etiqueta } from '../components/Banner';
+
 import { useDialogo } from '../components/Dialogo';
 import { Logotipo } from '../components/Logo';
 import { Objetivo } from '../components/Guia';
@@ -31,7 +31,7 @@ interface Props {
   motivoBloqueo: string;
   /** La línea de Pro, aparte para poder resaltarla. */
   avisoPro: string;
-  predeterminadoId: string | null;
+
   onAbrir: (id: string) => void;
   onConfig: (id: string) => void;
   onNuevo: () => void;
@@ -50,7 +50,7 @@ export default function SquadsScreen({
   activos,
   motivoBloqueo,
   avisoPro,
-  predeterminadoId,
+
   onAbrir,
   onConfig,
   onNuevo,
@@ -218,16 +218,13 @@ export default function SquadsScreen({
           // Bloqueado se ve igual que los demás pero no se abre: la tuerca
           // sigue andando, que es por donde se lo borra para hacer lugar.
           const bloqueado = !activos.has(item.id);
-          const fijo = item.id === predeterminadoId && !bloqueado;
           return (
             <Aparecer llave={item.id} duracion={200 + index * 30}>
             <Panel
               style={styles.fila}
-              degradado={fijo ? degradados.panel : degradados.panelTenue}
-              borde={
-                bloqueado ? colors.danger : fijo ? colors.primary : colors.border
-              }
-              grosor={bloqueado || fijo ? 1.5 : 1}
+              degradado={degradados.panelTenue}
+              borde={bloqueado ? colors.danger : colors.border}
+              grosor={bloqueado ? 1.5 : 1}
               esquinas={DIAGONAL}
             >
               <Pressable
@@ -242,7 +239,7 @@ export default function SquadsScreen({
                   >
                     {item.nombre}
                   </Text>
-                  {fijo ? <Etiqueta>por defecto</Etiqueta> : null}
+
                 </View>
                 <Text style={styles.detalle}>
                   {item.jugadores.length}{' '}

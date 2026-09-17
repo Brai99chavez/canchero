@@ -21,7 +21,7 @@ export interface Guardado {
   planteles: Squad[];
   activoId: string;
   /** Plantel que se abre solo al arrancar. Sin esto, se muestra la lista. */
-  predeterminadoId: string | null;
+
   /**
    * Planteles borrados acá que todavía pueden seguir en la nube.
    *
@@ -251,9 +251,7 @@ export async function loadPlanteles(): Promise<Guardado> {
         return {
           planteles,
           activoId: existe(parsed?.activoId) ? parsed.activoId : planteles[0].id,
-          predeterminadoId: existe(parsed?.predeterminadoId)
-            ? parsed.predeterminadoId
-            : null,
+
           subido:
             parsed?.subido && typeof parsed.subido === 'object'
               ? parsed.subido
@@ -273,7 +271,7 @@ export async function loadPlanteles(): Promise<Guardado> {
       const guardado: Guardado = {
         planteles: migrados,
         activoId: migrados[0].id,
-        predeterminadoId: migrados[0].id,
+
         borrados: [],
         subido: {},
         hasta: null,
@@ -292,7 +290,7 @@ export async function loadPlanteles(): Promise<Guardado> {
   return {
     planteles: [],
     activoId: '',
-    predeterminadoId: null,
+
     borrados: [],
     subido: {},
     hasta: null,
