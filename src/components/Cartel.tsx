@@ -1,24 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fuentes, spacing, tiempos } from '../theme';
 
 /**
- * El aviso de que no hay internet, y el de que volvió.
+ * La barra que baja desde arriba para contar algo que pasa solo.
  *
- * Es una barra que baja desde arriba y no una ventana que haya que cerrar, y
- * eso es a propósito: en una cancha la señal se va y vuelve sola diez veces
- * por partido. Una ventana en el medio habría que cerrarla cada vez, y encima
- * cortaría lo que se está haciendo para avisar de algo que no impide hacer
- * nada —la app anda igual sin internet, todo se guarda acá y sube después—.
+ * Es una barra y no una ventana a propósito: en una cancha la señal se va y
+ * vuelve diez veces por partido. Una ventana habría que cerrarla cada vez, y
+ * encima cortaría lo que se está haciendo para avisar de algo que no impide
+ * hacer nada —la app anda igual sin internet, todo se guarda acá y sube
+ * después—.
  *
  * Ocupa lugar en vez de taparle la cabeza a la pantalla: puede quedarse un
  * buen rato, y algo que tapa el título o el botón de volver durante media hora
  * molesta más que lo que informa.
  */
-export type EstadoConexion = 'sin' | 'volvio' | null;
+export type EstadoCartel =
+  | 'sin-conexion'
+  | 'volvio'
+  | 'bajando'
+  | 'lista'
+  | null;
 
 const CARTELES = {
-  sin: {
+  'sin-conexion': {
     color: colors.aviso,
     titulo: 'SIN CONEXIÓN',
     detalle: 'Seguí tranquilo: cuando vuelva se sincroniza todo solo.',
@@ -28,17 +33,34 @@ const CARTELES = {
     titulo: 'VOLVIÓ LA CONEXIÓN',
     detalle: 'Ya está todo guardado en tu cuenta.',
   },
+  bajando: {
+    color: colors.teamB,
+    titulo: 'BAJANDO UNA VERSIÓN NUEVA',
+    detalle: 'Seguí usando la app, esto pasa de fondo.',
+  },
+  lista: {
+    color: colors.primary,
+    titulo: 'VERSIÓN NUEVA LISTA',
+    detalle: 'Tocá para usarla ahora, o se pone sola la próxima vez que abras.',
+  },
 } as const;
 
-export default function SinConexion({ estado }: { estado: EstadoConexion }) {
+export default function Cartel({
+  estado,
+  onPress,
+}: {
+  estado: EstadoCartel;
+  /** Sólo hace algo en los estados que se pueden tocar. */
+  onPress?: () => void;
+}) {
   const anim = useRef(new Animated.Value(0)).current;
   /*
    * Qué cartel dibujar, que no es lo mismo que cuál corresponde ahora: cuando
    * `estado` pasa a null todavía falta la animación de salida, y sin esto la
    * barra se quedaría vacía mientras se va.
    */
-  const [mostrando, setMostrando] = useState<Exclude<EstadoConexion, null>>(
-    estado ?? 'sin'
+  const [mostrando, setMostrando] = useState<Exclude<EstadoCartel, null>>(
+    estado ?? 'sin-conexion'
   );
   const [montado, setMontado] = useState(estado !== null);
 
@@ -69,6 +91,7 @@ export default function SinConexion({ estado }: { estado: EstadoConexion }) {
   if (!montado) return null;
 
   const cartel = CARTELES[mostrando];
+  const tocable = mostrando === 'lista' && onPress !== undefined;
 
   return (
     <Animated.View
@@ -91,26 +114,37 @@ export default function SinConexion({ estado }: { estado: EstadoConexion }) {
       // a buscarlo.
       accessibilityLiveRegion="polite"
     >
-      <View style={[styles.punto, { backgroundColor: cartel.color }]} />
-      <View style={styles.textos}>
-        <Text style={[styles.titulo, { color: cartel.color }]}>
-          {cartel.titulo}
-        </Text>
-        <Text style={styles.detalle}>{cartel.detalle}</Text>
-      </View>
+      <Pressable
+        style={styles.toque}
+        onPress={tocable ? onPress : undefined}
+        disabled={!tocable}
+        accessibilityRole={tocable ? 'button' : undefined}
+      >
+        <View style={[styles.punto, { backgroundColor: cartel.color }]} />
+        <View style={styles.textos}>
+          <Text style={[styles.titulo, { color: cartel.color }]}>
+            {cartel.titulo}
+          </Text>
+          <Text style={styles.detalle}>{cartel.detalle}</Text>
+        </View>
+      </Pressable>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   barra: {
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1.5,
+  },
+  // El área tocable es toda la barra y no sólo el texto: un blanco chico en un
+  // cartel que aparece solo se falla más de lo que se acierta.
+  toque: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1.5,
   },
   punto: { width: 8, height: 8, borderRadius: 4 },
   textos: { flex: 1 },

@@ -18,7 +18,11 @@ import React, {
 } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { aplicarActualizacion, buscarActualizacion } from './src/actualizar';
+import {
+  aplicarActualizacion,
+  bajarActualizacion,
+  hayActualizacion,
+} from './src/actualizar';
 import { buildTeams } from './src/balance';
 import { ajustesDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
@@ -26,7 +30,7 @@ import { Logotipo } from './src/components/Logo';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
-import SinConexion, { EstadoConexion } from './src/components/SinConexion';
+import Cartel, { EstadoCartel } from './src/components/Cartel';
 import TabBar, { NavPrincipal, SeccionKey } from './src/components/TabBar';
 import { planteesDesde } from './src/recibir';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
@@ -1145,44 +1149,62 @@ function Root() {
     return () => clearTimeout(reloj);
   }, [avisoVuelta]);
 
-  const estadoConexion: EstadoConexion = !hayInternet
-    ? 'sin'
-    : avisoVuelta
-    ? 'volvio'
-    : null;
-
   /*
    * Las actualizaciones que no piden bajar un APK nuevo.
    *
-   * Se busca una al arrancar, en segundo plano y sin frenar nada: si hay señal
-   * queda bajada en unos segundos, y si no hay, no pasa nada y se vuelve a
-   * fijar la próxima vez.
+   * Primero se pregunta si hay algo, que es un pedido chico, y recién si hay
+   * se baja. Así el cartel de "bajando" aparece sólo cuando de verdad se está
+   * bajando algo, y no en cada arranque.
    */
-  const listaParaAplicar = useRef(false);
+  const [actualizacion, setActualizacion] = useState<
+    'bajando' | 'lista' | null
+  >(null);
+
   useEffect(() => {
     if (!ready) return;
-    buscarActualizacion().then((hay) => {
-      listaParaAplicar.current = hay;
+    let vigente = true;
+    hayActualizacion().then((hay) => {
+      if (!hay || !vigente) return;
+      setActualizacion('bajando');
+      bajarActualizacion().then((quedoLista) => {
+        if (vigente) setActualizacion(quedoLista ? 'lista' : null);
+      });
     });
+    return () => {
+      vigente = false;
+    };
   }, [ready]);
 
   /*
-   * Y se aplica recién cuando la app vuelve de segundo plano, nunca en el
-   * medio. Reiniciar mientras alguien está armando un partido, con doce tipos
-   * esperando en la cancha, sería lo peor que esto podría hacer. Al volver ya
-   * parece que la app se abrió de nuevo, que es lo que pasó.
+   * Aplicarla nunca corta lo que se está haciendo. Hay tres caminos y los tres
+   * terminan en lo mismo:
    *
-   * Si nunca se va a segundo plano tampoco se pierde: `expo-updates` usa la
-   * versión bajada solo, la próxima vez que la app arranque de cero.
+   *   - Tocando el cartel, para el que la quiere ya.
+   *   - Al volver de segundo plano, que parece que la app se abrió de nuevo.
+   *   - Y si no, sola: `expo-updates` arranca con la versión bajada la próxima
+   *     vez que la app se abra de cero. Cerrarla no borra lo descargado, así
+   *     que tampoco hay que volver a bajarla.
+   *
+   * Reiniciar en el medio de armar un partido, con doce tipos esperando en la
+   * cancha, sería lo peor que esto podría hacer.
    */
   useEffect(() => {
     const oyente = AppState.addEventListener('change', (estado) => {
-      if (estado !== 'active' || !listaParaAplicar.current) return;
-      listaParaAplicar.current = false;
+      if (estado !== 'active' || actualizacion !== 'lista') return;
       aplicarActualizacion();
     });
     return () => oyente.remove();
-  }, []);
+  }, [actualizacion]);
+
+  /*
+   * Un cartel por vez, y el de la conexión manda: sin internet, que haya una
+   * versión nueva esperando es lo de menos.
+   */
+  const estadoCartel: EstadoCartel = !hayInternet
+    ? 'sin-conexion'
+    : avisoVuelta
+    ? 'volvio'
+    : actualizacion;
 
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
 
@@ -1213,7 +1235,7 @@ function Root() {
           crear la cuenta, y sin él lo único que se ve es un error al tocar
           Entrar, que parece que la contraseña está mal.
         */}
-        <SinConexion estado={estadoConexion} />
+        <Cartel estado={estadoCartel} onPress={aplicarActualizacion} />
         <View style={styles.marca}>
           <Logotipo size={30} />
         </View>
@@ -1237,7 +1259,7 @@ function Root() {
     >
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
-        <SinConexion estado={estadoConexion} />
+        <Cartel estado={estadoCartel} onPress={aplicarActualizacion} />
 
       {vistaReal === 'plantel' ? (
         <AppHeader

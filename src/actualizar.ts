@@ -37,22 +37,41 @@ async function updates(): Promise<Updates | null> {
 }
 
 /**
- * Busca si hay una versión nueva y se la baja.
+ * Si hay una versión nueva esperando.
  *
- * Devuelve si quedó una lista para usar. No la aplica: reiniciar la app en el
- * medio de algo es de lo más molesto que hay, y acá se está armando un partido
- * con gente esperando. Aplicarla es trabajo de `aplicarActualizacion`.
+ * Va separado de bajarla a propósito: preguntar es un pedido chico y rápido,
+ * bajarla puede tardar. Sabiendo primero si hay algo, la pantalla puede
+ * mostrar "bajando" sólo cuando de verdad se está bajando algo, y no cada vez
+ * que la app arranca.
  *
  * No tira nunca. Sin señal esto falla, y es normal: la próxima vez se vuelve a
  * fijar. No hay nada que decirle a nadie.
  */
-export async function buscarActualizacion(): Promise<boolean> {
+export async function hayActualizacion(): Promise<boolean> {
   const mod = await updates();
   if (!mod?.isEnabled) return false;
-
   try {
-    const hay = await mod.checkForUpdateAsync();
-    if (!hay.isAvailable) return false;
+    return (await mod.checkForUpdateAsync()).isAvailable;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Se baja la versión nueva y la deja lista.
+ *
+ * No la aplica: reiniciar la app en el medio de algo es de lo más molesto que
+ * hay, y acá se puede estar armando un partido con gente esperando. Aplicarla
+ * es trabajo de `aplicarActualizacion`.
+ *
+ * Lo que baja queda guardado en el teléfono. Cerrar la app no lo borra: si no
+ * se aplica antes, `expo-updates` arranca solo con la versión nueva la próxima
+ * vez que la app se abra de cero.
+ */
+export async function bajarActualizacion(): Promise<boolean> {
+  const mod = await updates();
+  if (!mod?.isEnabled) return false;
+  try {
     await mod.fetchUpdateAsync();
     return true;
   } catch {
