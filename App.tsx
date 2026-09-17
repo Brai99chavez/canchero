@@ -1292,7 +1292,7 @@ function Root() {
   if (!ready || !fuentesListas || !tiempoCumplido || (hayNube && !sesionMirada)) {
     return (
       <>
-        <Cargando />
+        <Cargando esperandoAlServidor={hayNube && !sesionMirada} />
         <StatusBar style="light" />
       </>
     );
