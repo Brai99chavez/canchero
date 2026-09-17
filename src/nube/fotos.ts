@@ -57,6 +57,23 @@ export async function subirFoto(
   return permiso.publica;
 }
 
+export interface FotosSubidas {
+  planteles: Squad[];
+  /**
+   * Los planteles a los que se les cambió alguna foto por su URL.
+   *
+   * Hay que avisarlo porque cambiar la foto no cambia la fecha del plantel, y
+   * es esa fecha la que dice qué falta subir. Sin esta lista, una foto que
+   * falló la primera vez y subió bien la segunda se quedaba en el teléfono
+   * para siempre: el plantel ya figuraba subido —había viajado sin esa foto—
+   * así que nunca se volvía a mandar, y en los otros aparatos ese jugador se
+   * quedaba sin cara.
+   */
+  cambiados: Set<string>;
+  subidas: number;
+  fallaron: number;
+}
+
 /**
  * Sube las fotos que todavía viven sólo en este teléfono y devuelve los
  * planteles con las URLs ya puestas.
@@ -67,15 +84,18 @@ export async function subirFoto(
  */
 export async function subirFotosPendientes(
   planteles: Squad[]
-): Promise<{ planteles: Squad[]; subidas: number; fallaron: number }> {
-  if (!API) return { planteles, subidas: 0, fallaron: 0 };
+): Promise<FotosSubidas> {
+  const nada = { cambiados: new Set<string>(), subidas: 0, fallaron: 0 };
+  if (!API) return { planteles, ...nada };
 
   let subidas = 0;
   let fallaron = 0;
+  const cambiados = new Set<string>();
   const actualizados: Squad[] = [];
 
   for (const plantel of planteles) {
     const jugadores = [];
+    let cambio = false;
     for (const jugador of plantel.jugadores) {
       if (!esLocal(jugador.foto)) {
         jugadores.push(jugador);
@@ -84,16 +104,25 @@ export async function subirFotosPendientes(
       try {
         const publica = await subirFoto(jugador.foto as string);
         jugadores.push({ ...jugador, foto: publica });
+        cambio = true;
         subidas++;
       } catch {
         jugadores.push(jugador);
         fallaron++;
       }
     }
-    actualizados.push({ ...plantel, jugadores });
+    // El que no cambió vuelve tal cual, el mismo objeto. Así quien llama puede
+    // comparar por identidad y no reescribir el disco en cada vuelta.
+    if (cambio) cambiados.add(plantel.id);
+    actualizados.push(cambio ? { ...plantel, jugadores } : plantel);
   }
 
-  return { planteles: actualizados, subidas, fallaron };
+  return {
+    planteles: cambiados.size > 0 ? actualizados : planteles,
+    cambiados,
+    subidas,
+    fallaron,
+  };
 }
 
 /*

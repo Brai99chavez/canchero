@@ -142,6 +142,16 @@ export interface Squad {
   partidos: Partido[];
   convocatoria: Convocatoria;
   sorteo: Sorteo | null;
+  /**
+   * Si este plantel ya salió una vez de la papelera.
+   *
+   * Lo decide el servidor y acá sólo se guarda, porque hace falta antes de
+   * borrar: de la papelera se saca una vez, así que si ya salió, el próximo
+   * borrado es definitivo y hay que avisarlo. Se necesita en el teléfono —y no
+   * preguntando— para poder avisar sin internet, que es cuando el borrado
+   * funciona igual.
+   */
+  yaVolvio?: boolean;
 }
 
 export const CONVOCATORIA_VACIA: Convocatoria = {

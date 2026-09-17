@@ -120,6 +120,18 @@ export function explicar(error: unknown): Explicacion {
         'servidor puede tardar hasta un minuto en despertar: probá de nuevo.',
     };
   }
+
+  if (
+    m.includes('no te entra otro plantel') ||
+    m.includes('límite de planteles')
+  ) {
+    return {
+      titulo: 'No te entra otro plantel',
+      detalle:
+        'Tu plan llega hasta los que ya tenés. Borrá uno para hacer lugar y ' +
+        'volvé a intentar: esto no se pierde mientras tanto.',
+    };
+  }
   if (m.includes('cerró la sesión') || m.includes('401')) {
     return {
       titulo: 'Se cerró la sesión',

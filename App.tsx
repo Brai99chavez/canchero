@@ -16,8 +16,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { aplicarActualizacion, buscarActualizacion } from './src/actualizar';
 import { buildTeams } from './src/balance';
 import { ajustesDe } from './src/elo';
 import AppHeader from './src/components/AppHeader';
@@ -25,6 +26,7 @@ import { Logotipo } from './src/components/Logo';
 import { useDialogo } from './src/components/Dialogo';
 import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
+import SinConexion, { EstadoConexion } from './src/components/SinConexion';
 import TabBar, { NavPrincipal, SeccionKey } from './src/components/TabBar';
 import { planteesDesde } from './src/backup';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
@@ -45,6 +47,7 @@ import SquadConfigModal, {
 import SquadsScreen from './src/screens/SquadsScreen';
 import TeamsModal from './src/screens/TeamsModal';
 import { hayNube } from './src/nube/cliente';
+import { useHayInternet } from './src/nube/conexion';
 import {
   alCambiarSesion,
   entrarConCodigo,
@@ -65,7 +68,6 @@ import {
   rechazarEnvio,
 } from './src/nube/envios';
 import { leerPerfil, usarNombreReservado } from './src/nube/perfil';
-import { subirFotosPendientes } from './src/nube/fotos';
 import { EstadoSync, sincronizar, sinSubir } from './src/nube/sync';
 import {
   AVISO_PRO,
@@ -123,6 +125,19 @@ const CARGA_MINIMA = 1000;
  * pierde si el teléfono se apaga.
  */
 const ESPERA_ANTES_DE_SUBIR = 1500;
+
+/**
+ * Hasta cuánto se estira esa espera cuando el intento falla.
+ *
+ * Un intento fallido no cambia nada de lo que hay pendiente, así que el reloj
+ * volvía a arrancar igual que antes: con el servidor caído, el teléfono lo
+ * llamaba cada segundo y medio para siempre, gastando batería en fallar. Cada
+ * fallo seguido duplica la espera hasta este tope.
+ */
+const ESPERA_MAXIMA = 60_000;
+
+/** Cuánto se queda el cartel de que volvió la conexión antes de irse solo. */
+const AVISO_VOLVIO = 3500;
 
 
 
@@ -184,14 +199,18 @@ function Root() {
   const [recuperacion, setRecuperacion] = useState<Recuperacion | null>(null);
   /** Los planteles que otros te mandaron y todavía no aceptaste ni rechazaste. */
   const [envios, setEnvios] = useState<Envio[]>([]);
-  /** Cuándo terminó la última sincronización que salió bien. */
-  const [ultimaCopia, setUltimaCopia] = useState<Date | null>(null);
   /** Qué se confirmó arriba de cada plantel, y hasta cuándo se leyó. */
   const [estadoSync, setEstadoSync] = useState<EstadoSync>({
     subido: {},
     hasta: null,
   });
   const [sincronizando, setSincronizando] = useState(false);
+  /** Si el teléfono tiene internet ahora mismo. */
+  const hayInternet = useHayInternet();
+  /** Cuántos intentos seguidos fallaron, para ir espaciando los siguientes. */
+  const [intentosFallidos, setIntentosFallidos] = useState(0);
+  /** Si hay que avisar que volvió la señal y ya subió todo. */
+  const [avisoVuelta, setAvisoVuelta] = useState(false);
   /** De quién es lo que hay guardado en este teléfono. */
   const [duenoLocal, setDuenoLocal] = useState<string | null>(null);
   /**
@@ -271,8 +290,7 @@ function Root() {
   useEffect(() => {
     if (!sesion) {
       setPlan(PLAN);
-      setUltimaCopia(null);
-        // Los borrados pendientes se quedan: siguen siendo verdad aunque no
+      // Los borrados pendientes se quedan: siguen siendo verdad aunque no
       // haya sesión, y hay que propagarlos cuando se vuelva a entrar.
       return;
     }
@@ -467,20 +485,26 @@ function Root() {
    * El guardado es automático, pero no instantáneo: sin señal queda acá hasta
    * que vuelva. Se muestra para que nadie dé por guardado lo que no lo está.
    */
+  /** Los que el plan deja usar. Los demás se ven en la lista y nada más. */
+  const activos = useMemo(
+    () => idsActivos(planteles, plan),
+    [planteles, plan]
+  );
+
+  /*
+   * Los que quedaron fuera del plan no cuentan: no se mandan —el servidor los
+   * rechaza igual— así que decir que falta subirlos sería dejar el aviso
+   * prendido para siempre por algo que no se va a resolver solo.
+   */
   const haySinSubir =
     Boolean(sesion) &&
-    (sinSubir(planteles, estadoSync.subido).length > 0 ||
+    (sinSubir(planteles, estadoSync.subido, { permitidos: activos }).length >
+      0 ||
       borradosPendientes.length > 0);
 
   const activo = useMemo(
     () => planteles.find((p) => p.id === activoId) ?? planteles[0],
     [planteles, activoId]
-  );
-
-  /** Los que el plan deja usar. Los demás se ven en la lista y nada más. */
-  const activos = useMemo(
-    () => idsActivos(planteles, plan),
-    [planteles, plan]
   );
 
 
@@ -925,21 +949,35 @@ function Root() {
   /**
    * Acepta un plantel que te mandaron y lo guarda como uno más.
    *
-   * Entra aunque pase el tope del plan, igual que al importar: perder algo que
-   * alguien te mandó sería peor que verlo bloqueado. Cuáles se pueden usar lo
-   * decide después el orden de llegada.
+   * El lugar se mira antes de aceptar, y por dos razones. Aceptar consume el
+   * envío del otro lado: si se aceptara primero y recién después no entrara,
+   * el plantel no quedaría en ningún lado —ya no está pendiente para volver a
+   * intentarlo—. Y desde que todo vive en el servidor, uno que no entra en el
+   * plan tampoco se puede subir, así que quedaría sólo en este teléfono y se
+   * perdería con él.
+   *
+   * Antes entraba igual, con la idea de que verlo bloqueado era mejor que
+   * perderlo. Con el guardado manual eso era cierto; ahora no: dejándolo sin
+   * aceptar sigue guardado del lado del que lo mandó, esperando a que se haga
+   * lugar, que es el lugar más seguro donde puede estar.
    */
-  const handleAceptarEnvio = useCallback(async (id: string) => {
-    const traido = await aceptarEnvio(id);
-    const { planteles: nuevos } = planteesDesde([
-      { nombre: traido.nombre, ...traido.datos },
-    ]);
-    if (nuevos.length > 0) {
-      setPlanteles((prev) => [...prev, ...nuevos]);
-      setActivoId(nuevos[0].id);
-    }
-    setEnvios((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+  const handleAceptarEnvio = useCallback(
+    async (id: string) => {
+      const permiso = puedeCrearPlantel(planteles.length, plan);
+      if (!permiso.ok) throw new Error('No te entra otro plantel en tu plan.');
+
+      const traido = await aceptarEnvio(id);
+      const { planteles: nuevos } = planteesDesde([
+        { nombre: traido.nombre, ...traido.datos },
+      ]);
+      if (nuevos.length > 0) {
+        setPlanteles((prev) => [...prev, ...nuevos]);
+        setActivoId(nuevos[0].id);
+      }
+      setEnvios((prev) => prev.filter((e) => e.id !== id));
+    },
+    [planteles.length, plan]
+  );
 
   const handleRechazarEnvio = useCallback(async (id: string) => {
     await rechazarEnvio(id);
@@ -973,6 +1011,9 @@ function Root() {
    * No avisa de los errores. Sin señal esto va a fallar seguido y es normal:
    * lo que hay que mostrar no es un cartel cada vez, es que todavía queda algo
    * sin subir, y de eso se encarga `haySinSubir`.
+   *
+   * Devuelve si quedó todo arriba, que es lo que mira el aviso de que volvió
+   * la conexión para no cantar victoria antes de tiempo.
    */
   const sincronizarAhora = useCallback(async () => {
     if (!sesion || sincronizando) return;
@@ -980,7 +1021,12 @@ function Root() {
     if (duenoLocal !== sesion.id) return;
     setSincronizando(true);
     try {
-      const salida = await sincronizar(planteles, borradosPendientes, estadoSync);
+      const salida = await sincronizar(
+        planteles,
+        borradosPendientes,
+        estadoSync,
+        activos
+      );
 
       setEstadoSync(salida.estado);
       // Sólo si cambió algo: asignar el mismo arreglo dispararía otra vuelta.
@@ -989,11 +1035,28 @@ function Root() {
         const listos = new Set(salida.borradosListos);
         setBorrados((prev) => prev.filter((id) => !listos.has(id)));
       }
-      if (!salida.faltaSubir) setUltimaCopia(new Date());
+      /*
+       * Lo que no entró por el plan también cuenta como intento fallido,
+       * aunque no lo sea. El servidor lo va a rechazar igual la próxima vez,
+       * así que nunca deja de figurar como pendiente: sin esto se reintentaba
+       * cada segundo y medio para siempre, un 409 tras otro. Se sigue
+       * intentando —con hacer lugar alcanza para que entre— pero espaciado.
+       */
+      const noEntro = salida.faltaSubir || salida.sinLugar > 0;
+      setIntentosFallidos((antes) => (noEntro ? antes + 1 : 0));
+      return !noEntro;
     } finally {
       setSincronizando(false);
     }
-  }, [sesion, sincronizando, planteles, borradosPendientes, estadoSync, duenoLocal]);
+  }, [
+    sesion,
+    sincronizando,
+    planteles,
+    borradosPendientes,
+    estadoSync,
+    duenoLocal,
+    activos,
+  ]);
 
   /*
    * El disparador: cualquier cambio en los planteles o en lo borrado deja la
@@ -1002,9 +1065,26 @@ function Root() {
    */
   useEffect(() => {
     if (!ready || !sesion || !haySinSubir) return;
-    const reloj = setTimeout(sincronizarAhora, ESPERA_ANTES_DE_SUBIR);
+    /*
+     * Sin internet ni se intenta. Lo que va a cambiar las cosas es que vuelva
+     * la señal, y de eso avisa el sistema: mientras tanto, insistir es gastar
+     * batería en fallar.
+     */
+    if (!hayInternet) return;
+    const espera = Math.min(
+      ESPERA_ANTES_DE_SUBIR * 2 ** intentosFallidos,
+      ESPERA_MAXIMA
+    );
+    const reloj = setTimeout(sincronizarAhora, espera);
     return () => clearTimeout(reloj);
-  }, [ready, sesion, haySinSubir, sincronizarAhora]);
+  }, [
+    ready,
+    sesion,
+    haySinSubir,
+    hayInternet,
+    intentosFallidos,
+    sincronizarAhora,
+  ]);
 
   /*
    * Y al entrar, una vuelta para traer lo que se haya hecho en otro teléfono.
@@ -1023,6 +1103,92 @@ function Root() {
     trajoDe.current = sesion.id;
     sincronizarAhora();
   }, [ready, sesion, duenoLocal, sincronizarAhora]);
+
+  /*
+   * Cuando vuelve la señal.
+   *
+   * No alcanza con esperar al próximo cambio: además de subir lo que quedó
+   * pendiente hay que traer lo que pasó mientras tanto. Si un amigo mandó un
+   * plantel estando el teléfono sin internet, el aviso que lo anunciaba se
+   * perdió con la conexión y nadie lo va a volver a mandar.
+   */
+  const habiaInternet = useRef(true);
+  useEffect(() => {
+    const antes = habiaInternet.current;
+    habiaInternet.current = hayInternet;
+
+    if (!hayInternet) {
+      // Si se corta de nuevo antes de que el cartel de la vuelta se fuera solo,
+      // manda el de ahora.
+      setAvisoVuelta(false);
+      return;
+    }
+    if (antes) return;
+
+    // Se empieza de cero con las esperas: arrastrar la que venía de los fallos
+    // de estar sin señal dejaría todo parado hasta un minuto después.
+    setIntentosFallidos(0);
+    if (!sesion) return;
+
+    /*
+     * Los amigos y lo que te mandaron se piden al entrar y cuando llega un
+     * aviso. Los avisos que hayan salido mientras el teléfono estaba sin
+     * internet no llegaron y nadie los va a repetir, así que acá se vuelve a
+     * preguntar: si no, la lista se quedaba como estaba hasta que tocaras algo.
+     */
+    setRefrescos((n) => n + 1);
+    revisarEnvios();
+
+    sincronizarAhora().then((quedoTodoArriba) => {
+      if (quedoTodoArriba) setAvisoVuelta(true);
+    });
+  }, [hayInternet, sesion, sincronizarAhora, revisarEnvios]);
+
+  // El cartel de que volvió se va solo: ya cumplió con avisar.
+  useEffect(() => {
+    if (!avisoVuelta) return;
+    const reloj = setTimeout(() => setAvisoVuelta(false), AVISO_VOLVIO);
+    return () => clearTimeout(reloj);
+  }, [avisoVuelta]);
+
+  const estadoConexion: EstadoConexion = !hayInternet
+    ? 'sin'
+    : avisoVuelta
+    ? 'volvio'
+    : null;
+
+  /*
+   * Las actualizaciones que no piden bajar un APK nuevo.
+   *
+   * Se busca una al arrancar, en segundo plano y sin frenar nada: si hay señal
+   * queda bajada en unos segundos, y si no hay, no pasa nada y se vuelve a
+   * fijar la próxima vez.
+   */
+  const listaParaAplicar = useRef(false);
+  useEffect(() => {
+    if (!ready) return;
+    buscarActualizacion().then((hay) => {
+      listaParaAplicar.current = hay;
+    });
+  }, [ready]);
+
+  /*
+   * Y se aplica recién cuando la app vuelve de segundo plano, nunca en el
+   * medio. Reiniciar mientras alguien está armando un partido, con doce tipos
+   * esperando en la cancha, sería lo peor que esto podría hacer. Al volver ya
+   * parece que la app se abrió de nuevo, que es lo que pasó.
+   *
+   * Si nunca se va a segundo plano tampoco se pierde: `expo-updates` usa la
+   * versión bajada solo, la próxima vez que la app arranque de cero.
+   */
+  useEffect(() => {
+    const oyente = AppState.addEventListener('change', (estado) => {
+      if (estado !== 'active' || !listaParaAplicar.current) return;
+      listaParaAplicar.current = false;
+      aplicarActualizacion();
+    });
+    return () => oyente.remove();
+  }, []);
 
   const enConfig = planteles.find((p) => p.id === configId) ?? null;
 
@@ -1048,13 +1214,17 @@ function Root() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
+        {/*
+          Acá el aviso importa el doble: sin internet no se puede entrar ni
+          crear la cuenta, y sin él lo único que se ve es un error al tocar
+          Entrar, que parece que la contraseña está mal.
+        */}
+        <SinConexion estado={estadoConexion} />
         <View style={styles.marca}>
           <Logotipo size={30} />
         </View>
         <PerfilScreen
           sesion={null}
-          cuantosPlanteles={planteles.length}
-          ultimaCopia={null}
           haySinSubir={false}
           onRecuperado={() => {}}
         />
@@ -1073,6 +1243,7 @@ function Root() {
     >
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
+        <SinConexion estado={estadoConexion} />
 
       {vistaReal === 'plantel' ? (
         <AppHeader
@@ -1100,15 +1271,6 @@ function Root() {
         {vistaReal === 'lista' && seccion === 'perfil' ? (
           <PerfilScreen
             sesion={sesion}
-            cuantosPlanteles={planteles.length}
-            ultimaCopia={
-              ultimaCopia
-                ? ultimaCopia.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : null
-            }
             haySinSubir={haySinSubir}
             onRecuperado={() => {
               // El que volvió está en el servidor: la próxima vuelta lo trae.

@@ -53,6 +53,7 @@ export function clienteObligatorio() {
   return authClient;
 }
 
+
 /**
  * Qué hacer cuando el servidor rechaza la sesión. Lo registra `cuenta.ts`; va
  * por acá para que este archivo no dependa de aquél y se arme un círculo.
@@ -93,6 +94,7 @@ export async function pedir<T>(
       method: opciones.metodo ?? 'GET',
       headers: {
         cookie,
+
         ...(opciones.cuerpo ? { 'content-type': 'application/json' } : {}),
       },
       body: opciones.cuerpo ? JSON.stringify(opciones.cuerpo) : undefined,

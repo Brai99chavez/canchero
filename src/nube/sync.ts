@@ -28,6 +28,8 @@ interface PlantelDeLaNube {
   llegada: string;
   datos: { jugadores?: unknown; partidos?: unknown } | null;
   borrado?: boolean;
+  /** Cuándo salió de la papelera, si salió alguna vez. */
+  restaurado_en?: string | null;
 }
 
 /** Qué se le manda al servidor de cada plantel. */
@@ -69,9 +71,29 @@ export interface Resultado {
   faltaSubir: boolean;
 }
 
-/** Cuáles tienen algo sin subir. */
-export function sinSubir(planteles: Squad[], subido: EstadoSync['subido']) {
-  return planteles.filter((p) => subido[p.id] !== p.actualizado);
+/**
+ * Cuáles tienen algo sin subir.
+ *
+ * `permitidos` son los que el plan deja guardar. Los que quedaron afuera no se
+ * mandan: el servidor los va a rechazar igual —el que decide el límite es él—
+ * así que pedirlo es un viaje para que conteste que no. Y como el rechazo no
+ * los saca de la lista de pendientes, se volvía a intentar en cada vuelta para
+ * siempre. Cuando se hace lugar entran solos, sin que haya que avisar nada.
+ */
+export function sinSubir(
+  planteles: Squad[],
+  subido: EstadoSync['subido'],
+  opciones: {
+    permitidos?: ReadonlySet<string>;
+    /** Los que cambiaron de foto: van aunque la fecha no se haya movido. */
+    conFotoNueva?: ReadonlySet<string>;
+  } = {}
+) {
+  return planteles.filter((p) => {
+    if (opciones.permitidos && !opciones.permitidos.has(p.id)) return false;
+    if (opciones.conFotoNueva?.has(p.id)) return true;
+    return subido[p.id] !== p.actualizado;
+  });
 }
 
 /**
@@ -83,7 +105,9 @@ export function sinSubir(planteles: Squad[], subido: EstadoSync['subido']) {
 export async function sincronizar(
   planteles: Squad[],
   borrados: string[],
-  estado: EstadoSync
+  estado: EstadoSync,
+  /** Los que el plan deja guardar. Sin esto se mandan todos. */
+  permitidos?: ReadonlySet<string>
 ): Promise<Resultado> {
   const subido = { ...estado.subido };
   const borradosListos: string[] = [];
@@ -94,6 +118,7 @@ export async function sincronizar(
   //    ruta de un archivo de este teléfono.
   const conFotos = await subirFotosPendientes(planteles).catch(() => ({
     planteles,
+    cambiados: new Set<string>(),
     subidas: 0,
     fallaron: 0,
   }));
@@ -111,7 +136,10 @@ export async function sincronizar(
     }
   }
 
-  for (const p of sinSubir(lista, subido)) {
+  for (const p of sinSubir(lista, subido, {
+    permitidos,
+    conFotoNueva: conFotos.cambiados,
+  })) {
     try {
       await pedir(`/planteles/${encodeURIComponent(p.id)}`, {
         metodo: 'PUT',
@@ -189,6 +217,9 @@ function aplicar(locales: Squad[], traidos: PlantelDeLaNube[]): Squad[] {
         // Viene del servidor, o sea que ya está subido: se marca con lo mismo
         // que se va a guardar en `subido` para que no se vuelva a mandar.
         actualizado: existente?.actualizado,
+        // Esto sí lo sabe sólo el servidor: cuándo salió de la papelera. Es lo
+        // que decide si el próximo borrado es definitivo.
+        yaVolvio: fila.restaurado_en != null,
       },
       0
     );
@@ -216,10 +247,14 @@ export interface EnPapelera {
   borradoEn: string;
 }
 
-export async function verPapelera(): Promise<{
+export interface Papelera {
   planteles: EnPapelera[];
   dias: number;
-}> {
+  /** Cuántos guarda. El número lo manda el servidor, que es el que lo aplica. */
+  tope: number;
+}
+
+export async function verPapelera(): Promise<Papelera> {
   const r = await pedir<{
     planteles: {
       id: string;
@@ -229,10 +264,12 @@ export async function verPapelera(): Promise<{
       borrado_en: string;
     }[];
     dias: number;
+    tope: number;
   }>('/planteles/papelera');
 
   return {
     dias: r.dias,
+    tope: typeof r.tope === 'number' ? r.tope : 5,
     planteles: (r.planteles ?? []).map((p) => ({
       id: p.id,
       nombre: p.nombre,
