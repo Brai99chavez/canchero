@@ -1,16 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SILUETA } from '../assets';
+import Panel, { DIAGONAL } from '../components/Angular';
+import CampoTexto from '../components/CampoTexto';
+import Hoja from '../components/Hoja';
+import { Aviso, Button } from '../components/ui';
+import { Amigo } from '../nube/amigos';
 import { Explicacion, explicar } from '../nube/cuenta';
 import { enviarPlantel } from '../nube/envios';
-import { normalizar } from '../nube/perfil';
-import Hoja from '../components/Hoja';
-import CampoTexto from '../components/CampoTexto';
-import { Aviso, Button } from '../components/ui';
-import { colors, fuentes } from '../theme';
+import { colors, fuentes, spacing } from '../theme';
 import { Squad } from '../types';
 
 /**
- * Mandarle este plantel a otro por su nombre de usuario.
+ * A quién le paso este plantel.
+ *
+ * Se elige de la lista de amigos y no se escribe el nombre a mano, que es lo
+ * que había antes: tener que acordarse de cómo se escribe el usuario del otro
+ * —y que te lo pase bien— era pedirle a la gente que hiciera de teclado. Acá
+ * el que ya es amigo está a un toque.
  *
  * Va una copia: el que recibe la acepta y a partir de ahí es suya. Lo que haga
  * cualquiera de los dos después no toca lo del otro, que es lo que espera
@@ -19,69 +33,89 @@ import { Squad } from '../types';
 export default function EnviarModal({
   visible,
   plantel,
+  amigos,
   onClose,
   onFotosSubidas,
+  onIrAAmigos,
 }: {
   visible: boolean;
   plantel: Squad | null;
+  amigos: Amigo[];
   onClose: () => void;
   /**
    * Mandar sube las fotos que faltaban. Se avisa para poder guardar las URLs
-   * en el teléfono y no volver a subirlas en el próximo respaldo.
+   * en el teléfono y no volver a subirlas en la próxima sincronización.
    */
   onFotosSubidas: (plantel: Squad) => void;
+  /** Para el que todavía no tiene a nadie a quien mandárselo. */
+  onIrAAmigos: () => void;
 }) {
-  const [usuario, setUsuario] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [enviando, setEnviando] = useState<string | null>(null);
   const [error, setError] = useState<Explicacion | null>(null);
   const [mandadoA, setMandadoA] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
-    setUsuario('');
-    setEnviando(false);
+    setBusqueda('');
+    setEnviando(null);
     setError(null);
     setMandadoA(null);
   }, [visible]);
 
-  const limpio = normalizar(usuario);
-  const sePuede = limpio.length >= 3 && plantel !== null;
+  /*
+   * Sólo los que ya aceptaron: a una solicitud pendiente no se le puede
+   * mandar nada todavía, y mostrarla acá sería ofrecer algo que va a fallar.
+   *
+   * Ordenados de la A a la Z y no por conversación reciente. Acá se viene
+   * buscando a alguien puntual —"se lo mando a Rodri"— y para eso el orden
+   * alfabético es el único donde sabés de antemano dónde mirar.
+   */
+  const lista = useMemo(() => {
+    const busca = busqueda.trim().toLowerCase();
+    return amigos
+      .filter((a) => a.estado === 'aceptada')
+      .filter((a) => !busca || a.usuario.toLowerCase().includes(busca))
+      .sort((a, b) => a.usuario.localeCompare(b.usuario, 'es'));
+  }, [amigos, busqueda]);
 
-  const handleEnviar = async () => {
-    if (!plantel) return;
-    setEnviando(true);
+  const cuantosAmigos = amigos.filter((a) => a.estado === 'aceptada').length;
+
+  const handleEnviar = async (usuario: string) => {
+    if (!plantel || enviando) return;
+    setEnviando(usuario);
     setError(null);
     try {
-      const actualizado = await enviarPlantel(limpio, plantel);
+      const actualizado = await enviarPlantel(usuario, plantel);
       if (actualizado !== plantel) onFotosSubidas(actualizado);
-      setMandadoA(limpio);
+      setMandadoA(usuario);
     } catch (problema) {
       setError(explicar(problema));
     } finally {
-      setEnviando(false);
+      setEnviando(null);
     }
   };
+
+  const cuantos = plantel?.jugadores.length ?? 0;
 
   return (
     <Hoja
       visible={visible}
-      titulo={mandadoA ? 'Mandado' : 'Enviar plantel'}
+      titulo={mandadoA ? 'Mandado' : 'Compartir plantel'}
       bajada={
-        mandadoA
+        mandadoA || !plantel
           ? undefined
-          : plantel
-          ? `Se le manda una copia de ${plantel.nombre} con sus ${plantel.jugadores.length} ` +
-            `${plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'}, las fotos ` +
-            'y el historial. Lo que cambie cada uno después no toca lo del otro.'
-          : undefined
+          : `Se manda una copia de ${plantel.nombre} con sus ${cuantos} ` +
+            `${cuantos === 1 ? 'jugador' : 'jugadores'}, las fotos y el ` +
+            'historial. Lo que cambie cada uno después no toca lo del otro.'
       }
       onClose={onClose}
     >
       {mandadoA ? (
         <>
           <Text style={styles.listo}>
-            Le llegó a @{mandadoA}. Lo va a ver la próxima vez que abra la app,
-            y ahí decide si lo acepta.
+            Le llegó a @{mandadoA}. Le va a aparecer en el chat y ahí decide si
+            lo acepta.
           </Text>
           <Button title="Listo" onPress={onClose} />
         </>
@@ -91,51 +125,128 @@ export default function EnviarModal({
             <Aviso titulo={error.titulo} detalle={error.detalle} />
           ) : null}
 
-          <CampoTexto
-            izquierda={<Text style={styles.arroba}>@</Text>}
-            value={usuario}
-            onChangeText={(t) => {
-              setUsuario(t);
-              setError(null);
-            }}
-            placeholder="nombre de usuario"
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={20}
-            onSubmitEditing={sePuede ? handleEnviar : undefined}
-            returnKeyType="send"
-          />
+          {cuantosAmigos === 0 ? (
+            <>
+              <Text style={styles.vacio}>
+                Todavía no tenés amigos en la app. Agregá a alguien por su
+                nombre de usuario y después vas a poder pasarle tus planteles.
+              </Text>
+              <Button title="Ir a Amigos" onPress={onIrAAmigos} />
+            </>
+          ) : (
+            <>
+              <CampoTexto
+                value={busqueda}
+                onChangeText={setBusqueda}
+                placeholder="Buscar amigo"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
-          <Text style={styles.ayuda}>
-            Es el nombre que la otra persona eligió en su perfil, no su mail.
-            Tiene que pasártelo tal cual.
-          </Text>
-
-          <Button
-            title="Enviar"
-            onPress={handleEnviar}
-            disabled={!sePuede}
-            loading={enviando}
-          />
+              {lista.length === 0 ? (
+                <Text style={styles.vacio}>
+                  Ninguno de tus amigos se llama así.
+                </Text>
+              ) : (
+                <FlatList
+                  data={lista}
+                  keyExtractor={(a) => a.usuario}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.lista}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => handleEnviar(item.usuario)}
+                      disabled={enviando !== null}
+                    >
+                      <Panel
+                        style={styles.amigo}
+                        esquinas={DIAGONAL}
+                        chaflan={9}
+                        fondo={colors.surface}
+                        borde={colors.border}
+                      >
+                        <Retrato foto={item.foto} />
+                        <Text style={styles.usuario} numberOfLines={1}>
+                          @{item.usuario}
+                        </Text>
+                        <Text style={styles.accion}>
+                          {enviando === item.usuario ? 'MANDANDO…' : 'MANDAR'}
+                        </Text>
+                      </Panel>
+                    </Pressable>
+                  )}
+                />
+              )}
+            </>
+          )}
         </>
       )}
     </Hoja>
   );
 }
 
+function Retrato({ foto }: { foto: string | null }) {
+  return (
+    <View style={styles.retrato}>
+      {foto ? (
+        <Image
+          source={{ uri: foto }}
+          style={styles.retratoFoto}
+          resizeMode="cover"
+        />
+      ) : (
+        <Image
+          source={SILUETA}
+          style={styles.retratoSilueta}
+          resizeMode="contain"
+        />
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  // La arroba no forma parte del nombre, pero es como se lee y se escribe en
-  // cualquier otro lado.
-  arroba: {
-    color: colors.textMuted,
-    fontSize: 16,
+  // Alto acotado: la hoja no puede crecer hasta tapar la pantalla cuando
+  // alguien tiene treinta amigos.
+  lista: { maxHeight: 340 },
+  amigo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    marginBottom: spacing.sm,
+  },
+  retrato: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retratoFoto: { width: '100%', height: '100%' },
+  retratoSilueta: { width: '60%', height: '60%', opacity: 0.5 },
+  usuario: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 15,
     fontFamily: fuentes.bold,
   },
-  ayuda: {
+  accion: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: fuentes.extra,
+    letterSpacing: 0.8,
+  },
+  vacio: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fuentes.regular,
-    lineHeight: 17,
+    lineHeight: 19,
   },
   listo: {
     color: colors.text,

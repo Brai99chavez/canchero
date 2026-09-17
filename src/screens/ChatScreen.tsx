@@ -334,7 +334,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 3,
   },
-  horaMia: { textAlign: 'right' },
+  /*
+   * La burbuja propia es verde, y sobre el verde el violeta apagado de
+   * `textMuted` no se lee. Va blanca, pero no del todo: la hora tiene que
+   * seguir siendo secundaria frente al mensaje, y al 75% se lee sin pelearle.
+   */
+  horaMia: { textAlign: 'right', color: '#EDEFFFBF' },
   horaSuya: {},
   plantel: { maxWidth: '88%', padding: spacing.md, gap: 2 },
   mio: { alignSelf: 'flex-end' },

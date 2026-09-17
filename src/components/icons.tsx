@@ -87,30 +87,6 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
-/** Flecha hacia abajo sobre una base: guardar en el teléfono. */
-export function DownloadIcon(props: IconProps) {
-  return (
-    <Trazo {...props}>
-      <Path d="M12 3v11" />
-      <Path d="M7.5 9.8l4.5 4.4 4.5-4.4" />
-      <Path d="M4 20h16" />
-    </Trazo>
-  );
-}
-
-/** Tres nodos unidos: compartir. */
-export function ShareIcon(props: IconProps) {
-  return (
-    <Trazo {...props}>
-      <Circle cx="18" cy="5.5" r="2.5" />
-      <Circle cx="6" cy="12" r="2.5" />
-      <Circle cx="18" cy="18.5" r="2.5" />
-      <Path d="M8.3 10.8l7.4-4" />
-      <Path d="M8.3 13.2l7.4 4" />
-    </Trazo>
-  );
-}
-
 /** Calendario: el día en que se juega. */
 export function CalendarIcon(props: IconProps) {
   return (
@@ -138,17 +114,6 @@ export function SendIcon(props: IconProps) {
     <Trazo {...props}>
       <Path d="M21 3L10.5 13.5" />
       <Path d="M21 3l-6.8 18-3.7-7.5L3 9.8 21 3z" />
-    </Trazo>
-  );
-}
-
-/** Flecha que entra a una bandeja: importar. */
-export function ImportIcon(props: IconProps) {
-  return (
-    <Trazo {...props}>
-      <Path d="M12 3v12" />
-      <Path d="M8 11.5l4 3.7 4-3.7" />
-      <Path d="M4 14v5a2 2 0 002 2h12a2 2 0 002-2v-5" />
     </Trazo>
   );
 }

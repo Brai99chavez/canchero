@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { GearIcon, ImportIcon, PlusIcon } from '../components/icons';
+import { GearIcon, PlusIcon } from '../components/icons';
 import Panel, {
   DIAGONAL,
 } from '../components/Angular';
@@ -15,11 +15,11 @@ import { useDialogo } from '../components/Dialogo';
 import { Logotipo } from '../components/Logo';
 import { Objetivo } from '../components/Guia';
 import { Aparecer, Presionable } from '../components/motion';
-import { BotonIcono, Button, EmptyState } from '../components/ui';
+import { Button, EmptyState } from '../components/ui';
 import { Envio } from '../nube/envios';
 import { colors, degradados, spacing } from '../theme';
 import { Squad } from '../types';
-import ImportarModal from './ImportarModal';
+
 
 interface Props {
   planteles: Squad[];
@@ -35,13 +35,8 @@ interface Props {
   onAbrir: (id: string) => void;
   onConfig: (id: string) => void;
   onNuevo: () => void;
-  /**
-   * Si entra otro plantel. Importar también suma, así que avisa lo mismo que
-   * el botón de nuevo y antes de abrir el explorador de archivos: enterarse
-   * después de elegir el archivo sería peor.
-   */
+  /** Si entra otro plantel, para avisar antes de abrir el de crear. */
   hayLugar: () => boolean;
-  onImportar: (nuevos: Squad[]) => void;
   /** Los planteles que otros te mandaron, esperando que decidas. */
   envios: Envio[];
   onAceptarEnvio: (id: string) => Promise<void>;
@@ -60,13 +55,13 @@ export default function SquadsScreen({
   onConfig,
   onNuevo,
   hayLugar,
-  onImportar,
+
   envios,
   onAceptarEnvio,
   onRechazarEnvio,
   onReiniciar,
 }: Props) {
-  const [importarVisible, setImportarVisible] = useState(false);
+
   /** Cuál se está aceptando o rechazando, para no tocarlo dos veces. */
   const [resolviendo, setResolviendo] = useState<string | null>(null);
   const { dialogo, avisar, preguntar } = useDialogo();
@@ -132,12 +127,6 @@ export default function SquadsScreen({
           </Text>
         </View>
         <View style={styles.acciones}>
-          <BotonIcono
-            onPress={() => hayLugar() && setImportarVisible(true)}
-            accessibilityLabel="Importar planteles"
-          >
-            <ImportIcon color={colors.primary} size={20} />
-          </BotonIcono>
           <Objetivo paso="crear-plantel">
             <Presionable onPress={onNuevo}>
               <Panel
@@ -280,11 +269,7 @@ export default function SquadsScreen({
         }}
       />
 
-      <ImportarModal
-        visible={importarVisible}
-        onClose={() => setImportarVisible(false)}
-        onImportar={onImportar}
-      />
+
 
       {dialogo}
     </View>

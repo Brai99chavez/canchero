@@ -28,7 +28,7 @@ import { PasoGuia, ProveedorGuia } from './src/components/Guia';
 import { Aparecer } from './src/components/motion';
 import SinConexion, { EstadoConexion } from './src/components/SinConexion';
 import TabBar, { NavPrincipal, SeccionKey } from './src/components/TabBar';
-import { planteesDesde } from './src/backup';
+import { planteesDesde } from './src/recibir';
 import { borrarTodasLasFotos, cleanupPhotos } from './src/photos';
 import Cargando from './src/screens/Cargando';
 import AmigosScreen from './src/screens/AmigosScreen';
@@ -939,12 +939,6 @@ function Root() {
     completarPaso,
   ]);
 
-  // Entra todo, aunque pase el tope del plan: perder planteles de un respaldo
-  // sería peor que mostrarlos bloqueados. Cuáles se pueden usar lo decide
-  // después la fecha de creación.
-  const handleImportarPlanteles = useCallback((nuevos: Squad[]) => {
-    setPlanteles((prev) => [...prev, ...nuevos]);
-  }, []);
 
   /**
    * Acepta un plantel que te mandaron y lo guarda como uno más.
@@ -1304,7 +1298,7 @@ function Root() {
               if (hayLugar()) setNuevoVisible(true);
             }}
             hayLugar={hayLugar}
-            onImportar={handleImportarPlanteles}
+
             onReiniciar={handleReiniciar}
           />
         ) : tab !== 'plantel' && tab !== 'partido' ? (
@@ -1381,8 +1375,9 @@ function Root() {
         visible={enConfig !== null}
         plantel={enConfig}
         esPredeterminado={enConfig?.id === predeterminadoId}
-        haySesion={Boolean(sesion)}
+        amigos={amigos}
         onFotosSubidas={handleFotosSubidas}
+        onIrAAmigos={() => setSeccion('amigos')}
         onClose={() => setConfigId(null)}
         onGuardar={(cambios) =>
           enConfig && handleGuardarConfig(enConfig.id, cambios)

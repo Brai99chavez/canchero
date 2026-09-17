@@ -15,10 +15,10 @@ import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import { Button } from '../components/ui';
 import { Seccion } from '../components/Banner';
+import { Amigo } from '../nube/amigos';
 import { colors, radius, spacing } from '../theme';
 import { Squad } from '../types';
 import EnviarModal from './EnviarModal';
-import ExportarModal from './ExportarModal';
 
 export interface CambiosPlantel {
   nombre: string;
@@ -29,30 +29,32 @@ interface Props {
   visible: boolean;
   plantel: Squad | null;
   esPredeterminado: boolean;
-  /** Con sesión aparece la opción de mandárselo a alguien por su usuario. */
-  haySesion: boolean;
+  /** A quiénes se les puede pasar el plantel. */
+  amigos: Amigo[];
   onClose: () => void;
   onGuardar: (cambios: CambiosPlantel) => void;
   onBorrar: () => void;
   /** Mandar sube las fotos que faltaban: hay que guardar las URLs nuevas. */
   onFotosSubidas: (plantel: Squad) => void;
+  /** Para el que quiere compartir y todavía no tiene amigos cargados. */
+  onIrAAmigos: () => void;
 }
 
 export default function SquadConfigModal({
   visible,
   plantel,
   esPredeterminado,
-  haySesion,
+  amigos,
   onClose,
   onGuardar,
   onBorrar,
   onFotosSubidas,
+  onIrAAmigos,
 }: Props) {
   // Todo se edita en borrador y recién se aplica con Guardar.
   const [nombre, setNombre] = useState('');
   const { dialogo, avisar, preguntar } = useDialogo();
   const [predeterminado, setPredeterminado] = useState(false);
-  const [exportarVisible, setExportarVisible] = useState(false);
   const [enviarVisible, setEnviarVisible] = useState(false);
 
   useEffect(() => {
@@ -90,13 +92,13 @@ export default function SquadConfigModal({
     });
   }
 
-  function handleExportar() {
+  function handleCompartir() {
     if (!plantel) return;
     if (plantel.jugadores.length === 0) {
-      avisar('Nada para exportar', 'Este plantel no tiene jugadores.');
+      avisar('Nada para compartir', 'Este plantel no tiene jugadores.');
       return;
     }
-    setExportarVisible(true);
+    setEnviarVisible(true);
   }
 
   function handleBorrar() {
@@ -190,13 +192,15 @@ export default function SquadConfigModal({
               </Text>
             ) : null}
 
-            <Seccion>Respaldo</Seccion>
+            <Seccion>Compartir</Seccion>
             <Text style={styles.ayuda}>
-              Exporta sólo este plantel: {plantel.jugadores.length}{' '}
-              {plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'}. Guarda
-              nombre, posición y stats; las fotos quedan en el teléfono.
+              Le pasás una copia a un amigo de la app: los{' '}
+              {plantel.jugadores.length}{' '}
+              {plantel.jugadores.length === 1 ? 'jugador' : 'jugadores'} con sus
+              fotos, sus stats y el historial de partidos. Desde que la acepta
+              es suya, y lo que cambie cada uno no toca lo del otro.
             </Text>
-            <Button title="Exportar este plantel" onPress={handleExportar} />
+            <Button title="Compartir este plantel" onPress={handleCompartir} />
 
             <Seccion>Zona peligrosa</Seccion>
             <Button
@@ -211,20 +215,13 @@ export default function SquadConfigModal({
       <EnviarModal
         visible={enviarVisible}
         plantel={plantel}
+        amigos={amigos}
         onClose={() => setEnviarVisible(false)}
         onFotosSubidas={onFotosSubidas}
-      />
-
-      <ExportarModal
-        visible={exportarVisible}
-        plantel={plantel}
-        haySesion={haySesion}
-        onClose={() => setExportarVisible(false)}
-        onEnviar={() => {
-          // Una hoja arriba de la otra se ve mal y la de abajo igual no se
-          // puede tocar: se cierra ésta y se abre la de enviar.
-          setExportarVisible(false);
-          setEnviarVisible(true);
+        onIrAAmigos={() => {
+          setEnviarVisible(false);
+          onClose();
+          onIrAAmigos();
         }}
       />
 
