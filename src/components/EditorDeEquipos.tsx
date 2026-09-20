@@ -197,10 +197,21 @@ export default function EditorDeEquipos({
           players.reduce((acc, p) => acc + mediaDe(p), 0) / players.length
         );
 
+  /*
+   * De mayor a menor puntaje. En la cancha no: ahí el orden lo manda la
+   * posición, que es de lo que se trata esa vista.
+   *
+   * Sobre una copia, que `sort` ordena en el lugar: sobre el arreglo del
+   * sorteo estaría cambiando los equipos de verdad desde una función que sólo
+   * los dibuja.
+   */
+  const porPuntaje = (players: Player[]) =>
+    players.slice().sort((a, b) => mediaDe(b) - mediaDe(a));
+
   const columna = (
     nombre: string,
     color: string,
-    players: Player[],
+    sinOrdenar: Player[],
     conMedia = true
   ) => (
     <View style={styles.columna}>
@@ -212,10 +223,10 @@ export default function EditorDeEquipos({
           los equipos desparejos. En el banco no significa nada.
         */}
         {conMedia ? (
-          <Text style={styles.promedio}>{promedio(players)}</Text>
+          <Text style={styles.promedio}>{promedio(sinOrdenar)}</Text>
         ) : null}
       </View>
-      {players.map((p) => (
+      {porPuntaje(sinOrdenar).map((p) => (
         <Chip
           key={p.id}
           player={p}
