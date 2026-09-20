@@ -45,6 +45,8 @@ interface Props {
   split: TeamSplit | null;
   /** El nombre del plantel, que va en la estampa. */
   plantel: string;
+  /** La media corregida por resultados, para la pantalla de intercambio. */
+  medias: Record<string, number>;
   /**
    * Cambia de equipo a dos jugadores de este partido.
    *
@@ -157,6 +159,7 @@ export default function MatchResultModal({
   onDetalle,
   split,
   plantel,
+  medias,
   onSwap,
   onClose,
   onGuardar,
@@ -721,6 +724,7 @@ export default function MatchResultModal({
           <EditarEquiposModal
             visible={editandoEquipos}
             split={split}
+            medias={medias}
             onSwap={onSwap}
             onClose={() => setEditandoEquipos(false)}
           />

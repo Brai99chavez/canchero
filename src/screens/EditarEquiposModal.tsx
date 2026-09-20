@@ -5,7 +5,7 @@ import Panel, { DIAGONAL } from '../components/Angular';
 import HeaderModal from '../components/HeaderModal';
 import { Presionable } from '../components/motion';
 import { colors, fuentes, spacing } from '../theme';
-import { Player, TeamSplit } from '../types';
+import { overall, Player, ratingColor, TeamSplit } from '../types';
 
 /**
  * Cambiar de equipo a dos jugadores de un partido que ya está armado.
@@ -22,13 +22,13 @@ import { Player, TeamSplit } from '../types';
  */
 function Chip({
   player,
+  media,
   elegido,
-  color,
   onPress,
 }: {
   player: Player;
+  media: number;
   elegido: boolean;
-  color: string;
   onPress: () => void;
 }) {
   return (
@@ -42,13 +42,24 @@ function Chip({
         borde={elegido ? colors.primary : colors.border}
         grosor={elegido ? 1.5 : 1}
       >
-        <Text
-          style={[styles.nombre, elegido && styles.nombreElegido]}
-          numberOfLines={1}
-        >
-          {player.nombre}
+        <View style={styles.chipTextos}>
+          <Text
+            style={[styles.nombre, elegido && styles.nombreElegido]}
+            numberOfLines={1}
+          >
+            {player.nombre}
+          </Text>
+          <Text style={styles.posicion}>{player.posicion}</Text>
+        </View>
+        {/*
+          El puntaje va acá aunque no vaya en la imagen que se comparte: son
+          dos cosas distintas. Al grupo un número al lado del nombre le da de
+          qué discutir; al que está cambiando jugadores le hace falta, o está
+          eligiendo a ciegas y puede dejar los equipos desparejos sin enterarse.
+        */}
+        <Text style={[styles.media, { color: ratingColor(media) }]}>
+          {media}
         </Text>
-        <Text style={[styles.posicion, { color }]}>{player.posicion}</Text>
       </Panel>
     </Presionable>
   );
@@ -57,15 +68,27 @@ function Chip({
 export default function EditarEquiposModal({
   visible,
   split,
+  medias,
   onSwap,
   onClose,
 }: {
   visible: boolean;
   split: TeamSplit | null;
+  /** La media corregida por resultados, por jugador. */
+  medias: Record<string, number>;
   /** Se guarda en el momento: no hay botón de aceptar ni hay nada que perder. */
   onSwap: (unoId: string, otroId: string) => void;
   onClose: () => void;
 }) {
+  const mediaDe = (p: Player) => medias[p.id] ?? overall(p);
+
+  /** El promedio del equipo, que es lo que hay que mirar al intercambiar. */
+  const promedio = (players: Player[]) =>
+    players.length === 0
+      ? 0
+      : Math.round(
+          players.reduce((acc, p) => acc + mediaDe(p), 0) / players.length
+        );
   /** El primero de un intercambio. El segundo toque lo completa. */
   const [elegidoId, setElegidoId] = useState<string | null>(null);
 
@@ -86,16 +109,29 @@ export default function EditarEquiposModal({
     setElegidoId(null);
   }
 
-  const columna = (nombre: string, color: string, players: Player[]) => (
+  const columna = (
+    nombre: string,
+    color: string,
+    players: Player[],
+    conMedia = true
+  ) => (
     <View style={styles.columna}>
       <View style={[styles.encabezado, { borderBottomColor: color }]}>
         <Text style={[styles.equipo, { color }]}>{nombre}</Text>
+        {/*
+          La media del equipo, que se actualiza sola con cada intercambio: es
+          la única forma de darse cuenta en el momento de que un cambio dejó
+          los equipos desparejos. En el banco no significa nada.
+        */}
+        {conMedia ? (
+          <Text style={styles.promedio}>{promedio(players)}</Text>
+        ) : null}
       </View>
       {players.map((p) => (
         <Chip
           key={p.id}
           player={p}
-          color={color}
+          media={mediaDe(p)}
           elegido={p.id === elegidoId}
           onPress={() => tocar(p.id)}
         />
@@ -141,7 +177,7 @@ export default function EditarEquiposModal({
               */}
               {split.bench.length > 0 ? (
                 <View style={styles.banco}>
-                  {columna('Suplentes', colors.textMuted, split.bench)}
+                  {columna('Suplentes', colors.textMuted, split.bench, false)}
                 </View>
               ) : null}
             </>
@@ -170,8 +206,19 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg },
   columnas: { flexDirection: 'row', gap: spacing.sm },
   columna: { flex: 1, gap: spacing.sm },
-  encabezado: { borderBottomWidth: 2, paddingBottom: 4 },
+  encabezado: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    borderBottomWidth: 2,
+    paddingBottom: 4,
+  },
   equipo: { fontSize: 12, fontFamily: fuentes.black, letterSpacing: 0.5 },
+  promedio: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontFamily: fuentes.black,
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -179,13 +226,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
+  chipTextos: { flex: 1 },
   nombre: {
-    flex: 1,
     color: colors.text,
     fontSize: 14,
     fontFamily: fuentes.medium,
   },
   nombreElegido: { fontFamily: fuentes.bold },
-  posicion: { fontSize: 11, fontFamily: fuentes.bold, letterSpacing: 0.5 },
+  posicion: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+    letterSpacing: 0.5,
+  },
+  media: { fontSize: 15, fontFamily: fuentes.black },
   banco: { opacity: 0.85 },
 });
