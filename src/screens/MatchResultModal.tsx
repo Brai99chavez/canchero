@@ -24,6 +24,7 @@ import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
 import { Button } from '../components/ui';
 import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
+import EditarEquiposModal from './EditarEquiposModal';
 import { colors, spacing } from '../theme';
 import { tieneResultado } from '../stats';
 import { Actuacion, Partido, TeamSplit } from '../types';
@@ -44,6 +45,14 @@ interface Props {
   split: TeamSplit | null;
   /** El nombre del plantel, que va en la estampa. */
   plantel: string;
+  /**
+   * Cambia de equipo a dos jugadores de este partido.
+   *
+   * Se aplica en el momento, no al completar: los equipos se tocan días antes
+   * de jugar —alguien avisa que no viene— y guardar ese cambio no tiene por
+   * qué esperar a que haya un resultado.
+   */
+  onSwap: (unoId: string, otroId: string) => void;
   onClose: () => void;
   onGuardar: (cambios: {
     fecha: string;
@@ -148,6 +157,7 @@ export default function MatchResultModal({
   onDetalle,
   split,
   plantel,
+  onSwap,
   onClose,
   onGuardar,
 }: Props) {
@@ -166,6 +176,7 @@ export default function MatchResultModal({
   /** El día en que se jugó. Se puede corregir al editar. */
   const [dia, setDia] = useState(() => new Date());
   const [eligiendoDia, setEligiendoDia] = useState(false);
+  const [editandoEquipos, setEditandoEquipos] = useState(false);
 
   /** Vuelve a poner en pantalla lo que está guardado, tirando los cambios. */
   const reiniciar = useCallback(() => {
@@ -191,8 +202,23 @@ export default function MatchResultModal({
     });
   }, [partido]);
 
+  /**
+   * Cuál es el partido que ya está puesto en pantalla.
+   *
+   * Sin esto, preparar la pantalla dependía del objeto `partido`, que cambia
+   * de identidad cada vez que se toca: intercambiar dos jugadores tiraba los
+   * goles que estabas cargando y te devolvía al principio.
+   */
+  const preparado = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!visible || !partido) return;
+    if (!visible || !partido) {
+      preparado.current = null;
+      return;
+    }
+    if (preparado.current === partido.id) return;
+    preparado.current = partido.id;
+
     reiniciar();
     // El que ya tiene resultado se abre para mirar; el que no, para cargarlo,
     // que es justo lo que se venía a hacer desde la lista de activos.
@@ -596,8 +622,8 @@ export default function MatchResultModal({
               </Text>
             ) : (
               <Text style={styles.ayuda}>
-                Este partido ya está jugado. Tocá EDITAR abajo si hay algo que
-                corregir.
+                Este partido ya está jugado. Tocá EDITAR RESULTADO abajo si hay
+                algo que corregir.
               </Text>
             )}
 
@@ -663,21 +689,41 @@ export default function MatchResultModal({
             Anclado al pie y no al final de la lista: con el detalle prendido
             hay una fila por jugador, y el botón quedaba a varios scrolls de
             distancia del marcador, que es lo último que se toca.
+
+            Las dos acciones que cambian el partido van juntas acá abajo, y
+            compartir se queda arriba: es la única que no modifica nada y la
+            única que sale de la app.
           */}
           <View style={styles.footer}>
-            {editando ? (
+            <View style={styles.mitad}>
               <Button
-                title={yaEstaba ? 'Guardar' : 'Completar partido'}
-                onPress={handleGuardar}
-              />
-            ) : (
-              <Button
-                title="Editar"
+                title="Editar equipos"
                 variant="ghost"
-                onPress={() => setModo('edicion')}
+                onPress={() => setEditandoEquipos(true)}
+                disabled={split === null}
               />
-            )}
+            </View>
+            <View style={styles.mitad}>
+              {editando ? (
+                <Button
+                  title={yaEstaba ? 'Guardar' : 'Completar'}
+                  onPress={handleGuardar}
+                />
+              ) : (
+                <Button
+                  title="Editar resultado"
+                  onPress={() => setModo('edicion')}
+                />
+              )}
+            </View>
           </View>
+
+          <EditarEquiposModal
+            visible={editandoEquipos}
+            split={split}
+            onSwap={onSwap}
+            onClose={() => setEditandoEquipos(false)}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -691,10 +737,13 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   footer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     padding: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  mitad: { flex: 1 },
   marcador: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -862,6 +862,49 @@ function Root() {
     [editarPlantel]
   );
 
+  /**
+   * Cambia de equipo a dos jugadores de un partido que ya está armado.
+   *
+   * Se guarda en el momento, sin pasar por el resultado: los equipos se
+   * retocan días antes de jugar, cuando alguien avisa que no viene, y eso no
+   * tiene por qué esperar a que haya un marcador.
+   *
+   * El sorteo también, cuando es el de este partido. Mientras el partido está
+   * activo los equipos viven en los dos lados, y tocar uno solo dejaba la
+   * pantalla de equipos mostrando el reparto viejo.
+   */
+  const handleCambiarEquipos = useCallback(
+    (unoId: string, otroId: string) => {
+      if (!resultadoId) return;
+      const cambiar = (ids: string[]) =>
+        ids.map((id) => (id === unoId ? otroId : id === otroId ? unoId : id));
+
+      editarPlantel((p) => ({
+        ...p,
+        partidos: p.partidos.map((x) =>
+          x.id === resultadoId
+            ? {
+                ...x,
+                equipoA: cambiar(x.equipoA),
+                equipoB: cambiar(x.equipoB),
+                banco: cambiar(x.banco),
+              }
+            : x
+        ),
+        sorteo:
+          p.sorteo && p.sorteo.partidoId === resultadoId
+            ? {
+                ...p.sorteo,
+                equipoA: cambiar(p.sorteo.equipoA),
+                equipoB: cambiar(p.sorteo.equipoB),
+                banco: cambiar(p.sorteo.banco),
+              }
+            : p.sorteo,
+      }));
+    },
+    [resultadoId, editarPlantel]
+  );
+
   const handleGuardarResultado = useCallback(
     (cambios: {
       fecha: string;
@@ -1599,6 +1642,7 @@ function Root() {
         partido={abierto}
         split={equiposDelAbierto}
         plantel={activo?.nombre ?? 'Plantel'}
+        onSwap={handleCambiarEquipos}
         detalle={activo?.detalle === true}
         onDetalle={(valor) =>
           editarPlantel((p) => ({ ...p, detalle: valor }))
