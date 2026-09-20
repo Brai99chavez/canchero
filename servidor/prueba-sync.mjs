@@ -315,24 +315,37 @@ titulo('de la papelera se saca una sola vez');
 // ══════════════════════ el borrado definitivo se lleva las fotos
 titulo('el borrado definitivo se lleva las fotos');
 {
-  const { limpiarHuerfanas } = await import('./src/fotos.js');
   const pixel = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
     'base64'
   );
-  const permiso = await luis.pedir('/fotos/permiso', {
-    metodo: 'POST',
-    cuerpo: { tipo: 'image/png' },
-  });
-  await fetch(permiso.json.url, {
-    method: 'PUT',
-    headers: { 'content-type': 'image/png' },
-    body: pixel,
-  });
-  const foto = permiso.json.publica;
+  const subir = async (destino) => {
+    const permiso = await luis.pedir('/fotos/permiso', {
+      metodo: 'POST',
+      cuerpo: { tipo: 'image/png', destino },
+    });
+    await fetch(permiso.json.url, {
+      method: 'PUT',
+      headers: { 'content-type': 'image/png' },
+      body: pixel,
+    });
+    return permiso.json.publica;
+  };
 
   // Hace lugar y crea uno con foto.
   await luis.pedir('/planteles/t2', { metodo: 'DELETE' });
+  const foto = await subir('conFoto');
+  /*
+   * Una segunda foto que se sube y que ningún plantel llega a nombrar: es lo
+   * que pasa cuando alguien cambia la cara de un jugador y cierra la app antes
+   * de que el plantel termine de guardarse. Buscando por las URLs que figuran
+   * adentro del plantel, esta no aparece y queda para siempre; buscando por la
+   * carpeta del plantel se va igual, que es de lo que se trata todo esto.
+   */
+  const colgada = await subir('conFoto');
+  // Y una del perfil, que no es de ningún plantel y no tiene que irse nunca.
+  const delPerfil = await subir('perfil');
+
   await luis.pedir('/planteles/conFoto', {
     metodo: 'PUT',
     cuerpo: plantel('Con foto', [{ id: 'j1', nombre: 'Rodri', foto }]),
@@ -342,35 +355,20 @@ titulo('el borrado definitivo se lleva las fotos');
   await luis.pedir('/planteles/conFoto', { metodo: 'DELETE' });
   r = await luis.pedir('/planteles/conFoto/restaurar', { metodo: 'POST' });
   ok('sale de la papelera', r.estado === 200, r.texto);
+  ok('y su foto sigue estando', (await fetch(foto)).ok);
 
   // Segundo borrado: definitivo.
   r = await luis.pedir('/planteles/conFoto', { metodo: 'DELETE' });
   ok('el segundo borrado es definitivo', r.json?.definitivo === true, r.texto);
 
   /*
-   * Se fuerza el barrido con el margen en negativo. En el servidor hay quince
-   * minutos de gracia para no borrar una foto que se está subiendo justo
-   * ahora; acá la foto es de hace un segundo y sin esto no le tocaría.
+   * Sin forzar ningún barrido: la carpeta del plantel se va con el plantel, en
+   * el mismo pedido. Antes esto dependía de la limpieza de huérfanas y de su
+   * margen de gracia de quince minutos.
    */
-  const { rows: dueno } = await base.query(
-    'select id from "user" where email = $1',
-    [luis.email]
-  );
-  const { rows: vivos } = await base.query(
-    'select datos from planteles where dueno = $1',
-    [dueno[0].id]
-  );
-  const usadas = [];
-  for (const f of vivos) {
-    for (const j of f.datos?.jugadores ?? []) {
-      if (typeof j?.foto === 'string') usadas.push(j.foto);
-    }
-  }
-  ok('la foto deja de estar referenciada', !usadas.includes(foto));
-
-  await limpiarHuerfanas(dueno[0].id, usadas, -1);
-  const sigue = await fetch(foto);
-  ok('y se va de R2', sigue.status === 404, `HTTP ${sigue.status}`);
+  ok('la foto se va de R2', (await fetch(foto)).status === 404);
+  ok('y la que nadie llegó a nombrar también', (await fetch(colgada)).status === 404);
+  ok('la del perfil no se toca', (await fetch(delPerfil)).ok);
 }
 
 // ════════════════════════════════════ lo que pasó el plazo no vuelve
@@ -448,7 +446,7 @@ titulo('las fotos de la papelera no se barren');
   );
   const permiso = await luis.pedir('/fotos/permiso', {
     metodo: 'POST',
-    cuerpo: { tipo: 'image/png' },
+    cuerpo: { tipo: 'image/png', destino: 'p1' },
   });
   await fetch(permiso.json.url, {
     method: 'PUT',

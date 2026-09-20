@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { anotarMensaje, idDe, sonAmigos, usuarioDe } from './amigos.js';
 import { avisar } from './avisos.js';
 import { consultar } from './db.js';
-import { copiarFoto } from './fotos.js';
+import { copiarFoto, esIdDePlantel } from './fotos.js';
 import { normalizar } from './perfil.js';
 
 /**
@@ -140,9 +140,19 @@ export async function pendientesDe(usuarioId) {
  * se las llevaría y las cartas quedarían rotas.
  *
  * El id nuevo del plantel lo pone el teléfono: acá no se sabe con qué ids ya
- * carga, y dos planteles con el mismo id se pisarían al respaldar.
+ * carga, y dos planteles con el mismo id se pisarían al respaldar. Llega en
+ * `plantelId` porque las fotos se copian a la carpeta de ese plantel, y hay
+ * que saber cómo se llama antes de escribir adentro.
+ *
+ * Se rechaza si no viene o no sirve, en vez de copiar las fotos a cualquier
+ * lado: una carpeta mal puesta no se nota hasta que alguien borra el plantel y
+ * las fotos que se van son las de otro.
  */
-export async function aceptar(usuarioId, envioId) {
+export async function aceptar(usuarioId, envioId, plantelId) {
+  if (!esIdDePlantel(plantelId)) {
+    throw Object.assign(new Error('Falta el id del plantel.'), { status: 400 });
+  }
+
   const { rows } = await consultar(
     `update envios set estado = 'aceptado', resuelto = now()
       where id = $1 and para = $2 and estado = 'pendiente'
@@ -158,7 +168,9 @@ export async function aceptar(usuarioId, envioId) {
 
   const copiados = [];
   for (const jugador of jugadores) {
-    const copia = jugador?.foto ? await copiarFoto(jugador.foto, usuarioId) : null;
+    const copia = jugador?.foto
+      ? await copiarFoto(jugador.foto, usuarioId, plantelId)
+      : null;
     copiados.push(copia ? { ...jugador, foto: copia } : jugador);
   }
 

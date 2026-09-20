@@ -1,25 +1,21 @@
-import * as Sharing from 'expo-sharing';
 import { CalendarIcon } from '../components/icons';
 import SelectorFecha from '../components/SelectorFecha';
 import { comoSeLee } from '../fechas';
-import { reparto } from '../stats';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderModal from '../components/HeaderModal';
-import { captureRef } from 'react-native-view-shot';
+import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import Panel, { DIAGONAL } from '../components/Angular';
 import Opcion from '../components/Opcion';
 import Pitch from '../components/Pitch';
-import ShareCard from '../components/ShareCard';
 import { Button, PositionPill, RatingBadge, StatBar } from '../components/ui';
 import { angulo, colors, degradados, radius, spacing } from '../theme';
 import {
@@ -183,24 +179,6 @@ function TeamPitch({
   );
 }
 
-function buildShareText(split: TeamSplit): string {
-  // Sin el puntaje de cada uno, por lo mismo que la imagen: esto va al grupo.
-  const line = (p: Player) => `• ${p.nombre} (${p.posicion})`;
-  const parts = [
-    `${reparto(split.teamA.length, split.teamB.length)} — equipos armados`,
-    '',
-    `EQUIPO A — media ${teamOverall(split.teamA)}`,
-    ...split.teamA.map(line),
-    '',
-    `EQUIPO B — media ${teamOverall(split.teamB)}`,
-    ...split.teamB.map(line),
-  ];
-  if (split.bench.length > 0) {
-    parts.push('', 'SUPLENTES', ...split.bench.map(line));
-  }
-  return parts.join('\n');
-}
-
 export default function TeamsModal({
   visible,
   split,
@@ -225,7 +203,7 @@ export default function TeamsModal({
   const [vista, setVista] = useState<Vista>('lista');
   /** Primer jugador de un intercambio: el segundo toque completa el cambio. */
   const [elegidoId, setElegidoId] = useState<string | null>(null);
-  const estampa = useRef<View>(null);
+  const { estampa, compartir } = useCompartirEquipos(split);
 
   useEffect(() => {
     if (visible) {
@@ -251,45 +229,13 @@ export default function TeamsModal({
 
   const diff = Math.abs(teamOverall(split.teamA) - teamOverall(split.teamB));
 
-  /** Manda el texto plano. Es el plan B si la imagen no se puede generar. */
-  async function compartirTexto() {
-    if (!split) return;
-    try {
-      await Share.share({ message: buildShareText(split) });
-    } catch {
-      // El usuario canceló el diálogo de compartir.
-    }
-  }
-
-  async function handleShare() {
-    if (!split) return;
-    try {
-      const uri = await captureRef(estampa, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-      });
-      if (!(await Sharing.isAvailableAsync())) {
-        await compartirTexto();
-        return;
-      }
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Compartir equipos',
-      });
-    } catch {
-      // Si la captura falla (o el usuario cancela), queda el texto.
-      await compartirTexto();
-    }
-  }
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <HeaderModal
           titulo="Equipos"
           izquierda={{ label: 'Volver', onPress: onClose }}
-          derecha={{ label: 'Compartir', onPress: handleShare }}
+          derecha={{ label: 'Compartir', onPress: compartir }}
         />
 
         <View style={styles.balanceBanner}>
@@ -392,12 +338,7 @@ export default function TeamsModal({
           ) : null}
         </ScrollView>
 
-        {/* Fuera de pantalla, pero renderizada: es lo que se captura. */}
-        <View style={styles.estampa} pointerEvents="none">
-          <View ref={estampa} collapsable={false}>
-            <ShareCard split={split} plantel={plantel} />
-          </View>
-        </View>
+        <EstampaOculta referencia={estampa} split={split} plantel={plantel} />
 
         <View style={styles.footer}>
           {/*
@@ -619,10 +560,4 @@ const styles = StyleSheet.create({
   },
   footerFila: { flexDirection: 'row', gap: spacing.sm },
   mitad: { flex: 1 },
-  estampa: {
-    position: 'absolute',
-    left: -1000,
-    top: 0,
-    opacity: 0,
-  },
 });

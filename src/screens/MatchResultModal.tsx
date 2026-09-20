@@ -22,9 +22,11 @@ import { Presionable } from '../components/motion';
 import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
+import { Button } from '../components/ui';
+import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import { colors, spacing } from '../theme';
 import { tieneResultado } from '../stats';
-import { Actuacion, Partido } from '../types';
+import { Actuacion, Partido, TeamSplit } from '../types';
 
 interface Props {
   visible: boolean;
@@ -32,6 +34,16 @@ interface Props {
   /** Si se piden los goles y asistencias de cada uno. Es del plantel. */
   detalle: boolean;
   onDetalle: (valor: boolean) => void;
+  /**
+   * Los dos equipos con los jugadores de verdad, para poder compartirlos.
+   *
+   * El partido guarda ids y nombres, que alcanzan para la pantalla pero no
+   * para la estampa: ésa muestra la posición de cada uno y la media del
+   * equipo. Viene armado de afuera, que es donde está el plantel.
+   */
+  split: TeamSplit | null;
+  /** El nombre del plantel, que va en la estampa. */
+  plantel: string;
   onClose: () => void;
   onGuardar: (cambios: {
     fecha: string;
@@ -134,6 +146,8 @@ export default function MatchResultModal({
   partido,
   detalle,
   onDetalle,
+  split,
+  plantel,
   onClose,
   onGuardar,
 }: Props) {
@@ -233,6 +247,13 @@ export default function MatchResultModal({
       },
     ],
   });
+
+  /*
+   * Va acá arriba, con los demás hooks y antes del corte de abajo: los hooks
+   * se llaman siempre y en el mismo orden, o React se pierde. Puesto después
+   * del `if`, los dibujos sin partido no lo ejecutarían y los que sí, sí.
+   */
+  const { estampa, compartir } = useCompartirEquipos(split);
 
   if (!partido) return null;
 
@@ -448,14 +469,18 @@ export default function MatchResultModal({
                   }
                 : { label: 'Volver', onPress: onClose }
             }
-            derecha={
-              editando
-                ? {
-                    label: yaEstaba ? 'Guardar' : 'Completar',
-                    onPress: handleGuardar,
-                  }
-                : { label: 'Editar', onPress: () => setModo('edicion') }
-            }
+            /*
+             * Compartir se queda con el lugar de arriba, y completar baja al
+             * pie. Es lo que se viene a hacer más seguido: al partido que ya
+             * está armado se entra el día que se juega, para mandarle la
+             * formación al grupo. Antes eso no se podía: guardado el partido,
+             * la pantalla de equipos no se abría más y la imagen se perdía.
+             */
+            derecha={{
+              label: 'Compartir',
+              onPress: compartir,
+              disabled: split === null,
+            }}
           />
 
           <ScrollView
@@ -571,7 +596,7 @@ export default function MatchResultModal({
               </Text>
             ) : (
               <Text style={styles.ayuda}>
-                Este partido ya está jugado. Tocá EDITAR arriba si hay algo que
+                Este partido ya está jugado. Tocá EDITAR abajo si hay algo que
                 corregir.
               </Text>
             )}
@@ -631,6 +656,28 @@ export default function MatchResultModal({
               </>
             ) : null}
           </ScrollView>
+
+          <EstampaOculta referencia={estampa} split={split} plantel={plantel} />
+
+          {/*
+            Anclado al pie y no al final de la lista: con el detalle prendido
+            hay una fila por jugador, y el botón quedaba a varios scrolls de
+            distancia del marcador, que es lo último que se toca.
+          */}
+          <View style={styles.footer}>
+            {editando ? (
+              <Button
+                title={yaEstaba ? 'Guardar' : 'Completar partido'}
+                onPress={handleGuardar}
+              />
+            ) : (
+              <Button
+                title="Editar"
+                variant="ghost"
+                onPress={() => setModo('edicion')}
+              />
+            )}
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -642,7 +689,12 @@ export default function MatchResultModal({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: 64, gap: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
+  footer: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   marcador: {
     flexDirection: 'row',
     alignItems: 'center',

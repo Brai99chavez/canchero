@@ -172,7 +172,10 @@ ok('el que mandó no lo ve en su bandeja', r.json?.envios?.length === 0, r.texto
 
 // ═══════════════════════════════════════════════ el de otro no se toca
 titulo('el envío de otro no se toca');
-r = await sinNombre.pedir(`/envios/${envioId}/aceptar`, { metodo: 'POST' });
+r = await sinNombre.pedir(`/envios/${envioId}/aceptar`, {
+  metodo: 'POST',
+  cuerpo: { plantel: 'recibido-1' },
+});
 ok('un tercero no lo puede aceptar', r.estado === 404, r.texto);
 
 r = await sinNombre.pedir(`/envios/${envioId}/rechazar`, { metodo: 'POST' });
@@ -183,13 +186,19 @@ ok('y sigue estando para Ana', r.json?.envios?.length === 1);
 
 // ═══════════════════════════════════════════════════════════ aceptar
 titulo('aceptar');
-r = await ana.pedir(`/envios/${envioId}/aceptar`, { metodo: 'POST' });
+r = await ana.pedir(`/envios/${envioId}/aceptar`, {
+  metodo: 'POST',
+  cuerpo: { plantel: 'recibido-2' },
+});
 ok('Ana lo acepta', r.estado === 200, r.texto);
 ok('y le llega el plantel entero', r.json?.datos?.jugadores?.length === 2, r.texto);
 ok('con los datos adentro', r.json?.datos?.jugadores?.[0]?.stats?.velocidad === 70);
 ok('y los partidos', r.json?.datos?.partidos?.length === 1);
 
-r = await ana.pedir(`/envios/${envioId}/aceptar`, { metodo: 'POST' });
+r = await ana.pedir(`/envios/${envioId}/aceptar`, {
+  metodo: 'POST',
+  cuerpo: { plantel: 'recibido-3' },
+});
 ok('aceptar dos veces no lo carga dos veces', r.estado === 404, r.texto);
 
 r = await ana.pedir('/envios');
@@ -210,7 +219,10 @@ ok('Ana lo rechaza', r.estado === 200, r.texto);
 r = await ana.pedir('/envios');
 ok('y la bandeja queda vacía', r.json?.envios?.length === 0, r.texto);
 
-r = await ana.pedir(`/envios/${segundo}/aceptar`, { metodo: 'POST' });
+r = await ana.pedir(`/envios/${segundo}/aceptar`, {
+  metodo: 'POST',
+  cuerpo: { plantel: 'recibido-4' },
+});
 ok('lo rechazado no se puede aceptar después', r.estado === 404, r.texto);
 
 // ════════════════════════════════════════════════════════════ la foto
@@ -222,7 +234,7 @@ titulo('la foto viaja a la carpeta del que recibe');
   );
   const permiso = await luis.pedir('/fotos/permiso', {
     metodo: 'POST',
-    cuerpo: { tipo: 'image/png' },
+    cuerpo: { tipo: 'image/png', destino: 'el-de-luis' },
   });
   await fetch(permiso.json.url, {
     method: 'PUT',
@@ -243,7 +255,10 @@ titulo('la foto viaja a la carpeta del que recibe');
   });
   const conFoto = r.json?.id;
 
-  r = await ana.pedir(`/envios/${conFoto}/aceptar`, { metodo: 'POST' });
+  r = await ana.pedir(`/envios/${conFoto}/aceptar`, {
+    metodo: 'POST',
+    cuerpo: { plantel: 'recibido-5' },
+  });
   const recibida = r.json?.datos?.jugadores?.[0]?.foto;
   ok('la foto cambió de URL', !!recibida && recibida !== suya, String(recibida));
 
@@ -253,6 +268,28 @@ titulo('la foto viaja a la carpeta del que recibe');
     !!recibida && !recibida.includes(`/${suId}/`),
     String(recibida)
   );
+  /*
+   * Y cae en la carpeta del plantel que el que recibe dijo que iba a usar. Si
+   * cayera en cualquier otra, el día que borre ese plantel las fotos se
+   * quedarían colgadas, y el día que borre el otro se irían las de éste.
+   */
+  ok(
+    'y está en la carpeta del plantel que va a guardar',
+    !!recibida && recibida.includes('/recibido-5/'),
+    String(recibida)
+  );
+
+  // Sin decir en qué plantel lo va a guardar, no se acepta: las fotos no
+  // tendrían adónde ir.
+  r = await luis.pedir('/envios', {
+    metodo: 'POST',
+    cuerpo: {
+      usuario: ana.usuario,
+      plantel: { nombre: 'Sin destino', datos: { jugadores: [], partidos: [] } },
+    },
+  });
+  r = await ana.pedir(`/envios/${r.json?.id}/aceptar`, { metodo: 'POST' });
+  ok('sin decir dónde guardarlo, no se acepta', r.estado === 400, r.texto);
 
   const mirar = await fetch(recibida);
   ok('la copia se puede ver', mirar.ok, `HTTP ${mirar.status}`);

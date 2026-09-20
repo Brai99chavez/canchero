@@ -122,8 +122,13 @@ export interface Importado {
  * este teléfono, y dos planteles con el mismo id se pisarían al sincronizar.
  * Por eso se lleva un mapa de los ids viejos a los nuevos, sin el cual el
  * historial de partidos quedaría apuntando a jugadores que no existen.
+ *
+ * `ids` deja elegir de antemano el id de cada plantel, por posición. Lo usa el
+ * aceptar de un envío, que necesita saber el id antes de pedirlo —el servidor
+ * copia las fotos a la carpeta de ese plantel—. Lo que no venga en la lista se
+ * inventa acá, como siempre.
  */
-export function planteesDesde(crudos: any[]): Importado {
+export function planteesDesde(crudos: any[], ids: string[] = []): Importado {
   const planteles: Squad[] = [];
   let jugadores = 0;
   let partidos = 0;
@@ -152,9 +157,9 @@ export function planteesDesde(crudos: any[]): Importado {
           .filter((x: Partido | null): x is Partido => x !== null)
       : [];
 
-    const llegada = new Date(ahora + indice++ * 1000).toISOString();
+    const llegada = new Date(ahora + indice * 1000).toISOString();
     planteles.push({
-      id: newId(),
+      id: ids[indice++] ?? newId(),
       llegada,
       // Recién llegado: todavía no se subió nada de esto.
       actualizado: llegada,

@@ -61,12 +61,24 @@ export async function pendientes(): Promise<Envio[]> {
   return envios;
 }
 
-/** Acepta uno y devuelve el plantel para guardarlo en este teléfono. */
-export function aceptarEnvio(id: string): Promise<{
+/**
+ * Acepta uno y devuelve el plantel para guardarlo en este teléfono.
+ *
+ * `plantelId` es el id con el que va a quedar guardado acá, y se decide antes
+ * de pedirlo: el servidor copia las fotos a la carpeta de ese plantel, así que
+ * tiene que saber cómo se llama la carpeta antes de escribir adentro.
+ */
+export function aceptarEnvio(
+  id: string,
+  plantelId: string
+): Promise<{
   nombre: string;
   datos: { jugadores?: unknown[]; partidos?: unknown[] };
 }> {
-  return pedir(`/envios/${id}/aceptar`, { metodo: 'POST' });
+  return pedir(`/envios/${id}/aceptar`, {
+    metodo: 'POST',
+    cuerpo: { plantel: plantelId },
+  });
 }
 
 export async function rechazarEnvio(id: string): Promise<void> {

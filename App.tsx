@@ -99,6 +99,7 @@ import {
 import { colors, spacing } from './src/theme';
 import {
   Actuacion,
+  DEFAULT_STATS,
   Format,
   Partido,
   Player,
@@ -554,6 +555,44 @@ function Root() {
     planteles.length === 0 || !activos.has(activo?.id ?? '') ? 'lista' : vista;
   const players = activo?.jugadores ?? [];
   const partidos = activo?.partidos ?? [];
+
+  /** El partido que se está mirando, si hay alguno abierto. */
+  const abierto = useMemo(
+    () => partidos.find((p) => p.id === resultadoId) ?? null,
+    [partidos, resultadoId]
+  );
+
+  /**
+   * Los equipos de ese partido, con los jugadores de verdad, para compartirlos.
+   *
+   * El partido guarda ids y nombres; la estampa necesita la posición de cada
+   * uno y la media del equipo, que están en el plantel. Por eso se rearma acá.
+   *
+   * A quien ya no esté en el plantel —se puede borrar un jugador y los
+   * partidos viejos lo siguen nombrando— se lo arma con lo que quedó guardado:
+   * el nombre, posición de comodín y estadísticas del medio. Deja la media del
+   * equipo un poco corrida, pero es preferible a mandarle al grupo una
+   * formación con un jugador de menos.
+   */
+  const equiposDelAbierto = useMemo<TeamSplit | null>(() => {
+    if (!abierto) return null;
+    const porId = new Map(players.map((p) => [p.id, p]));
+    const resolver = (ids: string[]): Player[] =>
+      ids.map(
+        (id) =>
+          porId.get(id) ?? {
+            id,
+            nombre: abierto.nombres[id] ?? 'Jugador',
+            posicion: 'LIB' as const,
+            stats: DEFAULT_STATS,
+          }
+      );
+    return {
+      teamA: resolver(abierto.equipoA),
+      teamB: resolver(abierto.equipoB),
+      bench: resolver(abierto.banco),
+    };
+  }, [abierto, players]);
   /**
    * La media corregida por los resultados. Se recalcula del historial, así que
    * borrar un partido de prueba la deshace sola.
@@ -1041,10 +1080,17 @@ function Root() {
       const permiso = puedeCrearPlantel(planteles.length, plan);
       if (!permiso.ok) throw new Error('No te entra otro plantel en tu plan.');
 
-      const traido = await aceptarEnvio(id);
-      const { planteles: nuevos } = planteesDesde([
-        { nombre: traido.nombre, ...traido.datos },
-      ]);
+      /*
+       * El id se decide antes de aceptar: el servidor copia las fotos a la
+       * carpeta de ese plantel, así que necesita saber cómo se va a llamar. Si
+       * lo inventáramos después, las fotos ya estarían en otro lado.
+       */
+      const plantelId = newId();
+      const traido = await aceptarEnvio(id, plantelId);
+      const { planteles: nuevos } = planteesDesde(
+        [{ nombre: traido.nombre, ...traido.datos }],
+        [plantelId]
+      );
       if (nuevos.length > 0) {
         setPlanteles((prev) => [...prev, ...nuevos]);
         setActivoId(nuevos[0].id);
@@ -1550,7 +1596,9 @@ function Root() {
 
       <MatchResultModal
         visible={resultadoId !== null}
-        partido={partidos.find((p) => p.id === resultadoId) ?? null}
+        partido={abierto}
+        split={equiposDelAbierto}
+        plantel={activo?.nombre ?? 'Plantel'}
         detalle={activo?.detalle === true}
         onDetalle={(valor) =>
           editarPlantel((p) => ({ ...p, detalle: valor }))

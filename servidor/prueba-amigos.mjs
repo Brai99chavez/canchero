@@ -244,7 +244,10 @@ ok('con el nombre del plantel', ultimo?.plantel?.nombre === 'Los del sabado');
 ok('y dice que está pendiente', ultimo?.plantel?.estado === 'pendiente');
 ok('con cuántos jugadores trae', ultimo?.plantel?.jugadores === 2);
 
-await ana.pedir(`/envios/${envioId}/aceptar`, { metodo: 'POST' });
+await ana.pedir(`/envios/${envioId}/aceptar`, {
+  metodo: 'POST',
+  cuerpo: { plantel: 'recibido-1' },
+});
 r = await luis.pedir(`/mensajes/${ana.usuario}`);
 ok(
   'al aceptarlo, el que mandó lo ve aceptado',
@@ -347,7 +350,10 @@ titulo('borrar el plantel cancela lo compartido');
     r.texto
   );
 
-  r = await ana.pedir(`/envios/${pendiente}/aceptar`, { metodo: 'POST' });
+  r = await ana.pedir(`/envios/${pendiente}/aceptar`, {
+    metodo: 'POST',
+    cuerpo: { plantel: 'recibido-2' },
+  });
   ok('Ana ya no lo puede aceptar', r.estado === 404, r.texto);
 
   r = await luis.pedir(`/mensajes/${ana.usuario}`);
@@ -380,7 +386,10 @@ titulo('lo ya aceptado no se cancela');
     },
   });
   const aceptado = r.json?.id;
-  await ana.pedir(`/envios/${aceptado}/aceptar`, { metodo: 'POST' });
+  await ana.pedir(`/envios/${aceptado}/aceptar`, {
+    metodo: 'POST',
+    cuerpo: { plantel: 'recibido-3' },
+  });
   await luis.pedir('/planteles/px2', { metodo: 'DELETE' });
 
   r = await luis.pedir(`/mensajes/${ana.usuario}`);

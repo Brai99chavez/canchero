@@ -29,19 +29,23 @@ function tipoDe(uri: string): string {
 /**
  * Sube una foto del teléfono y devuelve la URL con la que se ve.
  *
- * `carpeta` separa las de los jugadores de la del perfil. Importa: la limpieza
- * de huérfanas barre las de jugadores contra lo que referencian los planteles,
- * y la del perfil no aparece en ningún plantel, así que ahí adentro se
- * borraría sola.
+ * `destino` dice en qué carpeta del bucket cae: `'perfil'`, o el id del
+ * plantel al que pertenece el jugador. No es cosmético: en el servidor cada
+ * plantel es una carpeta, y borrarlo borra la carpeta entera. Una foto puesta
+ * en la carpeta equivocada sobrevive al plantel que la usaba y se va con uno
+ * que no tenía nada que ver.
+ *
+ * El perfil va aparte porque su foto no aparece en ningún plantel: adentro de
+ * uno, la limpieza de huérfanas la borraría todas las veces.
  */
 export async function subirFoto(
   uri: string,
-  carpeta: 'jugadores' | 'perfil' = 'jugadores'
+  destino: string
 ): Promise<string> {
   const tipo = tipoDe(uri);
   const permiso = await pedir<Permiso>('/fotos/permiso', {
     metodo: 'POST',
-    cuerpo: { tipo, carpeta },
+    cuerpo: { tipo, destino },
   });
 
   // Los bytes en crudo: R2 espera el archivo tal cual, no un formulario.
@@ -102,7 +106,7 @@ export async function subirFotosPendientes(
         continue;
       }
       try {
-        const publica = await subirFoto(jugador.foto as string);
+        const publica = await subirFoto(jugador.foto as string, plantel.id);
         jugadores.push({ ...jugador, foto: publica });
         cambio = true;
         subidas++;
@@ -126,13 +130,12 @@ export async function subirFotosPendientes(
 }
 
 /*
- * Todavía no se borran las fotos del bucket, y no es un olvido: mientras el
- * backup sea manual, una foto que acá ya no se usa puede seguir siendo la que
- * referencia la copia de la nube. Borrarla dejaría esa copia con la carta
- * rota, que es peor que dejar el archivo dando vueltas.
+ * Borrar del bucket no se hace desde acá, y no es un olvido: una foto que en
+ * este teléfono ya no se usa puede seguir siendo la que referencia la copia de
+ * la nube, o la de otro aparato que todavía no sincronizó. Borrarla dejaría
+ * esas copias con la carta rota.
  *
- * El endpoint del servidor existe (`/fotos/borrar`). Lo que falta es hacer la
- * limpieza en el momento correcto: durante el backup, contra lo que queda
- * efectivamente referenciado después de subir. Una foto son unos 50 KB y el
- * plan gratis son 10 GB, así que hay tiempo de sobra para hacerlo bien.
+ * Lo hace el servidor, que es el único que ve todo: al terminar el backup
+ * barre lo que ya no referencia ningún plantel, y al borrar un plantel se
+ * lleva su carpeta entera.
  */

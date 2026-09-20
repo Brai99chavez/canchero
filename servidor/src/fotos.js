@@ -53,31 +53,60 @@ export function publicaDe() {
 }
 
 /**
- * Dónde puede escribir una cuenta. Es una lista cerrada y no lo que mande la
- * app: con una carpeta libre se podría escribir en `publico/`, que es de donde
- * salen las imágenes de los mails.
+ * Cómo se acomodan las fotos adentro del bucket:
  *
- * `jugadores` lo barre la limpieza de huérfanas; `perfil` no, porque ahí hay
- * una sola foto y la reemplaza el propio perfil al cambiarla.
+ *     {cuenta}/perfil/{azar}.jpg      la foto de perfil
+ *     {cuenta}/{plantel}/{azar}.jpg   las fotos de los jugadores de un plantel
+ *     publico/…                       el logo de los mails, de nadie
+ *
+ * La idea es que cada nivel de borrado sea un prefijo: se va un plantel, se
+ * borra su carpeta; se va una cuenta, se borra la suya. Sin eso hay que listar
+ * todo y comparar contra qué URLs siguen nombradas en la base, que es lento y
+ * fácil de equivocar.
+ *
+ * Antes era `{cuenta}/jugadores/` para todos los planteles juntos, y borrar
+ * uno significaba justamente esa comparación.
+ *
+ * El nombre del archivo es al azar y no el del jugador, para que cambiar una
+ * foto no reemplace la anterior y la app no tenga que pelear con la caché.
  */
-const CARPETAS = new Set(['jugadores', 'perfil']);
+const CARPETA_DE_PERFIL = 'perfil';
+
+/**
+ * Qué puede ser un destino: `perfil`, o el id de un plantel.
+ *
+ * Los ids los inventa el teléfono, así que se validan acá. Sin esto, una app
+ * modificada podría mandar `perfil` como id de plantel —o algo con barras— y
+ * escribir donde no va. El daño quedaría adentro de su propia cuenta, porque
+ * la key igual arranca con su id, pero no hay razón para permitirlo.
+ */
+const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Si sirve como nombre de carpeta de plantel. `perfil` no: ya está ocupado. */
+export function esIdDePlantel(id) {
+  return typeof id === 'string' && id !== CARPETA_DE_PERFIL && ID_VALIDO.test(id);
+}
+
+function carpetaDe(destino) {
+  if (destino === CARPETA_DE_PERFIL) return CARPETA_DE_PERFIL;
+  return esIdDePlantel(destino) ? destino : null;
+}
 
 /**
  * Un permiso para subir una foto, que vale unos minutos.
  *
  * La key arranca con el id de la cuenta: así una cuenta no puede escribir
- * encima de la foto de otra, aunque se ponga a inventar nombres. El resto es
- * al azar, para que cambiar la foto de un jugador no reemplace la anterior y
- * la app no tenga que pelear con la caché.
+ * encima de la foto de otra, aunque se ponga a inventar nombres.
  */
-export async function permisoDeSubida(usuarioId, tipo, carpeta = 'jugadores') {
+export async function permisoDeSubida(usuarioId, tipo, destino) {
   const extension = TIPOS[tipo];
   if (!extension) {
     throw Object.assign(new Error('Formato no soportado. Usá JPG, PNG o WebP.'), {
       status: 400,
     });
   }
-  if (!CARPETAS.has(carpeta)) {
+  const carpeta = carpetaDe(destino);
+  if (!carpeta) {
     throw Object.assign(new Error('Destino no válido.'), { status: 400 });
   }
 
@@ -102,14 +131,17 @@ export async function permisoDeSubida(usuarioId, tipo, carpeta = 'jugadores') {
  * Si algo falla devuelve null y el que llama se queda con la URL original: una
  * foto que puede romperse más adelante es mejor que no aceptar el plantel.
  */
-export async function copiarFoto(url, paraUsuarioId) {
+export async function copiarFoto(url, paraUsuarioId, plantelId) {
   if (!hayFotos || !esNuestra(url)) return null;
+
+  const carpeta = carpetaDe(plantelId);
+  if (!carpeta || carpeta === CARPETA_DE_PERFIL) return null;
 
   const origen = url.slice(publica.length + 1);
   const extension = origen.split('.').pop();
   if (!Object.values(TIPOS).includes(extension)) return null;
 
-  const destino = `${paraUsuarioId}/jugadores/${randomBytes(16).toString('hex')}.${extension}`;
+  const destino = `${paraUsuarioId}/${carpeta}/${randomBytes(16).toString('hex')}.${extension}`;
   try {
     await getCliente().send(
       new CopyObjectCommand({
@@ -143,21 +175,70 @@ export async function borrarFoto(usuarioId, url) {
 }
 
 /**
+ * Recorre un prefijo del bucket y borra lo que `sobra` diga que sobra.
+ *
+ * El listado viene paginado y el borrado va de a mil, que son los topes de la
+ * API. Las tres limpiezas —huérfanas, un plantel, una cuenta entera— son el
+ * mismo recorrido con distinto criterio, así que está una sola vez.
+ */
+async function barrer(prefijo, sobra) {
+  if (!hayFotos) return 0;
+
+  let continuacion;
+  let borradas = 0;
+  do {
+    const pagina = await getCliente().send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefijo,
+        ContinuationToken: continuacion,
+      })
+    );
+
+    const aSacar = (pagina.Contents ?? [])
+      .filter(sobra)
+      .map((o) => ({ Key: o.Key }));
+
+    for (let i = 0; i < aSacar.length; i += 1000) {
+      await getCliente().send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: aSacar.slice(i, i + 1000), Quiet: true },
+        })
+      );
+    }
+    borradas += aSacar.length;
+
+    continuacion = pagina.IsTruncated ? pagina.NextContinuationToken : undefined;
+  } while (continuacion);
+
+  return borradas;
+}
+
+/**
  * Saca del bucket las fotos de esta cuenta que ya no referencia ningún
  * plantel.
+ *
+ * Con una carpeta por plantel esto ya no es la vía principal para borrar
+ * —cuando se va un plantel entero se va su carpeta, de una—, pero sigue
+ * haciendo falta para lo que pasa adentro de un plantel vivo: el jugador que
+ * se borró, o el que cambió de foto y dejó la anterior colgada.
  *
  * Corre al final del backup, contra lo que quedó guardado: recién ahí se sabe
  * qué sigue en uso. Hacerlo antes, o desde el teléfono al borrar un jugador,
  * podía llevarse la foto que la copia de la nube todavía estaba mostrando.
  *
- * `usadas` son las URLs públicas que aparecen en los planteles vivos.
+ * `usadas` son las URLs públicas que aparecen en los planteles vivos, y ahí
+ * entran también los de la papelera: mientras se puedan recuperar, sus fotos
+ * tienen que seguir estando.
+ *
+ * El perfil queda afuera a propósito: esa foto no aparece en ningún plantel,
+ * así que acá adentro se borraría sola todas las veces.
  */
 const MINUTOS_DE_GRACIA = 15;
 
 export async function limpiarHuerfanas(usuarioId, usadas, gracia = MINUTOS_DE_GRACIA) {
-  if (!hayFotos) return 0;
-
-  const prefijo = `${usuarioId}/jugadores/`;
+  const perfil = `${usuarioId}/${CARPETA_DE_PERFIL}/`;
   const enUso = new Set();
   for (const url of usadas) {
     if (esNuestra(url)) enUso.add(url.slice(publica.length + 1));
@@ -174,78 +255,45 @@ export async function limpiarHuerfanas(usuarioId, usadas, gracia = MINUTOS_DE_GR
    */
   const limite = Date.now() - gracia * 60 * 1000;
 
-  let continuacion;
-  let borradas = 0;
-  do {
-    const pagina = await getCliente().send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: prefijo,
-        ContinuationToken: continuacion,
-      })
-    );
-
-    const sobran = (pagina.Contents ?? [])
-      .filter(
-        (o) =>
-          !enUso.has(o.Key) &&
-          (!o.LastModified || o.LastModified.getTime() < limite)
-      )
-      .map((o) => ({ Key: o.Key }));
-
-    if (sobran.length > 0) {
-      await getCliente().send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: { Objects: sobran, Quiet: true },
-        })
-      );
-      borradas += sobran.length;
-    }
-
-    continuacion = pagina.IsTruncated ? pagina.NextContinuationToken : undefined;
-  } while (continuacion);
-
-  return borradas;
+  return barrer(
+    `${usuarioId}/`,
+    (o) =>
+      !o.Key.startsWith(perfil) &&
+      !enUso.has(o.Key) &&
+      (!o.LastModified || o.LastModified.getTime() < limite)
+  );
 }
 
 /**
- * Borra TODAS las fotos de una cuenta: las de los jugadores y la del perfil.
+ * Borra la carpeta entera de un plantel.
+ *
+ * Es lo que se lleva las fotos cuando el plantel se va de verdad: el borrado
+ * definitivo, lo que venció en la papelera y lo que la papelera desplazó por
+ * llena.
+ *
+ * Va por prefijo y no por la lista de URLs que tenía guardadas, que es lo
+ * importante de esta forma de acomodar el bucket: si una foto llegó a subirse
+ * pero el plantel que la iba a nombrar nunca terminó de guardarse, esa foto no
+ * figura en ningún lado y por lista quedaría para siempre. Por prefijo se va
+ * igual, porque está adentro de la carpeta.
+ */
+export async function borrarLasFotosDelPlantel(usuarioId, plantelId) {
+  const carpeta = carpetaDe(plantelId);
+  if (!carpeta || carpeta === CARPETA_DE_PERFIL) return 0;
+  return barrer(`${usuarioId}/${carpeta}/`, () => true);
+}
+
+/**
+ * Borra TODAS las fotos de una cuenta: las de todos sus planteles y la del
+ * perfil.
  *
  * Es para cuando alguien se da de baja. A diferencia de la limpieza de
  * huérfanas, acá no hay margen de gracia ni nada que conservar: la cuenta se
  * va entera y sus archivos con ella.
  *
- * El prefijo es la cuenta y nada más, así que barre las dos carpetas de una.
+ * El prefijo es la cuenta y nada más, así que barre todas sus carpetas de una.
  * Y no puede tocar lo de otro: todas las claves arrancan con el id del dueño.
  */
 export async function borrarLasFotosDe(usuarioId) {
-  if (!hayFotos) return 0;
-
-  let continuacion;
-  let borradas = 0;
-  do {
-    const pagina = await getCliente().send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: `${usuarioId}/`,
-        ContinuationToken: continuacion,
-      })
-    );
-
-    const todas = (pagina.Contents ?? []).map((o) => ({ Key: o.Key }));
-    if (todas.length > 0) {
-      await getCliente().send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: { Objects: todas, Quiet: true },
-        })
-      );
-      borradas += todas.length;
-    }
-
-    continuacion = pagina.IsTruncated ? pagina.NextContinuationToken : undefined;
-  } while (continuacion);
-
-  return borradas;
+  return barrer(`${usuarioId}/`, () => true);
 }

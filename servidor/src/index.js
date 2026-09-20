@@ -42,6 +42,7 @@ import {
 import {
   borrarFoto,
   borrarLasFotosDe,
+  borrarLasFotosDelPlantel,
   hayFotos,
   limpiarHuerfanas,
   permisoDeSubida,
@@ -368,10 +369,21 @@ app.get('/envios', async (c) => {
   return c.json({ envios: await pendientesDe(usuario.id) });
 });
 
+/**
+ * El `plantel` del cuerpo es el id con el que el teléfono lo va a guardar.
+ *
+ * Lo inventa él y no el servidor porque acá no se sabe con qué ids ya carga, y
+ * dos planteles con el mismo id se pisarían al respaldar. Viaja hasta acá
+ * porque las fotos se copian a la carpeta de ese plantel, y esa carpeta hay
+ * que saber cómo se llama antes de escribir adentro.
+ */
 app.post('/envios/:id/aceptar', async (c) => {
   const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
   try {
-    return c.json(await aceptar(usuario.id, c.req.param('id')));
+    return c.json(
+      await aceptar(usuario.id, c.req.param('id'), cuerpo?.plantel)
+    );
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
   }
@@ -397,7 +409,7 @@ app.post('/fotos/permiso', async (c) => {
   const cuerpo = await c.req.json().catch(() => null);
   try {
     return c.json(
-      await permisoDeSubida(usuario.id, cuerpo?.tipo, cuerpo?.carpeta)
+      await permisoDeSubida(usuario.id, cuerpo?.tipo, cuerpo?.destino)
     );
   } catch (error) {
     return c.json({ error: error.message }, error.status ?? 500);
@@ -783,7 +795,7 @@ app.delete('/planteles/:id', async (c) => {
    */
   const definitivo = await borrarParaSiempre(usuario.id, id);
 
-  if (!definitivo.borrado) {
+  if (!definitivo) {
     await consultar(
       `update planteles set borrado = true, borrado_en = now(), actualizado = now()
        where dueno = $1 and id = $2 and not borrado`,
@@ -796,27 +808,31 @@ app.delete('/planteles/:id', async (c) => {
   await cancelarEnviosDe(usuario.id, id).catch(() => 0);
   /*
    * Los dos límites de la papelera, cada vez que entra algo: los días y la
-   * cantidad. Vaciar deja fotos sin dueño, y las del que se borró para siempre
-   * también quedan sueltas: se barren todas juntas contra lo que sigue
-   * referenciado, que incluye lo que quedó en la papelera.
+   * cantidad. Los tres caminos por los que un plantel se va de verdad —el
+   * borrado definitivo, lo que venció, lo que la papelera desplazó por llena—
+   * terminan en lo mismo: se le borra la carpeta en R2.
+   *
+   * Nada de esto puede frenar el borrado. Lo que quede colgado en el bucket es
+   * basura que no se ve desde ningún lado, y el barrido de huérfanas del
+   * próximo backup la levanta igual.
    */
   try {
-    const sueltas = [
-      ...definitivo.fotos,
+    const sinDueno = [
+      ...(definitivo ? [id] : []),
       ...(await vaciarPapeleraVieja(usuario.id)),
       ...(await recortarPapelera(
         usuario.id,
         topeDePapelera(await planDe(usuario.id))
       )),
     ];
-    if (sueltas.length > 0) {
-      await limpiarHuerfanas(usuario.id, await fotosEnUso(usuario.id));
+    for (const plantelId of sinDueno) {
+      await borrarLasFotosDelPlantel(usuario.id, plantelId).catch(() => 0);
     }
   } catch {
     // Que no se pueda vaciar lo viejo no tiene por qué frenar el borrado.
   }
 
-  return c.json({ ok: true, definitivo: definitivo.borrado });
+  return c.json({ ok: true, definitivo });
 });
 
 app.onError((error, c) => {

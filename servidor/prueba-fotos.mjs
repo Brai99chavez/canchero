@@ -68,9 +68,12 @@ const base = new pg.Pool({
   max: 2,
 });
 
+/** El id del plantel al que pertenecerian estas fotos. */
+const PLANTEL = 'plantel-de-prueba';
+
 let r = await pedir('/fotos/permiso', {
   metodo: 'POST',
-  cuerpo: { tipo: 'image/png' },
+  cuerpo: { tipo: 'image/png', destino: PLANTEL },
 });
 ok('sin sesion no da permiso', r.estado === 401);
 
@@ -94,7 +97,7 @@ ok('entra con la cuenta recien creada', r.estado === 200, r.texto);
 
 r = await pedir('/fotos/permiso', {
   metodo: 'POST',
-  cuerpo: { tipo: 'image/gif' },
+  cuerpo: { tipo: 'image/gif', destino: PLANTEL },
 });
 ok('formato no soportado rechazado', r.estado === 400, r.texto);
 
@@ -102,13 +105,19 @@ r = await pedir('/fotos/permiso', {
   metodo: 'POST',
   cuerpo: { tipo: 'image/png' },
 });
+ok('sin destino tampoco da permiso', r.estado === 400, r.texto);
+
+r = await pedir('/fotos/permiso', {
+  metodo: 'POST',
+  cuerpo: { tipo: 'image/png', destino: PLANTEL },
+});
 ok('da permiso de subida', r.estado === 200 && !!r.cuerpo?.url, r.texto);
 
 if (r.estado === 200) {
   const { url, publica, key } = r.cuerpo;
   ok(
-    'la key arranca con el id de la cuenta',
-    typeof key === 'string' && key.includes('/jugadores/')
+    'la key es {cuenta}/{plantel}/{azar}',
+    typeof key === 'string' && key.includes(`/${PLANTEL}/`)
   );
 
   const subida = await fetch(url, {

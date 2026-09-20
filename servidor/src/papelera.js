@@ -31,15 +31,16 @@ export const DIAS_DE_PAPELERA = 7;
 export const EN_LA_PAPELERA =
   'borrado and borrado_en is not null and not definitivo';
 
-/** Las fotos que había en las filas que se borraron de verdad. */
-function fotosDe(rows) {
-  const fotos = [];
-  for (const fila of rows) {
-    for (const jugador of fila.datos?.jugadores ?? []) {
-      if (typeof jugador?.foto === 'string') fotos.push(jugador.foto);
-    }
-  }
-  return fotos;
+/**
+ * Los ids de las filas que se fueron de verdad.
+ *
+ * Es lo que necesita quien llama para borrarles la carpeta en R2. Antes se
+ * devolvían las URLs de las fotos que tenían guardadas, pero eso sólo alcanza
+ * a las que alguna vez llegaron a quedar nombradas adentro del plantel: ahora
+ * cada plantel tiene su carpeta y se va entera, así que con el id sobra.
+ */
+function idsDe(rows) {
+  return rows.map((fila) => fila.id);
 }
 
 /**
@@ -51,39 +52,29 @@ function fotosDe(rows) {
  * enteren. Esa fila la barre `vaciarPapeleraVieja` a los mismos días que el
  * resto, así que tampoco se acumula.
  *
- * Devuelve las fotos que tenía, para que quien llama las saque de R2.
+ * Las fotos las saca de R2 quien llama, borrándole la carpeta.
  */
 export async function borrarParaSiempre(usuarioId, id) {
   /*
-   * `returning` da los valores nuevos, y lo que hace falta son los de antes:
-   * las fotos que había justo antes de vaciarlo. Por eso la lectura va en un
-   * `with`, que ve la fila como estaba cuando arrancó la consulta.
+   * Las tres condiciones juntas son las que hacen que esto sea seguro de
+   * llamar siempre: si el plantel no existe, o ya está borrado, o nunca salió
+   * de la papelera, no toca nada y devuelve false. Quien llama lo usa así —lo
+   * intenta primero y si no pasó nada manda a la papelera— en vez de preguntar
+   * antes, que serían dos viajes a la base y una ventana entre ellos.
    */
-  const { rows } = await consultar(
-    `with antes as (
-       select datos from planteles
-        where dueno = $1 and id = $2 and not borrado
-          and restaurado_en is not null
-     ), limpiado as (
-       update planteles
-          set borrado = true,
-              borrado_en = now(),
-              definitivo = true,
-              datos = '{}'::jsonb,
-              actualizado = now()
-        where dueno = $1 and id = $2 and not borrado
-          and restaurado_en is not null
-        returning id
-     )
-     select (select count(*) from limpiado)::int as cuantos,
-            (select datos from antes) as datos`,
+  const { rowCount } = await consultar(
+    `update planteles
+        set borrado = true,
+            borrado_en = now(),
+            definitivo = true,
+            datos = '{}'::jsonb,
+            actualizado = now()
+      where dueno = $1 and id = $2 and not borrado
+        and restaurado_en is not null`,
     [usuarioId, id]
   );
 
-  return {
-    borrado: rows[0]?.cuantos > 0,
-    fotos: fotosDe(rows[0]?.datos ? [{ datos: rows[0].datos }] : []),
-  };
+  return rowCount > 0;
 }
 
 /**
@@ -97,7 +88,7 @@ export async function borrarParaSiempre(usuarioId, id) {
  * Entran también las lápidas, que llevan `borrado_en` por esto mismo: se van
  * cuando ya no le sirven a ningún teléfono.
  *
- * Devuelve las fotos que quedaron sin dueño, para que quien llama las barra.
+ * Devuelve los ids que se fueron, para que quien llama les borre la carpeta.
  */
 export async function vaciarPapeleraVieja(usuarioId) {
   const { rows } = await consultar(
@@ -105,10 +96,10 @@ export async function vaciarPapeleraVieja(usuarioId) {
       where dueno = $1 and borrado
         and borrado_en is not null
         and borrado_en < now() - ($2 || ' days')::interval
-      returning datos`,
+      returning id`,
     [usuarioId, String(DIAS_DE_PAPELERA)]
   );
-  return fotosDe(rows);
+  return idsDe(rows);
 }
 
 /**
@@ -135,8 +126,8 @@ export async function recortarPapelera(usuarioId, tope) {
          order by borrado_en desc, id desc
         offset $2
       )
-      returning datos`,
+      returning id`,
     [usuarioId, tope]
   );
-  return fotosDe(rows);
+  return idsDe(rows);
 }

@@ -99,10 +99,10 @@ const PIXEL = Buffer.from(
 );
 
 /** Sube una foto de verdad a R2 y devuelve su URL pública. */
-async function subirFoto(quien, carpeta) {
+async function subirFoto(quien, destino) {
   const permiso = await quien.pedir('/fotos/permiso', {
     metodo: 'POST',
-    cuerpo: { tipo: 'image/png', carpeta },
+    cuerpo: { tipo: 'image/png', destino },
   });
   if (permiso.estado !== 200) return { error: permiso.texto };
   const puesta = await fetch(permiso.json.url, {
@@ -264,9 +264,9 @@ if (mia.publica) {
 
 r = await uno.pedir('/fotos/permiso', {
   metodo: 'POST',
-  cuerpo: { tipo: 'image/png', carpeta: 'publico' },
+  cuerpo: { tipo: 'image/png', destino: 'publico/logo-mail.png' },
 });
-ok('no se puede subir a una carpeta inventada', r.estado === 400, r.texto);
+ok('no se puede subir fuera de la carpeta propia', r.estado === 400, r.texto);
 
 // ═════════════════════════════════════════════════════ el plan no se toca
 titulo('el plan no se toca');
