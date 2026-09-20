@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderModal from '../components/HeaderModal';
 import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import Panel, { DIAGONAL } from '../components/Angular';
+import EditorDeEquipos from '../components/EditorDeEquipos';
 import Opcion from '../components/Opcion';
-import Pitch from '../components/Pitch';
 import { Button, PositionPill, RatingBadge, StatBar } from '../components/ui';
 import { angulo, colors, degradados, radius, spacing } from '../theme';
 import {
@@ -45,7 +45,25 @@ interface Props {
   onCambiarJugadores: () => void;
 }
 
-type Vista = 'lista' | 'cancha';
+/**
+ * Tres formas de mirar el mismo sorteo.
+ *
+ * «Lista» es la que se usa para intercambiar, y por eso son dos columnas y no
+ * dos cartas: las cartas van una debajo de la otra y hay que scrollear para
+ * ver el otro equipo, así que al tocar al segundo jugador ya perdiste de vista
+ * al primero. Es la misma vista que se abre desde un partido ya guardado.
+ *
+ * «Detalle» es lo que antes era la lista: las cartas con las barras de cada
+ * estadística, para revisar si el reparto quedó parejo en defensa o en ataque.
+ * Ahí la altura no molesta, porque no se está tocando nada.
+ */
+type Vista = 'lista' | 'cancha' | 'detalle';
+
+const ROTULOS: Record<Vista, string> = {
+  lista: 'Lista',
+  cancha: 'Cancha',
+  detalle: 'Detalle',
+};
 
 /** El promedio del equipo con las medias ya corregidas por resultados. */
 function mediaDeEquipo(
@@ -139,45 +157,6 @@ function TeamCard({
   );
 }
 
-function TeamPitch({
-  name,
-  color,
-  players,
-  medias,
-  elegidoId,
-  onTocar,
-}: {
-  name: string;
-  color: string;
-  players: Player[];
-  medias: Record<string, number>;
-  elegidoId: string | null;
-  onTocar: (id: string) => void;
-}) {
-  return (
-    <Panel
-      style={styles.teamCard}
-      degradado={degradados.panel}
-      borde={color}
-      grosor={1.5}
-    >
-      <View style={styles.teamHeader}>
-        <View style={styles.teamTitleRow}>
-          <View style={[styles.teamDot, { backgroundColor: color }]} />
-          <Text style={styles.teamName}>{name.toUpperCase()}</Text>
-        </View>
-        <RatingBadge value={mediaDeEquipo(players, medias)} size={44} />
-      </View>
-      <Pitch
-        players={players}
-        medias={medias}
-        color={color}
-        elegidoId={elegidoId}
-        onTocar={onTocar}
-      />
-    </Panel>
-  );
-}
 
 export default function TeamsModal({
   visible,
@@ -249,10 +228,10 @@ export default function TeamsModal({
         </View>
 
         <View style={styles.vistas}>
-          {(['lista', 'cancha'] as Vista[]).map((key) => (
+          {(['lista', 'cancha', 'detalle'] as Vista[]).map((key) => (
             <Opcion
               key={key}
-              label={key === 'lista' ? 'Lista' : 'Cancha'}
+              label={ROTULOS[key]}
               activa={key === vista}
               onPress={() => setVista(key)}
             />
@@ -278,7 +257,7 @@ export default function TeamsModal({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {vista === 'lista' ? (
+          {vista === 'detalle' ? (
             <>
               <TeamCard
                 name="Equipo A"
@@ -296,46 +275,36 @@ export default function TeamsModal({
                 elegidoId={elegidoId}
                 onTocar={tocarJugador}
               />
+
+              {/* El banco va aparte: las otras dos vistas traen el suyo. */}
+              {split.bench.length > 0 ? (
+                <Panel
+                  style={styles.benchCard}
+                  degradado={degradados.panelTenue}
+                  esquinas={DIAGONAL}
+                >
+                  <Text style={styles.benchTitle}>Suplentes</Text>
+                  {split.bench.map((p) => (
+                    <Fila
+                      key={p.id}
+                      player={p}
+                      media={medias[p.id] ?? overall(p)}
+                      elegido={p.id === elegidoId}
+                      onPress={() => tocarJugador(p.id)}
+                    />
+                  ))}
+                </Panel>
+              ) : null}
             </>
           ) : (
-            <>
-              <TeamPitch
-                name="Equipo A"
-                color={colors.teamA}
-                players={split.teamA}
-                medias={medias}
-                elegidoId={elegidoId}
-                onTocar={tocarJugador}
-              />
-              <TeamPitch
-                name="Equipo B"
-                color={colors.teamB}
-                players={split.teamB}
-                medias={medias}
-                elegidoId={elegidoId}
-                onTocar={tocarJugador}
-              />
-            </>
+            <EditorDeEquipos
+              split={split}
+              medias={medias}
+              vista={vista === 'cancha' ? 'cancha' : 'columnas'}
+              elegidoId={elegidoId}
+              onTocar={tocarJugador}
+            />
           )}
-
-          {split.bench.length > 0 ? (
-            <Panel
-              style={styles.benchCard}
-              degradado={degradados.panelTenue}
-              esquinas={DIAGONAL}
-            >
-              <Text style={styles.benchTitle}>Suplentes</Text>
-              {split.bench.map((p) => (
-                <Fila
-                  key={p.id}
-                  player={p}
-                  media={medias[p.id] ?? overall(p)}
-                  elegido={p.id === elegidoId}
-                  onPress={() => tocarJugador(p.id)}
-                />
-              ))}
-            </Panel>
-          ) : null}
         </ScrollView>
 
         <EstampaOculta referencia={estampa} split={split} plantel={plantel} />
