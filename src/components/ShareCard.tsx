@@ -28,13 +28,12 @@ function Columna({
     <View style={styles.columna}>
       <View style={[styles.encabezado, { borderColor: color }]}>
         <Text style={[styles.equipo, { color }]}>{nombre}</Text>
-        <Text style={styles.media}>{teamOverall(players)}</Text>
       </View>
       {/*
-        Sin el puntaje de cada uno. La imagen va al grupo entero, y ver que a
-        uno le pusieron 62 al lado de un 88 no le suma nada al partido. La
-        media del equipo sí queda: sirve para ver que el reparto fue parejo,
-        que es lo que la imagen tiene que comunicar.
+        Sin puntajes: ni el de cada jugador ni la media del equipo. La imagen
+        va al grupo entero, y un número al lado del nombre del equipo invita a
+        discutir el reparto antes de jugar. Lo que la estampa tiene que decir
+        es quién juega con quién.
       */}
       {players.map((p) => (
         <View key={p.id} style={styles.fila}>
@@ -120,13 +119,11 @@ const styles = StyleSheet.create({
   encabezado: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     borderBottomWidth: 2,
     paddingBottom: 5,
     marginBottom: 6,
   },
   equipo: { fontSize: 13, fontFamily: 'Barlow_900Black' },
-  media: { color: colors.text, fontSize: 17, fontFamily: 'Barlow_900Black' },
   fila: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,7 +4,7 @@ import { Share, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import ShareCard from './components/ShareCard';
 import { reparto } from './stats';
-import { Player, teamOverall, TeamSplit } from './types';
+import { Player, TeamSplit } from './types';
 
 /**
  * Mandar los equipos al grupo.
@@ -23,15 +23,15 @@ import { Player, teamOverall, TeamSplit } from './types';
 
 /** El texto plano, que es el plan B si la imagen no se puede generar. */
 export function textoDeEquipos(split: TeamSplit): string {
-  // Sin el puntaje de cada uno, por lo mismo que la imagen: esto va al grupo.
+  // Sin puntajes, igual que la imagen: esto va al grupo.
   const line = (p: Player) => `• ${p.nombre} (${p.posicion})`;
   const parts = [
     `${reparto(split.teamA.length, split.teamB.length)} — equipos armados`,
     '',
-    `EQUIPO A — media ${teamOverall(split.teamA)}`,
+    'EQUIPO A',
     ...split.teamA.map(line),
     '',
-    `EQUIPO B — media ${teamOverall(split.teamB)}`,
+    'EQUIPO B',
     ...split.teamB.map(line),
   ];
   if (split.bench.length > 0) {
