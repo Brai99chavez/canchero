@@ -1,6 +1,14 @@
 # Canchero
 
+<img src="assets/icon.png" alt="Ícono de Canchero" width="96" />
+
 App para el celular que arma equipos de fútbol parejos.
+
+## Descargar
+
+**[Bajar Canchero para Android (APK)](https://drive.google.com/file/d/1gBd2I-rGkXdG2EigBvf4lFcoN2NgigeP/view?usp=sharing)**
+
+Drive avisa que no puede analizar el archivo en busca de virus: es normal con los APK, tocá "Descargar de todas formas". Al instalarla, el celular pide permiso para instalar apps de fuera de Play Store.
 
 ## Qué es
 
