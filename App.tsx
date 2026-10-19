@@ -74,6 +74,7 @@ import {
 } from './src/nube/envios';
 import { leerPerfil, usarNombreReservado } from './src/nube/perfil';
 import { EstadoSync, sincronizar, sinSubir } from './src/nube/sync';
+import { juntarConLoDeAhora } from './src/nube/juntar';
 import {
   AVISO_PRO,
   idsActivos,
@@ -1205,7 +1206,13 @@ function Root() {
 
       setEstadoSync(salida.estado);
       // Sólo si cambió algo: asignar el mismo arreglo dispararía otra vuelta.
-      if (salida.planteles !== planteles) setPlanteles(salida.planteles);
+      // Y juntado con lo de ahora, no encima: mientras la vuelta corría se
+      // pudo seguir usando la app, y pisarlo borraba lo que se hizo en ese rato.
+      if (salida.planteles !== planteles) {
+        setPlanteles((ahora) =>
+          juntarConLoDeAhora(planteles, salida.planteles, ahora)
+        );
+      }
       if (salida.borradosListos.length > 0) {
         const listos = new Set(salida.borradosListos);
         setBorrados((prev) => prev.filter((id) => !listos.has(id)));
