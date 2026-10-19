@@ -115,12 +115,12 @@ export interface Convocatoria {
   seleccionados: string[];
   usarTodos: boolean;
   /**
-   * Lo último que se leyó del link de "¿quién viene?". Sirve para aplicar
-   * sólo lo que cambió desde entonces, y no pisar lo que se corrigió a mano.
+   * Las respuestas del link de "¿quién viene?" que el que organiza ya vio.
+   * Sirve para contar las nuevas en la pestaña. Es de este teléfono: no viaja.
    */
   asistencia?: {
     codigo: string;
-    respuestas: Record<string, boolean>;
+    vistas: Record<string, boolean>;
   };
 }
 
@@ -178,6 +178,13 @@ export interface Squad {
    * goleadores. Por eso viaja con el plantel: es del grupo, no del teléfono.
    */
   detalle?: boolean;
+  /**
+   * El alias al que le transfieren la cancha al que organiza. Se pide la
+   * primera vez que se cobra y queda: el alias de uno no cambia de un sábado
+   * al otro. Viaja con el plantel, así no hay que volver a cargarlo en otro
+   * teléfono.
+   */
+  alias?: string;
   /**
    * Si este plantel ya salió una vez de la papelera.
    *

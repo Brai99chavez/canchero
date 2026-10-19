@@ -30,6 +30,7 @@ interface PlantelDeLaNube {
     jugadores?: unknown;
     partidos?: unknown;
     detalle?: boolean;
+    alias?: unknown;
   } | null;
   borrado?: boolean;
   /** Cuándo salió de la papelera, si salió alguna vez. */
@@ -54,6 +55,8 @@ function aFila(p: Squad) {
       partidos: p.partidos,
       // Es una preferencia del grupo, no del teléfono: viaja con el plantel.
       detalle: p.detalle === true,
+      // Lo mismo el alias para cobrar la cancha.
+      ...(p.alias ? { alias: p.alias } : {}),
     },
   };
 }
@@ -221,6 +224,7 @@ function aplicar(locales: Squad[], traidos: PlantelDeLaNube[]): Squad[] {
         jugadores: fila.datos?.jugadores,
         partidos: fila.datos?.partidos,
         detalle: fila.datos?.detalle,
+        alias: fila.datos?.alias,
         // Viene del servidor, o sea que ya está subido: se marca con lo mismo
         // que se va a guardar en `subido` para que no se vuelva a mandar.
         actualizado: existente?.actualizado,

@@ -65,12 +65,14 @@ import { Amigo, listarAmigos } from './src/nube/amigos';
 import {
   alLlegarNovedad,
   alTocarRecordatorio,
+  hayPermisoDeAvisos,
   PedidoDeResultado,
   programarRecordatorios,
   registrarTelefono,
 } from './src/nube/avisos';
 import { recordatoriosPara } from './src/recordatorios';
 import { useAsistencia } from './src/useAsistencia';
+import { fechaDelDia, respuestasNuevas } from './src/asistencia';
 import {
   aceptarEnvio,
   Envio,
@@ -654,13 +656,19 @@ function Root() {
    * mueve la fecha: si no, se subiría de gusto.
    */
   const editarPlantelPorId = useCallback(
-    (id: string, cambio: (plantel: Squad) => Squad) => {
+    (
+      id: string,
+      cambio: (plantel: Squad) => Squad,
+      opciones: { sinSubir?: boolean } = {}
+    ) => {
       setPlanteles((prev) =>
         prev.map((p) => {
           if (p.id !== id) return p;
           const nuevo = cambio(p);
-          return nuevo === p
-            ? p
+          // `sinSubir` es para lo que es sólo de este teléfono y no viaja:
+          // moverle la fecha lo mandaría a la nube sin nada nuevo que guardar.
+          return nuevo === p || opciones.sinSubir
+            ? nuevo
             : { ...nuevo, actualizado: new Date().toISOString() };
         })
       );
@@ -673,6 +681,29 @@ function Root() {
     activo && activos.has(activo.id) ? activo.id : null,
     editarPlantelPorId
   );
+
+  /*
+   * Las respuestas del link se leen al entrar a un plantel y cada vez que se
+   * vuelve a la app, esté en la pestaña que esté: lo típico es mandar el link,
+   * irse a WhatsApp a ver qué dicen, y volver. Con eso se enciende el número
+   * de la pestaña Partido. Adentro de esa pestaña, además, se lee cada tanto.
+   */
+  const { actualizar: actualizarAsistencia, cerrarSiEsDe } = asistencia;
+  const plantelAbierto = vistaReal === 'plantel' ? activo?.id ?? null : null;
+  useEffect(() => {
+    if (!plantelAbierto || !sesion) return;
+    actualizarAsistencia();
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') actualizarAsistencia();
+    });
+    return () => suscripcion.remove();
+  }, [plantelAbierto, sesion, actualizarAsistencia]);
+
+  /** Las respuestas que todavía no se miraron: el número de la pestaña Partido. */
+  const nuevasDelLink =
+    asistencia.link && activo
+      ? respuestasNuevas(activo, asistencia.link.codigo, asistencia.link.respuestas)
+      : 0;
 
   const editarActivo = useCallback(
     (cambio: (jugadores: Player[]) => Player[]) => {
@@ -997,8 +1028,14 @@ function Root() {
        * que es donde se vuelve con «Volver».
        */
       setTab('historial');
+      /*
+       * Y el link de "¿quién viene?" de ese día se cierra: el partido ya se
+       * jugó. Hasta acá seguía abierto a propósito, para que el que se baja
+       * a último momento pueda avisar y se vea en el partido.
+       */
+      cerrarSiEsDe(fechaDelDia(new Date(cambios.fecha)));
     },
-    [resultadoId, editarPlantel]
+    [resultadoId, editarPlantel, cerrarSiEsDe]
   );
 
   /** Si entra otro plantel, avisando con el cartel del plan cuando no. */
@@ -1358,6 +1395,24 @@ function Root() {
     return () => clearTimeout(reloj);
   }, [ready, planteles, activos]);
 
+  /*
+   * Si el teléfono deja mostrar avisos, para anunciar el recordatorio sólo si
+   * va a llegar. Se vuelve a mirar al volver a la app: es lo que pasa cuando
+   * alguien los prende desde la configuración del teléfono.
+   */
+  const [permisoDeAvisos, setPermisoDeAvisos] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!ready) return;
+    const mirar = () => {
+      hayPermisoDeAvisos().then(setPermisoDeAvisos);
+    };
+    mirar();
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') mirar();
+    });
+    return () => suscripcion.remove();
+  }, [ready]);
+
   /**
    * El partido que pidió abrir un recordatorio tocado. Queda esperando hasta
    * que los planteles estén cargados: con la app cerrada, el toque llega antes
@@ -1659,6 +1714,7 @@ function Root() {
               setResultadoId(partido.id);
             }}
             onBorrarPartidos={handleBorrarPartidos}
+            recordatorios={permisoDeAvisos}
           />
         ) : tab === 'plantel' ? (
           <PlayersScreen
@@ -1700,7 +1756,11 @@ function Root() {
         se entienden.
       */}
       {vistaReal === 'plantel' ? (
-        <TabBar activa={tab} onChange={setTab} />
+        <TabBar
+          activa={tab}
+          onChange={setTab}
+          pendientes={{ partido: nuevasDelLink }}
+        />
       ) : (
         <NavPrincipal
           activa={seccion}
@@ -1790,6 +1850,18 @@ function Root() {
         medias={medias}
         onSwap={handleCambiarEquipos}
         onCancha={handleCancha}
+        alias={activo?.alias}
+        onAlias={(alias) => editarPlantel((p) => ({ ...p, alias }))}
+        respuestas={
+          // Sólo las del link de ese mismo día: las de otro día no dicen
+          // nada de este partido.
+          asistencia.link &&
+          abierto &&
+          asistencia.link.fecha === fechaDelDia(new Date(abierto.fecha))
+            ? asistencia.link.respuestas
+            : undefined
+        }
+        jugadores={players}
         detalle={activo?.detalle === true}
         onDetalle={(valor) =>
           editarPlantel((p) => ({ ...p, detalle: valor }))

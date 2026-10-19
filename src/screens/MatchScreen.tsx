@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AppState,
-  FlatList,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
   View,
@@ -10,6 +10,7 @@ import {
 import { Ajuste, mediaDe } from '../elo';
 import PanelAsistencia from '../components/PanelAsistencia';
 import { Asistencia } from '../useAsistencia';
+import { agruparPorRespuesta } from '../asistencia';
 import { Objetivo } from '../components/Guia';
 import CampoTexto from '../components/CampoTexto';
 import Opcion from '../components/Opcion';
@@ -18,6 +19,18 @@ import { Presionable } from '../components/motion';
 import { Button, EmptyState, PositionPill, RatingBadge } from '../components/ui';
 import { colors, degradados, spacing } from '../theme';
 import { Format, FORMATS, Player } from '../types';
+
+/** Un grupo de la lista: los que vienen, los que faltan contestar, los que no. */
+interface Seccion {
+  clave: string;
+  /** Sin título cuando no hay link: es la lista de siempre, de una. */
+  titulo: string | null;
+  color: string;
+  data: Player[];
+}
+
+/** Cada cuánto se vuelven a leer las respuestas con la pantalla a la vista. */
+const CADA_CUANTO_SE_MIRA = 30_000;
 
 interface Props {
   players: Player[];
@@ -82,20 +95,26 @@ export default function MatchScreen({
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   /*
-   * Las respuestas del link se leen al entrar acá y cada vez que se vuelve a
-   * la app: lo típico es mandar el link, salir a WhatsApp a ver qué dicen, y
-   * volver. Nada de un reloj preguntando cada tantos segundos: despertaría al
-   * servidor todo el día para contestar que no hay nada nuevo.
+   * Mientras esta pantalla está a la vista, las respuestas del link se
+   * vuelven a leer cada tanto: es cuando el que organiza está esperando que
+   * contesten, y tener que tocar "actualizar" era una cosa más que acordarse.
+   * Sólo con la pantalla a la vista y la app adelante: un reloj prendido todo
+   * el día despertaría al servidor para contestar que no hay nada nuevo. Al
+   * entrar al plantel y al volver a la app ya lee App.tsx.
    */
-  const { actualizar } = asistencia;
+  const { actualizar, marcarVistas } = asistencia;
   useEffect(() => {
-    actualizar();
-    const suscripcion = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') actualizar();
-    });
-    return () => suscripcion.remove();
+    const reloj = setInterval(() => {
+      if (AppState.currentState === 'active') actualizar();
+    }, CADA_CUANTO_SE_MIRA);
+    return () => clearInterval(reloj);
   }, [actualizar]);
+
+  // Lo que está a la vista ya está visto: el número de la pestaña se apaga.
   const respuestas = asistencia.link?.respuestas;
+  useEffect(() => {
+    if (respuestas) marcarVistas();
+  }, [respuestas, marcarVistas]);
   const needed = format * 2;
   const count = selectedIds.length;
 
@@ -135,6 +154,21 @@ export default function MatchScreen({
     if (!texto) return sorted;
     return sorted.filter((p) => p.nombre.toLowerCase().includes(texto));
   }, [sorted, busqueda]);
+
+  /*
+   * Con el link mandado, la lista se separa por lo que contestó cada uno. Es
+   * la misma lista donde se tilda: así se ve quién viene justo donde se lo
+   * convoca, y los nombres no se repiten en otro lado. Sin link, una sola.
+   */
+  const secciones = useMemo<Seccion[]>(() => {
+    if (!respuestas) return [{ clave: 'todos', titulo: null, color: colors.textMuted, data: visibles }];
+    const g = agruparPorRespuesta(visibles, respuestas);
+    return [
+      { clave: 'vienen', titulo: `Vienen (${g.vienen.length})`, color: colors.primary, data: g.vienen },
+      { clave: 'faltan', titulo: `Faltan contestar (${g.faltan.length})`, color: colors.textMuted, data: g.faltan },
+      { clave: 'no', titulo: `No vienen (${g.noVienen.length})`, color: colors.danger, data: g.noVienen },
+    ].filter((s) => s.data.length > 0);
+  }, [visibles, respuestas]);
 
   /*
    * El formato que llenaría dos equipos completos con los que están marcados.
@@ -188,8 +222,23 @@ export default function MatchScreen({
       ? `Faltan ${needed - count} para dos equipos completos (se arma igual con ${porLado} por lado)`
       : 'Justo para dos equipos completos';
 
-  return (
-    <View style={styles.container}>
+  /*
+   * Todo lo de arriba de la lista va adentro del scroll, y no fijo: con la
+   * tarjeta de "¿quién viene?" con respuestas, fijo no le dejaba lugar a la
+   * lista en un teléfono chico. Así la pantalla se lee de arriba abajo como
+   * se hace: preguntar, cuántos por lado, quiénes. "Armar equipos" sí queda
+   * fijo abajo, que es adonde se llega.
+   */
+  const cabecera = (
+    <View>
+      <View style={styles.asistencia}>
+        <PanelAsistencia
+          asistencia={asistencia}
+          jugadores={players}
+          seleccionados={selectedIds}
+        />
+      </View>
+
       <Text style={styles.rotulo}>Cuántos por lado</Text>
       <View style={[styles.formatRow, styles.formatRowPrimera]}>
         {FORMATS.map((f) => (
@@ -213,10 +262,6 @@ export default function MatchScreen({
           activa={usarTodos}
           onPress={() => elegir('todos')}
         />
-      </View>
-
-      <View style={styles.asistencia}>
-        <PanelAsistencia asistencia={asistencia} jugadores={players} />
       </View>
 
       <View style={styles.counterRow}>
@@ -288,25 +333,40 @@ export default function MatchScreen({
           autoCorrect={false}
         />
       ) : null}
+    </View>
+  );
 
+  return (
+    <View style={styles.container}>
       <Objetivo paso="convocar" style={styles.lista}>
-      <FlatList
+      <SectionList
         keyboardShouldPersistTaps="handled"
-        data={visibles}
+        sections={secciones}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={cabecera}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) =>
+          section.titulo ? (
+            <Text style={[styles.seccion, { color: section.color }]}>
+              {section.titulo}
+            </Text>
+          ) : null
+        }
         ListEmptyComponent={
-          busqueda.trim() ? (
-            <EmptyState
-              title="Sin resultados"
-              subtitle={`Ninguno de los jugadores se llama así. Probá con menos letras.`}
-            />
-          ) : (
-            <EmptyState
-              title="No hay jugadores cargados"
-              subtitle="Para armar equipos primero hay que tener a quién repartir. Cargalos desde la pestaña Plantel."
-            />
-          )
+          <View style={styles.vacio}>
+            {busqueda.trim() ? (
+              <EmptyState
+                title="Sin resultados"
+                subtitle={`Ninguno de los jugadores se llama así. Probá con menos letras.`}
+              />
+            ) : (
+              <EmptyState
+                title="No hay jugadores cargados"
+                subtitle="Para armar equipos primero hay que tener a quién repartir. Cargalos desde la pestaña Plantel."
+              />
+            )}
+          </View>
         }
         renderItem={({ item }) => {
           const selected = selectedSet.has(item.id);
@@ -338,13 +398,6 @@ export default function MatchScreen({
               <Text style={styles.name} numberOfLines={1}>
                 {item.nombre}
               </Text>
-              {/* Lo que contestó en el link, para entender por qué quedó
-                  marcado o no sin tener que abrir nada. */}
-              {respuestas?.[item.id] === true ? (
-                <Text style={styles.va}>VA</Text>
-              ) : respuestas?.[item.id] === false ? (
-                <Text style={styles.noVa}>NO VA</Text>
-              ) : null}
               <PositionPill position={item.posicion} />
               <RatingBadge value={mediaDe(item, ajustes)} size={32} />
             </Presionable>
@@ -430,19 +483,16 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   formatRowPrimera: { marginTop: spacing.xs },
-  asistencia: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  va: {
-    color: colors.primary,
-    fontSize: 10,
-    fontFamily: 'Barlow_900Black',
-    letterSpacing: 0.5,
+  asistencia: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  seccion: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    fontSize: 11,
+    fontFamily: 'Barlow_800ExtraBold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  noVa: {
-    color: colors.danger,
-    fontSize: 10,
-    fontFamily: 'Barlow_900Black',
-    letterSpacing: 0.5,
-  },
+  vacio: { paddingHorizontal: spacing.lg },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -479,12 +529,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   lista: { flex: 1 },
+  // Sin margen a los costados: la cabecera va adentro del scroll y ya trae
+  // los suyos. Las filas y los rótulos llevan el propio.
   list: {
-    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: 6,
   },
   row: {
+    marginHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,

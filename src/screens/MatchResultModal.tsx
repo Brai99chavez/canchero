@@ -27,6 +27,7 @@ import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import EditarEquiposModal from './EditarEquiposModal';
 import { colors, spacing } from '../theme';
 import { goleadoresDe, reparto, tieneResultado } from '../stats';
+import { enLista, novedadesDelPartido, Respuestas } from '../asistencia';
 import { ResultadoParaCompartir } from '../components/ShareCard';
 import PagoDeCancha from '../components/PagoDeCancha';
 import {
@@ -73,6 +74,16 @@ interface Props {
   onSwap: (unoId: string, otroId: string) => void;
   /** Lo que salió la cancha y quién pagó. Se guarda en el momento. */
   onCancha: (cancha: Cancha | undefined) => void;
+  /** El alias para cobrar la cancha, si ya se cargó. Es del plantel. */
+  alias?: string;
+  onAlias: (alias: string) => void;
+  /**
+   * Lo que contestaron en el link de "¿quién viene?" de este mismo día, si
+   * hay uno. Con eso el partido avisa si alguien de los equipos se bajó.
+   */
+  respuestas?: Respuestas;
+  /** Los del plantel, para nombrar al que viene y no está en ningún equipo. */
+  jugadores: Player[];
   onClose: () => void;
   onGuardar: (cambios: {
     fecha: string;
@@ -199,6 +210,10 @@ export default function MatchResultModal({
   medias,
   onSwap,
   onCancha,
+  alias,
+  onAlias,
+  respuestas,
+  jugadores,
   onClose,
   onGuardar,
 }: Props) {
@@ -343,6 +358,10 @@ export default function MatchResultModal({
   });
 
   if (!partido) return null;
+
+  const novedades = respuestas
+    ? novedadesDelPartido(partido, respuestas, jugadores)
+    : null;
 
   const editando = modo === 'edicion';
   /** Si el partido ya tenía resultado cuando se abrió. */
@@ -624,17 +643,16 @@ export default function MatchResultModal({
                 : { label: 'Volver', onPress: volver }
             }
             /*
-             * Compartir se queda con el lugar de arriba, y completar baja al
-             * pie. Es lo que se viene a hacer más seguido: al partido que ya
-             * está armado se entra el día que se juega, para mandarle la
-             * formación al grupo. Antes eso no se podía: guardado el partido,
-             * la pantalla de equipos no se abría más y la imagen se perdía.
+             * Compartir los equipos se queda arriba: al partido armado se
+             * entra el día que se juega para mandarle la formación al grupo.
+             * Con el partido jugado no va acá: mandar el resultado es lo que
+             * se viene a hacer, y por eso es el botón grande del pie.
              */
-            derecha={{
-              label: 'Compartir',
-              onPress: compartir,
-              disabled: split === null,
-            }}
+            derecha={
+              modo === 'lectura'
+                ? undefined
+                : { label: 'Compartir', onPress: compartir, disabled: split === null }
+            }
           />
 
           <ScrollView
@@ -656,6 +674,46 @@ export default function MatchResultModal({
                   no viene, cambialo con EDITAR EQUIPOS.
                 </Text>
 
+                {/*
+                  Lo que cambió desde que se armaron los equipos, según el
+                  link: el que se baja a último momento avisa ahí, y si no se
+                  muestra acá nadie se entera hasta que falta uno en la cancha.
+                */}
+                {novedades &&
+                (novedades.seBajaron.length > 0 || novedades.quierenJugar.length > 0) ? (
+                  <Panel
+                    style={styles.novedades}
+                    esquinas={DIAGONAL}
+                    chaflan={9}
+                    fondo={colors.aviso}
+                    opacidadFondo={0.12}
+                    borde={colors.aviso}
+                    grosor={1.5}
+                  >
+                    {novedades.seBajaron.length > 0 ? (
+                      <Text style={styles.novedad}>
+                        {enLista(novedades.seBajaron)}{' '}
+                        {novedades.seBajaron.length === 1
+                          ? 'avisó que no viene.'
+                          : 'avisaron que no vienen.'}
+                      </Text>
+                    ) : null}
+                    {novedades.quierenJugar.length > 0 ? (
+                      <Text style={styles.novedad}>
+                        {enLista(novedades.quierenJugar)}{' '}
+                        {novedades.quierenJugar.length === 1
+                          ? 'dijo que viene y no está en los equipos.'
+                          : 'dijeron que vienen y no están en los equipos.'}
+                      </Text>
+                    ) : null}
+                    {novedades.seBajaron.length > 0 && (split?.bench.length ?? 0) > 0 ? (
+                      <Text style={styles.ayuda}>
+                        Podés cambiarlo por un suplente con EDITAR EQUIPOS.
+                      </Text>
+                    ) : null}
+                  </Panel>
+                ) : null}
+
                 {split ? (
                   <>
                     {equipo('Equipo A', colors.teamA, split.teamA)}
@@ -670,6 +728,8 @@ export default function MatchResultModal({
                   key={partido.id}
                   partido={partido}
                   onCambiar={onCancha}
+                  alias={alias}
+                  onAlias={onAlias}
                 />
               </>
             ) : (
@@ -783,9 +843,8 @@ export default function MatchResultModal({
                   </Text>
                 ) : (
                   <Text style={styles.ayuda}>
-                    Este partido ya está jugado. Con COMPARTIR mandás el
-                    resultado al grupo, y con EDITAR RESULTADO corregís lo que
-                    haga falta.
+                    Este partido ya está jugado. Si hay algo que corregir, tocá
+                    EDITAR RESULTADO.
                   </Text>
                 )}
 
@@ -851,6 +910,8 @@ export default function MatchResultModal({
                     partido={partido}
                     onCambiar={onCancha}
                     abierto={false}
+                    alias={alias}
+                    onAlias={onAlias}
                   />
                 )}
               </>
@@ -875,34 +936,45 @@ export default function MatchResultModal({
             única que sale de la app.
           */}
           <View style={styles.footer}>
-            <View style={styles.mitad}>
+            {/* Con el partido jugado, lo que se viene a hacer es mandarlo. */}
+            {modo === 'lectura' ? (
               <Button
-                title="Editar equipos"
-                variant="ghost"
-                onPress={() => setEditandoEquipos(true)}
+                title="Mandar el resultado al grupo"
+                onPress={compartir}
                 disabled={split === null}
               />
-            </View>
-            <View style={styles.mitad}>
-              {modo === 'jugadores' ? (
+            ) : null}
+            <View style={styles.filaBotones}>
+              <View style={styles.mitad}>
                 <Button
-                  title="Cargar resultado"
-                  onPress={() => {
-                    setDesdeJugadores(true);
-                    setModo('edicion');
-                  }}
+                  title="Editar equipos"
+                  variant="ghost"
+                  onPress={() => setEditandoEquipos(true)}
+                  disabled={split === null}
                 />
-              ) : editando ? (
-                <Button
-                  title={yaEstaba ? 'Guardar' : 'Completar'}
-                  onPress={handleGuardar}
-                />
-              ) : (
-                <Button
-                  title="Editar resultado"
-                  onPress={() => setModo('edicion')}
-                />
-              )}
+              </View>
+              <View style={styles.mitad}>
+                {modo === 'jugadores' ? (
+                  <Button
+                    title="Cargar resultado"
+                    onPress={() => {
+                      setDesdeJugadores(true);
+                      setModo('edicion');
+                    }}
+                  />
+                ) : editando ? (
+                  <Button
+                    title={yaEstaba ? 'Guardar' : 'Completar'}
+                    onPress={handleGuardar}
+                  />
+                ) : (
+                  <Button
+                    title="Editar resultado"
+                    variant="ghost"
+                    onPress={() => setModo('edicion')}
+                  />
+                )}
+              </View>
             </View>
           </View>
 
@@ -926,13 +998,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   footer: {
-    flexDirection: 'row',
     gap: spacing.sm,
     padding: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   mitad: { flex: 1 },
+  filaBotones: { flexDirection: 'row', gap: spacing.sm },
+  novedades: { padding: spacing.md, gap: 4 },
+  novedad: { color: colors.text, fontSize: 14, fontFamily: 'Barlow_700Bold', lineHeight: 19 },
   marcador: {
     flexDirection: 'row',
     alignItems: 'center',

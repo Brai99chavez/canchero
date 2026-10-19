@@ -285,3 +285,20 @@ export function alTocarRecordatorio(
     soltar?.();
   };
 }
+
+/**
+ * Si el teléfono deja mostrar avisos. Null si no se puede saber —Expo Go, la
+ * versión web—: ahí no se dice nada, ni que sí ni que no.
+ *
+ * Hace falta para no prometer lo que no va a pasar: decir "mañana te
+ * recordamos" con las notificaciones apagadas es mentirle al que organiza.
+ */
+export async function hayPermisoDeAvisos(): Promise<boolean | null> {
+  const N = await notificaciones();
+  if (!N) return null;
+  try {
+    return (await N.getPermissionsAsync()).status === 'granted';
+  } catch {
+    return null;
+  }
+}

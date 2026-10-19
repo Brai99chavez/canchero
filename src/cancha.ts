@@ -1,3 +1,4 @@
+import { comoSeLeeElDia, enLista, fechaDelDia } from './asistencia';
 import { Cancha, Partido } from './types';
 
 /**
@@ -57,6 +58,29 @@ export function estadoDeLaCancha(partido: Partido): EstadoDeLaCancha | null {
     faltan,
     falta: parte * faltan.length,
   };
+}
+
+/**
+ * El mensaje para pedir la plata en el grupo: cuánto pone cada uno, quiénes
+ * faltan y a qué alias. Null si ya pagaron todos o no hay cancha cargada.
+ *
+ * Con los nombres de los que faltan y no con un "faltan algunos": nadie se
+ * da por aludido si no lo nombran, y es la única forma de que el que ya pagó
+ * no transfiera dos veces.
+ */
+export function textoParaCobrar(partido: Partido, alias?: string): string | null {
+  const estado = estadoDeLaCancha(partido);
+  if (!estado || estado.faltan.length === 0) return null;
+  const dia = new Date(partido.fecha);
+  const cuando = Number.isNaN(dia.getTime())
+    ? ''
+    : ` del ${comoSeLeeElDia(fechaDelDia(dia))}`;
+  const nombres = estado.faltan.map((id) => partido.nombres[id] ?? 'Jugador');
+  return [
+    `La cancha${cuando}: ${enPesos(estado.parte)} cada uno.`,
+    `Falta${nombres.length === 1 ? '' : 'n'} pagar ${enLista(nombres)}.`,
+    ...(alias ? [`Alias: ${alias}`] : []),
+  ].join(' ');
 }
 
 /** Marca o desmarca que alguien pagó. */

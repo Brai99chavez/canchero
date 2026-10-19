@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Panel, { DIAGONAL } from '../components/Angular';
 import {
   FlatList,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,8 @@ import { reparto, resumenDe, Signo, tieneResultado, winrate } from '../stats';
 import { colors, radius, spacing } from '../theme';
 import { Ajuste, mediaDe } from '../elo';
 import { Partido, Player } from '../types';
+import { enPesos, estadoDeLaCancha } from '../cancha';
+import { avisoDelRecordatorio } from '../recordatorios';
 
 interface Props {
   players: Player[];
@@ -34,6 +37,52 @@ interface Props {
   /** Directo a cargar el marcador, sin pasar por la lista de jugadores. */
   onCargarResultado: (partido: Partido) => void;
   onBorrarPartidos: (ids: string[]) => void;
+  /** Si el teléfono deja mostrar avisos. Null: no se sabe, y no se dice nada. */
+  recordatorios: boolean | null;
+}
+
+/**
+ * Lo que queda pendiente de un partido, debajo de los equipos: si falta
+ * plata de la cancha, y cuándo llega el recordatorio de cargar el resultado.
+ *
+ * El recordatorio se anuncia porque si no nadie sabe que existe: llega a la
+ * mañana sin aviso previo y sorprende, o no llega porque las notificaciones
+ * están apagadas y nadie se entera de que se lo está perdiendo.
+ */
+function PieDelPartido({
+  partido,
+  recordatorios,
+}: {
+  partido: Partido;
+  recordatorios: boolean | null;
+}) {
+  const cancha = estadoDeLaCancha(partido);
+  const aviso = tieneResultado(partido)
+    ? null
+    : avisoDelRecordatorio(partido.fecha, new Date());
+  const faltaPlata = cancha !== null && cancha.faltan.length > 0;
+  if (!faltaPlata && !(aviso && recordatorios !== null)) return null;
+
+  return (
+    <View style={styles.pie}>
+      {faltaPlata ? (
+        <Text style={styles.faltaPlata}>
+          {cancha.faltan.length === 1 ? 'Falta pagar 1' : `Faltan pagar ${cancha.faltan.length}`}
+          {' · '}
+          {enPesos(cancha.falta)}
+        </Text>
+      ) : null}
+      {aviso && recordatorios === true ? (
+        <Text style={styles.recordatorio}>{aviso}</Text>
+      ) : aviso && recordatorios === false ? (
+        <Pressable onPress={() => Linking.openSettings().catch(() => {})} hitSlop={6}>
+          <Text style={styles.recordatorioApagado}>
+            Prendé las notificaciones para que te recordemos cargar el resultado.
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
 /**
@@ -104,6 +153,7 @@ export default function HistoryScreen({
   onAbrir,
   onCargarResultado,
   onBorrarPartidos,
+  recordatorios,
 }: Props) {
   const { dialogo, preguntar } = useDialogo();
   /**
@@ -388,6 +438,7 @@ export default function HistoryScreen({
                 <Text style={styles.equiposB} numberOfLines={1}>
                   {item.equipoB.map((id) => item.nombres[id]).join(', ')}
                 </Text>
+                <PieDelPartido partido={item} recordatorios={recordatorios} />
                   {cargado || elegidos ? null : (
                     <Button
                       title="Cargar resultado"
@@ -538,6 +589,15 @@ const styles = StyleSheet.create({
   cargar: { marginTop: spacing.md },
   equipos: { color: colors.teamA, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
   equiposB: { color: colors.teamB, fontSize: 12 , fontFamily: 'Barlow_400Regular'},
+  pie: { marginTop: 6, gap: 2 },
+  faltaPlata: { color: colors.aviso, fontSize: 12, fontFamily: 'Barlow_700Bold' },
+  recordatorio: { color: colors.textMuted, fontSize: 12, fontFamily: 'Barlow_400Regular' },
+  recordatorioApagado: {
+    color: colors.aviso,
+    fontSize: 12,
+    fontFamily: 'Barlow_600SemiBold',
+    textDecorationLine: 'underline',
+  },
   dg: { alignItems: 'flex-end', minWidth: 58 },
   dgTitulo: {
     color: colors.textMuted,

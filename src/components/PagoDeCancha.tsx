@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { enPesos, estadoDeLaCancha, quienesPonen, alternarPago } from '../cancha';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  alternarPago,
+  enPesos,
+  estadoDeLaCancha,
+  quienesPonen,
+  textoParaCobrar,
+} from '../cancha';
+import { mandarAlGrupo } from '../mandar';
 import { colors, fuentes, spacing } from '../theme';
 import { Cancha, Partido } from '../types';
 import Panel, { DIAGONAL } from './Angular';
@@ -23,6 +30,8 @@ export default function PagoDeCancha({
   partido,
   onCambiar,
   abierto = true,
+  alias,
+  onAlias,
 }: {
   partido: Partido;
   /** `undefined` es sacar la cancha: borrar el total deja de dividir. */
@@ -33,6 +42,9 @@ export default function PagoDeCancha({
    * o cada partido viejo tendría un campo vacío pidiendo algo.
    */
   abierto?: boolean;
+  /** El alias al que le transfieren al que organiza, si ya lo cargó. */
+  alias?: string;
+  onAlias: (alias: string) => void;
 }) {
   const estado = estadoDeLaCancha(partido);
   const ponen = quienesPonen(partido);
@@ -40,6 +52,28 @@ export default function PagoDeCancha({
   const [texto, setTexto] = useState(estado ? String(estado.total) : '');
 
   const nombre = (id: string) => partido.nombres[id] ?? 'Jugador';
+
+  /*
+   * Pedir la plata: un mensaje al grupo con cuánto pone cada uno, quiénes
+   * faltan y a qué alias. El alias se pregunta la primera vez, ahí mismo, y
+   * queda guardado: preguntarlo en otra pantalla antes sería mandar a la
+   * persona a buscar dónde se configura algo que todavía no sabe que existe.
+   */
+  const [pidiendoAlias, setPidiendoAlias] = useState(false);
+  const [aliasTexto, setAliasTexto] = useState(alias ?? '');
+
+  function cobrar(conAlias: string) {
+    const limpio = conAlias.trim();
+    if (limpio && limpio !== alias) onAlias(limpio);
+    setPidiendoAlias(false);
+    const texto = textoParaCobrar(partido, limpio || undefined);
+    if (texto) mandarAlGrupo(texto);
+  }
+
+  function pedirLaPlata() {
+    if (alias) cobrar(alias);
+    else setPidiendoAlias(true);
+  }
 
   function listo() {
     const total = Number(texto);
@@ -132,6 +166,47 @@ export default function PagoDeCancha({
               );
             })}
           </View>
+
+          {estado.faltan.length === 0 ? null : pidiendoAlias ? (
+            <View style={styles.cobro}>
+              <Text style={styles.ayuda}>
+                ¿A qué alias te transfieren? Lo guardo para la próxima.
+              </Text>
+              <CampoTexto
+                value={aliasTexto}
+                onChangeText={setAliasTexto}
+                placeholder="Por ejemplo, juan.perez.mp"
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={() => cobrar(aliasTexto)}
+              />
+              <Button title="Pedir la plata" onPress={() => cobrar(aliasTexto)} />
+              {alias ? null : (
+                <Pressable onPress={() => cobrar('')} hitSlop={8} style={styles.sinAlias}>
+                  <Text style={styles.cambiar}>Mandar sin alias</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <View style={styles.cobro}>
+              <Button title="Pedir la plata por WhatsApp" variant="ghost" onPress={pedirLaPlata} />
+              {alias ? (
+                <Text style={styles.ayuda}>
+                  Alias: {alias}
+                  {'  ·  '}
+                  <Text
+                    style={styles.cambiar}
+                    onPress={() => {
+                      setAliasTexto(alias);
+                      setPidiendoAlias(true);
+                    }}
+                  >
+                    Cambiar
+                  </Text>
+                </Text>
+              ) : null}
+            </View>
+          )}
         </>
       ) : (
         <View style={styles.fila}>
@@ -187,4 +262,6 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: spacing.md, paddingVertical: 7 },
   chipTexto: { color: colors.text, fontSize: 13, fontFamily: fuentes.semi },
   chipPago: { color: colors.primary, fontFamily: fuentes.bold },
+  cobro: { gap: spacing.sm, marginTop: spacing.xs },
+  sinAlias: { alignSelf: 'center', paddingVertical: 4 },
 });

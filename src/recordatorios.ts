@@ -1,3 +1,4 @@
+import { comoSeLeeElDia, fechaDelDia } from './asistencia';
 import { tieneResultado } from './stats';
 import { Squad } from './types';
 
@@ -44,6 +45,25 @@ export function cuandoRecordar(fechaDelPartido: string): Date | null {
     0,
     0
   );
+}
+
+/**
+ * "Mañana a las 11 te recordamos cargar el resultado." Va en la tarjeta del
+ * partido: un recordatorio que nadie sabe que existe sorprende cuando llega,
+ * y no se puede contar con él. Null si ya no va a llegar.
+ */
+export function avisoDelRecordatorio(fechaDelPartido: string, ahora: Date): string | null {
+  const cuando = cuandoRecordar(fechaDelPartido);
+  if (!cuando || cuando.getTime() <= ahora.getTime()) return null;
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const dias = Math.round(
+    (new Date(cuando.getFullYear(), cuando.getMonth(), cuando.getDate()).getTime() -
+      hoy.getTime()) /
+      86_400_000
+  );
+  const dia =
+    dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `El ${comoSeLeeElDia(fechaDelDia(cuando))}`;
+  return `${dia} a las ${HORA_DEL_RECORDATORIO} te recordamos cargar el resultado.`;
 }
 
 export function recordatoriosPara(

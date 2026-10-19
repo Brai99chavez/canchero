@@ -178,11 +178,17 @@ export function Barra<K extends string>({
 export default function TabBar({
   activa,
   onChange,
+  pendientes = {},
 }: {
   activa: TabKey;
   onChange: (tab: TabKey) => void;
+  /** Lo que hay sin mirar en cada pestaña, como las respuestas nuevas del link. */
+  pendientes?: Partial<Record<TabKey, number>>;
 }) {
-  return <Barra items={TABS} activa={activa} onChange={onChange} />;
+  const items = TABS.map((t) =>
+    pendientes[t.key] ? { ...t, pendientes: pendientes[t.key] } : t
+  );
+  return <Barra items={items} activa={activa} onChange={onChange} />;
 }
 
 /**

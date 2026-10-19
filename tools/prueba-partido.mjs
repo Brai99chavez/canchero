@@ -176,41 +176,126 @@ titulo('el link de "¿quién viene?"');
   const jugador = (id) => ({ id, nombre: id, posicion: 'MED', stats: {} });
   const base = {
     id: 'p1', nombre: 'Los del jueves', llegada: '', actualizado: '',
-    jugadores: ['juan', 'pedro', 'luis', 'ana'].map(jugador), partidos: [], sorteo: null,
-    convocatoria: { formato: 5, seleccionados: ['luis'], usarTodos: false },
+    jugadores: ['pedro', 'juan', 'luis', 'ana', 'sol'].map(jugador), partidos: [], sorteo: null,
+    convocatoria: { formato: 5, seleccionados: ['luis', 'sol'], usarTodos: false },
   };
+  const respuestas = { juan: true, ana: true, luis: false, fantasma: true };
 
-  const p1 = asistencia.aplicarRespuestas(base, 'c1', { juan: true, luis: false, fantasma: true });
-  ok('el que va queda marcado', p1.convocatoria.seleccionados.includes('juan'), p1.convocatoria.seleccionados);
-  ok('el que no va, desmarcado', !p1.convocatoria.seleccionados.includes('luis'));
-  ok('alguien que no está en el plantel no se marca', !p1.convocatoria.seleccionados.includes('fantasma'));
-  ok('sin tocar el original', base.convocatoria.seleccionados.join() === 'luis');
+  const g = asistencia.agruparPorRespuesta(base.jugadores, respuestas);
+  ok('vienen, por nombre', g.vienen.map((j) => j.id).join() === 'ana,juan', g.vienen.map((j) => j.id));
+  ok('no vienen', g.noVienen.map((j) => j.id).join() === 'luis');
+  ok('faltan contestar, por nombre', g.faltan.map((j) => j.id).join() === 'pedro,sol', g.faltan.map((j) => j.id));
+  ok('alguien que no está en el plantel no aparece', ![...g.vienen, ...g.faltan, ...g.noVienen].some((j) => j.id === 'fantasma'));
 
+  const q = asistencia.queFaltaTildar(base.convocatoria.seleccionados, base.jugadores, respuestas);
+  ok('el botón sabe a quién sumar', q.sumar.map((j) => j.id).join() === 'ana,juan', q.sumar.map((j) => j.id));
+  ok('y a quién sacar', q.sacar.map((j) => j.id).join() === 'luis', q.sacar.map((j) => j.id));
+
+  const t = asistencia.tildarLosQueVienen(base, respuestas);
+  const sel = t.convocatoria.seleccionados;
+  ok('tilda a los que vienen', sel.includes('juan') && sel.includes('ana'), sel);
+  ok('destilda a los que no', !sel.includes('luis'), sel);
+  ok('a los que no contestaron no los toca', sel.includes('sol'), sel);
+  ok('ni marca a desconocidos', !sel.includes('fantasma'));
+  ok('sin tocar el original', base.convocatoria.seleccionados.join() === 'luis,sol');
+  ok('si ya está al día, devuelve el mismo plantel', asistencia.tildarLosQueVienen(t, respuestas) === t);
   ok(
-    'sin nada nuevo devuelve el mismo plantel',
-    asistencia.aplicarRespuestas(p1, 'c1', { juan: true, luis: false, fantasma: true }) === p1
+    'después de tildar no queda nada pendiente',
+    asistencia.queFaltaTildar(sel, base.jugadores, respuestas).sumar.length === 0
   );
 
-  // Lo desmarcan a mano: manda eso hasta que Juan cambie su respuesta.
-  const aMano = { ...p1, convocatoria: { ...p1.convocatoria, seleccionados: [] } };
-  const p2 = asistencia.aplicarRespuestas(aMano, 'c1', { juan: true, luis: false, fantasma: true });
-  ok('lo corregido a mano no se pisa', !p2.convocatoria.seleccionados.includes('juan'));
-  const p3 = asistencia.aplicarRespuestas(p2, 'c1', { juan: false, luis: false });
-  const p4 = asistencia.aplicarRespuestas(p3, 'c1', { juan: true, luis: false });
-  ok('hasta que cambia de respuesta', p4.convocatoria.seleccionados.includes('juan'), p4.convocatoria.seleccionados);
+  ok('sin haber mirado, todas son nuevas', asistencia.respuestasNuevas(base, 'c1', respuestas) === 3);
+  const visto = asistencia.marcarVistas(base, 'c1', respuestas);
+  ok('después de mirar, ninguna', asistencia.respuestasNuevas(visto, 'c1', respuestas) === 0);
+  ok('mirar no tilda a nadie', visto.convocatoria.seleccionados.join() === 'luis,sol');
+  ok('marcar dos veces devuelve el mismo plantel', asistencia.marcarVistas(visto, 'c1', respuestas) === visto);
+  ok(
+    'una respuesta que cambia cuenta como nueva',
+    asistencia.respuestasNuevas(visto, 'c1', { ...respuestas, luis: true }) === 1
+  );
+  ok('un link nuevo empieza de cero', asistencia.respuestasNuevas(visto, 'c2', respuestas) === 3);
 
-  const nuevo = asistencia.aplicarRespuestas(aMano, 'c2', { juan: true });
-  ok('un link nuevo empieza de cero', nuevo.convocatoria.seleccionados.includes('juan'));
-  ok('y se acuerda de cuál es', nuevo.convocatoria.asistencia.codigo === 'c2');
+  const partidoArmado = partido({
+    equipoA: ['juan', 'luis'], equipoB: ['sol'], banco: [],
+    nombres: { juan: 'Juan', luis: 'Luis', sol: 'Sol' },
+  });
+  const n = asistencia.novedadesDelPartido(partidoArmado, respuestas, base.jugadores);
+  ok('marca al que se bajó del partido', n.seBajaron.join() === 'Luis', n.seBajaron);
+  ok('y al que viene pero no está en los equipos', n.quierenJugar.join() === 'ana', n.quierenJugar);
 
-  const r = asistencia.resumenDeRespuestas(base.jugadores, { juan: true, pedro: true, luis: false, fantasma: true });
-  ok('cuenta sólo a los del plantel', r.van === 2 && r.noVan === 1 && r.faltan === 1, r);
+  ok('una lista de uno', asistencia.enLista(['Juan']) === 'Juan');
+  ok('una lista de varios', asistencia.enLista(['Pedro', 'Tomi', 'Fede']) === 'Pedro, Tomi y Fede');
 
   ok('el día que viaja', asistencia.fechaDelDia(new Date(2026, 9, 5, 23, 30)) === '2026-10-05');
   ok('cómo se lee', asistencia.comoSeLeeElDia('2026-10-25') === 'domingo 25 de octubre');
+
+  const jueves = asistencia.atajosDeDia(new Date(2026, 9, 22, 18));
+  ok(
+    'un jueves ofrece hoy, mañana, sábado y domingo',
+    jueves.map((a) => a.etiqueta).join() === 'Hoy,Mañana,Sáb 24,Dom 25',
+    jueves.map((a) => a.etiqueta)
+  );
+  const viernes = asistencia.atajosDeDia(new Date(2026, 9, 23, 18));
+  ok(
+    'un viernes no repite el sábado de mañana, ni ofrece el de la otra semana',
+    viernes.map((a) => a.etiqueta).join() === 'Hoy,Mañana,Dom 25',
+    viernes.map((a) => a.etiqueta)
+  );
+  ok('los atajos arrancan a la medianoche', jueves[0].dia.getHours() === 0);
+
+  const ahora = new Date(2026, 9, 22, 18).getTime();
+  ok('recién', asistencia.hace(ahora - 20_000, ahora) === 'recién');
+  ok('hace 3 min', asistencia.hace(ahora - 3 * 60_000, ahora) === 'hace 3 min');
+  ok('hace 2 h', asistencia.hace(ahora - 125 * 60_000, ahora) === 'hace 2 h');
+
   const texto = asistencia.textoDeInvitacion('2026-10-25', 'https://x/v/abc');
-  ok('el mensaje lleva el día y el link', texto.includes('domingo 25 de octubre') && texto.endsWith('https://x/v/abc'), texto);
+  ok('la invitación lleva el día y el link', texto.includes('domingo 25 de octubre') && texto.endsWith('https://x/v/abc'), texto);
+  const faltan = asistencia.textoParaLosQueFaltan('2026-10-25', ['Pedro', 'Sol'], 'https://x/v/abc');
+  ok('el recordatorio nombra a los que faltan', faltan.startsWith('Faltan contestar Pedro y Sol para el fútbol del domingo 25 de octubre'), faltan);
 }
+
+// ------------------------------------------------- pedir la plata
+titulo('pedir la plata');
+{
+  const p = partido({
+    fecha: new Date(2026, 9, 25, 20).toISOString(),
+    equipoA: ['a1', 'a2'], equipoB: ['b1'], banco: [],
+    nombres: { a1: 'Juan', a2: 'Pedro', b1: 'Ana' },
+    cancha: { total: 30000, pagaron: ['a1'] },
+  });
+  const texto = cancha.textoParaCobrar(p, 'juan.mp');
+  ok('dice cuánto pone cada uno', texto.includes('$10.000 cada uno'), texto);
+  ok('el día del partido', texto.includes('domingo 25 de octubre'), texto);
+  ok('nombra a los que faltan', texto.includes('Faltan pagar Pedro y Ana'), texto);
+  ok('y el alias', texto.endsWith('Alias: juan.mp'), texto);
+  ok('sin alias, no lo inventa', !cancha.textoParaCobrar(p).includes('Alias'));
+  const uno = cancha.textoParaCobrar({ ...p, cancha: { total: 30000, pagaron: ['a1', 'a2'] } });
+  ok('si falta uno solo, en singular', uno.includes('Falta pagar Ana.'), uno);
+  ok('si pagaron todos, no hay nada que pedir', cancha.textoParaCobrar({ ...p, cancha: { total: 30000, pagaron: ['a1', 'a2', 'b1'] } }) === null);
+  ok('sin cancha, tampoco', cancha.textoParaCobrar(partido()) === null);
+}
+
+// ------------------------------------------------- avisar el recordatorio
+titulo('avisar que va a llegar el recordatorio');
+{
+  const sabado = new Date(2026, 9, 24, 20).toISOString();
+  ok(
+    'el mismo día del partido: mañana',
+    recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 24, 12)) === 'Mañana a las 11 te recordamos cargar el resultado.',
+    recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 24, 12))
+  );
+  ok(
+    'a la mañana siguiente, antes de las 11: hoy',
+    recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 25, 8)) === 'Hoy a las 11 te recordamos cargar el resultado.'
+  );
+  ok(
+    'con días de anticipación, el día escrito',
+    recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 21, 8)) === 'El domingo 25 de octubre a las 11 te recordamos cargar el resultado.',
+    recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 21, 8))
+  );
+  ok('si ya pasó, nada', recordatorios.avisoDelRecordatorio(sabado, new Date(2026, 9, 25, 12)) === null);
+}
+
 
 console.log(fallos === 0 ? '\nTodo bien.' : `\n${fallos} mal.`);
 process.exit(fallos === 0 ? 0 : 1);

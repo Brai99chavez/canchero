@@ -140,13 +140,15 @@ function sanitizeConvocatoria(raw: any): Convocatoria {
 
 function sanitizeAsistencia(raw: any): Convocatoria['asistencia'] {
   if (typeof raw?.codigo !== 'string') return undefined;
-  const respuestas: Record<string, boolean> = {};
-  if (raw.respuestas && typeof raw.respuestas === 'object') {
-    for (const [id, va] of Object.entries(raw.respuestas)) {
-      if (typeof va === 'boolean') respuestas[id] = va;
+  const vistas: Record<string, boolean> = {};
+  // `respuestas` es como se llamaba en la primera versión, la del 19/10.
+  const guardadas = raw.vistas ?? raw.respuestas;
+  if (guardadas && typeof guardadas === 'object') {
+    for (const [id, va] of Object.entries(guardadas)) {
+      if (typeof va === 'boolean') vistas[id] = va;
     }
   }
-  return { codigo: raw.codigo, respuestas };
+  return { codigo: raw.codigo, vistas };
 }
 
 function sanitizeSorteo(raw: any): Sorteo | null {
@@ -214,6 +216,10 @@ export function sanitizePlantel(raw: any, indice: number): Squad | null {
     sorteo: sanitizeSorteo(raw.sorteo),
     // Ante la duda, apagado: es lo que casi nadie quiere llenar.
     detalle: raw.detalle === true,
+    alias:
+      typeof raw.alias === 'string' && raw.alias.trim()
+        ? raw.alias.trim().slice(0, 60)
+        : undefined,
     // Ante la duda, que no volvió: un aviso de más al borrar asusta sin
     // motivo, y uno de menos borra algo para siempre sin avisar.
     yaVolvio: raw.yaVolvio === true,
