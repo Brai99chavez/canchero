@@ -22,16 +22,29 @@ import { Presionable } from '../components/motion';
 import CampoTexto from '../components/CampoTexto';
 import HeaderModal from '../components/HeaderModal';
 import { Etiqueta } from '../components/Banner';
-import { Button } from '../components/ui';
+import { Button, PositionPill } from '../components/ui';
 import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import EditarEquiposModal from './EditarEquiposModal';
 import { colors, spacing } from '../theme';
-import { tieneResultado } from '../stats';
-import { Actuacion, Partido, TeamSplit } from '../types';
+import { reparto, tieneResultado } from '../stats';
+import {
+  Actuacion,
+  overall,
+  Partido,
+  Player,
+  POSITIONS,
+  TeamSplit,
+} from '../types';
 
 interface Props {
   visible: boolean;
   partido: Partido | null;
+  /**
+   * Cómo se abre un partido que todavía no tiene resultado: con la lista de
+   * los que juegan, que es lo que se busca al entrar, o directo a cargar el
+   * resultado, que es lo que pide el botón de la tarjeta en Activos.
+   */
+  abrirEn: 'jugadores' | 'resultado';
   /** Si se piden los goles y asistencias de cada uno. Es del plantel. */
   detalle: boolean;
   onDetalle: (valor: boolean) => void;
@@ -140,8 +153,12 @@ function Contador({
  * Un partido del historial ya pasó: entrar a mirarlo es lo normal y
  * corregirlo la excepción. Antes se abría con todos los campos listos para
  * escribir, y un roce sin querer cambiaba un marcador que ya estaba bien.
+ *
+ * Con uno activo pasaba algo parecido: se abría directo en el marcador, y lo
+ * que uno busca al entrar a un partido que todavía no se jugó es quiénes
+ * juegan. Ahora abre en `jugadores`, y el marcador está a un botón.
  */
-type Modo = 'lectura' | 'edicion';
+type Modo = 'jugadores' | 'lectura' | 'edicion';
 
 /** Un aporte ya cargado. Ocupa lo mismo que el campo, así no salta al editar. */
 function Dato({ valor }: { valor: number }) {
@@ -155,6 +172,7 @@ function Dato({ valor }: { valor: number }) {
 export default function MatchResultModal({
   visible,
   partido,
+  abrirEn,
   detalle,
   onDetalle,
   split,
@@ -180,6 +198,11 @@ export default function MatchResultModal({
   const [dia, setDia] = useState(() => new Date());
   const [eligiendoDia, setEligiendoDia] = useState(false);
   const [editandoEquipos, setEditandoEquipos] = useState(false);
+  /**
+   * Si al resultado se llegó desde la lista de jugadores. Decide adónde lleva
+   * «Volver»: a esa lista, y no afuera del partido.
+   */
+  const [desdeJugadores, setDesdeJugadores] = useState(false);
 
   /** Vuelve a poner en pantalla lo que está guardado, tirando los cambios. */
   const reiniciar = useCallback(() => {
@@ -223,10 +246,17 @@ export default function MatchResultModal({
     preparado.current = partido.id;
 
     reiniciar();
-    // El que ya tiene resultado se abre para mirar; el que no, para cargarlo,
-    // que es justo lo que se venía a hacer desde la lista de activos.
-    setModo(tieneResultado(partido) ? 'lectura' : 'edicion');
-  }, [visible, partido, reiniciar]);
+    // El que ya tiene resultado se abre para mirar; el que no, con quiénes
+    // juegan, salvo que se haya pedido cargar el resultado.
+    setModo(
+      tieneResultado(partido)
+        ? 'lectura'
+        : abrirEn === 'resultado'
+        ? 'edicion'
+        : 'jugadores'
+    );
+    setDesdeJugadores(false);
+  }, [visible, partido, reiniciar, abrirEn]);
 
   /**
    * El golpe del número cuando cambia el marcador.
@@ -476,15 +506,79 @@ export default function MatchResultModal({
     </View>
   );
 
+  const mediaDe = (p: Player) => medias[p.id] ?? overall(p);
+
+  /**
+   * Los de un equipo, ordenados como se paran: del arco para adelante y,
+   * dentro de cada puesto, de mayor a menor. Es como se lee una formación.
+   */
+  const equipo = (
+    titulo: string,
+    color: string,
+    jugadores: Player[],
+    conMedia = true
+  ) => (
+    <View style={styles.bloque}>
+      <View style={styles.bloqueTitulo}>
+        <View style={[styles.punto, { backgroundColor: color }]} />
+        <View style={styles.bloqueNombre}>
+          <Etiqueta color={color}>{titulo}</Etiqueta>
+        </View>
+        {/* En el banco no significa nada: no juegan juntos. */}
+        {conMedia && jugadores.length > 0 ? (
+          <Text style={styles.encabezado}>
+            Media{' '}
+            {Math.round(
+              jugadores.reduce((acc, p) => acc + mediaDe(p), 0) /
+                jugadores.length
+            )}
+          </Text>
+        ) : null}
+      </View>
+      {jugadores
+        .slice()
+        .sort(
+          (a, b) =>
+            POSITIONS.indexOf(a.posicion) - POSITIONS.indexOf(b.posicion) ||
+            mediaDe(b) - mediaDe(a)
+        )
+        .map((p) => (
+          <Panel
+            key={p.id}
+            style={styles.fila}
+            esquinas={DIAGONAL}
+            chaflan={9}
+            fondo={colors.surface}
+            borde={colors.border}
+          >
+            <Text style={styles.nombre} numberOfLines={1}>
+              {p.nombre}
+            </Text>
+            <PositionPill position={p.posicion} />
+            <Text style={styles.mediaJugador}>{mediaDe(p)}</Text>
+          </Panel>
+        ))}
+    </View>
+  );
+
+  /*
+   * «Volver» desde el resultado lleva a la lista de jugadores si se vino de
+   * ahí, y lo que se había empezado a cargar queda: no está guardado, pero
+   * tampoco se tira por mirar quiénes jugaban. El botón de atrás del teléfono
+   * hace lo mismo que el de la pantalla.
+   */
+  const volver =
+    editando && desdeJugadores ? () => setModo('jugadores') : onClose;
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={volver}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <HeaderModal
-            titulo="Resultado"
+            titulo={modo === 'jugadores' ? 'Partido' : 'Resultado'}
             izquierda={
               editando && yaEstaba
                 ? {
@@ -496,7 +590,7 @@ export default function MatchResultModal({
                       setModo('lectura');
                     },
                   }
-                : { label: 'Volver', onPress: onClose }
+                : { label: 'Volver', onPress: volver }
             }
             /*
              * Compartir se queda con el lugar de arriba, y completar baja al
@@ -516,174 +610,203 @@ export default function MatchResultModal({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
-            <View style={styles.marcador}>
-              <View style={styles.marcadorLado}>
-                <Text style={[styles.marcadorEquipo, { color: colors.teamA }]}>
-                  Equipo A
-                </Text>
-                {editando ? (
-                  <>
-                    <Animated.View style={escalaDe(pulsoA)}>
-                      <CampoTexto
-                        value={golesA}
-                        onChangeText={(t) => {
-                          setTocado((prev) => ({ ...prev, a: true }));
-                          setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
-                        }}
-                        keyboardType="number-pad"
-                        selectTextOnFocus
-                        contenedor={styles.marcadorCaja}
-                        style={styles.marcadorInput}
-                        placeholder="0"
-                      />
-                    </Animated.View>
-                    <View style={styles.pasos}>
-                      <Paso signo="−" onPress={() => cambiarGol('a', -1)} />
-                      <Paso signo="+" onPress={() => cambiarGol('a', 1)} />
-                    </View>
-                  </>
-                ) : (
-                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
-                    {numero(golesA)}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.guion}>—</Text>
-              <View style={styles.marcadorLado}>
-                <Text style={[styles.marcadorEquipo, { color: colors.teamB }]}>
-                  Equipo B
-                </Text>
-                {editando ? (
-                  <>
-                    <Animated.View style={escalaDe(pulsoB)}>
-                      <CampoTexto
-                        value={golesB}
-                        onChangeText={(t) => {
-                          setTocado((prev) => ({ ...prev, b: true }));
-                          setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
-                        }}
-                        keyboardType="number-pad"
-                        selectTextOnFocus
-                        contenedor={styles.marcadorCaja}
-                        style={styles.marcadorInput}
-                        placeholder="0"
-                      />
-                    </Animated.View>
-                    <View style={styles.pasos}>
-                      <Paso signo="−" onPress={() => cambiarGol('b', -1)} />
-                      <Paso signo="+" onPress={() => cambiarGol('b', 1)} />
-                    </View>
-                  </>
-                ) : (
-                  <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
-                    {numero(golesB)}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/*
-              El día también se corrige acá: si el partido se guardó con la
-              fecha equivocada, este es el único lugar donde se puede arreglar.
-            */}
-            {editando ? (
-              <Pressable onPress={() => setEligiendoDia(true)}>
-              <Panel
-                  style={styles.dia}
-                  esquinas={DIAGONAL}
-                  chaflan={9}
-                  fondo={colors.primary}
-                  opacidadFondo={0.1}
-                  borde={colors.primary}
-                  grosor={1.5}
-                >
-                  <CalendarIcon color={colors.primary} size={20} />
-                  <View style={styles.diaTextos}>
-                    <Text style={styles.diaRotulo}>Fecha</Text>
-                    <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
-                  </View>
-                  <Text style={styles.diaCambiar}>Cambiar</Text>
-                </Panel>
-              </Pressable>
-            ) : null}
-
-            <SelectorFecha
-              visible={eligiendoDia}
-              valor={dia}
-              onElegir={(elegida) => {
-                setDia(elegida);
-                setEligiendoDia(false);
-              }}
-              onClose={() => setEligiendoDia(false)}
-            />
-
-            {editando ? (
-              <Text style={styles.ayuda}>
-                Con el marcador alcanza: así se cuentan las victorias, las
-                rachas y el nivel de cada uno. Al completar, el partido pasa al
-                historial.
-              </Text>
-            ) : (
-              <Text style={styles.ayuda}>
-                Este partido ya está jugado. Tocá EDITAR RESULTADO abajo si hay
-                algo que corregir.
-              </Text>
-            )}
-
-            {/*
-              Apagado, que es como está casi siempre: en un picado nadie lleva
-              la cuenta de quién metió cada gol. El que sí la lleva lo prende
-              una vez y le queda prendido para ese plantel.
-            */}
-            {editando ? (
-              <View style={styles.switchRow}>
-                <View style={styles.switchTexto}>
-                  <Text style={styles.switchTitulo}>
-                    Cargar el detalle del partido
-                  </Text>
-                  <Text style={styles.ayuda}>
-                    Opcional. Quién hizo los goles y las asistencias, y si
-                    alguno al final no jugó.
+            {modo === 'jugadores' ? (
+              <>
+                <View style={styles.resumen}>
+                  <CalendarIcon color={colors.textMuted} size={18} />
+                  <Text style={styles.resumenFecha}>{comoSeLee(dia)}</Text>
+                  <Text style={styles.resumenReparto}>
+                    {reparto(partido.equipoA.length, partido.equipoB.length)}
                   </Text>
                 </View>
-                <Switch
-                  value={detalle}
-                  onValueChange={onDetalle}
-                  trackColor={{
-                    false: colors.surfaceAlt,
-                    true: colors.primaryDark,
-                  }}
-                  thumbColor={detalle ? colors.primary : colors.textMuted}
-                />
-              </View>
-            ) : null}
 
-            {detalle ? (
+                <Text style={styles.ayuda}>
+                  Cuando terminen de jugar, tocá CARGAR RESULTADO. Si alguien
+                  no viene, cambialo con EDITAR EQUIPOS.
+                </Text>
+
+                {split ? (
+                  <>
+                    {equipo('Equipo A', colors.teamA, split.teamA)}
+                    {equipo('Equipo B', colors.teamB, split.teamB)}
+                    {split.bench.length > 0
+                      ? equipo('Suplentes', colors.textMuted, split.bench, false)
+                      : null}
+                  </>
+                ) : null}
+              </>
+            ) : (
               <>
+                <View style={styles.marcador}>
+                  <View style={styles.marcadorLado}>
+                    <Text style={[styles.marcadorEquipo, { color: colors.teamA }]}>
+                      Equipo A
+                    </Text>
+                    {editando ? (
+                      <>
+                        <Animated.View style={escalaDe(pulsoA)}>
+                          <CampoTexto
+                            value={golesA}
+                            onChangeText={(t) => {
+                              setTocado((prev) => ({ ...prev, a: true }));
+                              setGolesA(t.replace(/[^0-9]/g, '').slice(0, 2));
+                            }}
+                            keyboardType="number-pad"
+                            selectTextOnFocus
+                            contenedor={styles.marcadorCaja}
+                            style={styles.marcadorInput}
+                            placeholder="0"
+                          />
+                        </Animated.View>
+                        <View style={styles.pasos}>
+                          <Paso signo="−" onPress={() => cambiarGol('a', -1)} />
+                          <Paso signo="+" onPress={() => cambiarGol('a', 1)} />
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                        {numero(golesA)}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.guion}>—</Text>
+                  <View style={styles.marcadorLado}>
+                    <Text style={[styles.marcadorEquipo, { color: colors.teamB }]}>
+                      Equipo B
+                    </Text>
+                    {editando ? (
+                      <>
+                        <Animated.View style={escalaDe(pulsoB)}>
+                          <CampoTexto
+                            value={golesB}
+                            onChangeText={(t) => {
+                              setTocado((prev) => ({ ...prev, b: true }));
+                              setGolesB(t.replace(/[^0-9]/g, '').slice(0, 2));
+                            }}
+                            keyboardType="number-pad"
+                            selectTextOnFocus
+                            contenedor={styles.marcadorCaja}
+                            style={styles.marcadorInput}
+                            placeholder="0"
+                          />
+                        </Animated.View>
+                        <View style={styles.pasos}>
+                          <Paso signo="−" onPress={() => cambiarGol('b', -1)} />
+                          <Paso signo="+" onPress={() => cambiarGol('b', 1)} />
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={[styles.marcadorInput, styles.marcadorFijo]}>
+                        {numero(golesB)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/*
+                  El día también se corrige acá: si el partido se guardó con la
+                  fecha equivocada, este es el único lugar donde se puede arreglar.
+                */}
                 {editando ? (
-                  <Text style={styles.ayuda}>
-                    Dejá en blanco lo que no tengas. Si alguien al final no
-                    jugó, sacalo con la × y deja de contar. Y mientras no
-                    toques el marcador, se completa solo con lo que cargues.
-                  </Text>
+                  <Pressable onPress={() => setEligiendoDia(true)}>
+                  <Panel
+                      style={styles.dia}
+                      esquinas={DIAGONAL}
+                      chaflan={9}
+                      fondo={colors.primary}
+                      opacidadFondo={0.1}
+                      borde={colors.primary}
+                      grosor={1.5}
+                    >
+                      <CalendarIcon color={colors.primary} size={20} />
+                      <View style={styles.diaTextos}>
+                        <Text style={styles.diaRotulo}>Fecha</Text>
+                        <Text style={styles.diaValor}>{comoSeLee(dia)}</Text>
+                      </View>
+                      <Text style={styles.diaCambiar}>Cambiar</Text>
+                    </Panel>
+                  </Pressable>
                 ) : null}
 
-                {filas(
-                  partido.equipoA,
-                  'Equipo A',
-                  colors.teamA,
-                  sumaA,
-                  numero(golesA)
+                <SelectorFecha
+                  visible={eligiendoDia}
+                  valor={dia}
+                  onElegir={(elegida) => {
+                    setDia(elegida);
+                    setEligiendoDia(false);
+                  }}
+                  onClose={() => setEligiendoDia(false)}
+                />
+
+                {editando ? (
+                  <Text style={styles.ayuda}>
+                    Con el marcador alcanza: así se cuentan las victorias, las
+                    rachas y el nivel de cada uno. Al completar, el partido pasa al
+                    historial.
+                  </Text>
+                ) : (
+                  <Text style={styles.ayuda}>
+                    Este partido ya está jugado. Tocá EDITAR RESULTADO abajo si hay
+                    algo que corregir.
+                  </Text>
                 )}
-                {filas(
-                  partido.equipoB,
-                  'Equipo B',
-                  colors.teamB,
-                  sumaB,
-                  numero(golesB)
-                )}
+
+                {/*
+                  Apagado, que es como está casi siempre: en un picado nadie lleva
+                  la cuenta de quién metió cada gol. El que sí la lleva lo prende
+                  una vez y le queda prendido para ese plantel.
+                */}
+                {editando ? (
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTexto}>
+                      <Text style={styles.switchTitulo}>
+                        Cargar el detalle del partido
+                      </Text>
+                      <Text style={styles.ayuda}>
+                        Opcional. Quién hizo los goles y las asistencias, y si
+                        alguno al final no jugó.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={detalle}
+                      onValueChange={onDetalle}
+                      trackColor={{
+                        false: colors.surfaceAlt,
+                        true: colors.primaryDark,
+                      }}
+                      thumbColor={detalle ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+                ) : null}
+
+                {detalle ? (
+                  <>
+                    {editando ? (
+                      <Text style={styles.ayuda}>
+                        Dejá en blanco lo que no tengas. Si alguien al final no
+                        jugó, sacalo con la × y deja de contar. Y mientras no
+                        toques el marcador, se completa solo con lo que cargues.
+                      </Text>
+                    ) : null}
+
+                    {filas(
+                      partido.equipoA,
+                      'Equipo A',
+                      colors.teamA,
+                      sumaA,
+                      numero(golesA)
+                    )}
+                    {filas(
+                      partido.equipoB,
+                      'Equipo B',
+                      colors.teamB,
+                      sumaB,
+                      numero(golesB)
+                    )}
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </ScrollView>
 
           <EstampaOculta referencia={estampa} split={split} plantel={plantel} />
@@ -707,7 +830,15 @@ export default function MatchResultModal({
               />
             </View>
             <View style={styles.mitad}>
-              {editando ? (
+              {modo === 'jugadores' ? (
+                <Button
+                  title="Cargar resultado"
+                  onPress={() => {
+                    setDesdeJugadores(true);
+                    setModo('edicion');
+                  }}
+                />
+              ) : editando ? (
                 <Button
                   title={yaEstaba ? 'Guardar' : 'Completar'}
                   onPress={handleGuardar}
@@ -755,6 +886,25 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   marcadorLado: { alignItems: 'center', gap: spacing.sm },
+  resumen: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  resumenFecha: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 16,
+    fontFamily: 'Barlow_800ExtraBold',
+  },
+  resumenReparto: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontFamily: 'Barlow_700Bold',
+  },
+  mediaJugador: {
+    width: 26,
+    textAlign: 'right',
+    color: colors.textMuted,
+    fontSize: 14,
+    fontFamily: 'Barlow_700Bold',
+  },
   // Los dos botones juntos miden lo mismo que el marcador de arriba: así la
   // columna de cada equipo es un bloque y no tres cosas de anchos distintos.
   pasos: { flexDirection: 'row', gap: spacing.sm },

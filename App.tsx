@@ -206,6 +206,10 @@ function Root() {
 
   const [teamsVisible, setTeamsVisible] = useState(false);
   const [resultadoId, setResultadoId] = useState<string | null>(null);
+  /** Si el partido abierto muestra primero los jugadores o el resultado. */
+  const [abrirEn, setAbrirEn] = useState<'jugadores' | 'resultado'>(
+    'jugadores'
+  );
   const [guia, setGuia] = useState<EstadoGuia>({ activa: false, vistos: [] });
   const [sesion, setSesion] = useState<Sesion | null>(null);
   /** Si ya se preguntó si había una sesión guardada. Antes no se sabe nada. */
@@ -1532,7 +1536,14 @@ function Root() {
             partidos={partidos}
             ajustes={ajustes}
             vista={tab}
-            onCargarResultado={(partido) => setResultadoId(partido.id)}
+            onAbrir={(partido) => {
+              setAbrirEn('jugadores');
+              setResultadoId(partido.id);
+            }}
+            onCargarResultado={(partido) => {
+              setAbrirEn('resultado');
+              setResultadoId(partido.id);
+            }}
             onBorrarPartidos={handleBorrarPartidos}
           />
         ) : tab === 'plantel' ? (
@@ -1658,6 +1669,7 @@ function Root() {
       <MatchResultModal
         visible={resultadoId !== null}
         partido={abierto}
+        abrirEn={abrirEn}
         split={equiposDelAbierto}
         plantel={activo?.nombre ?? 'Plantel'}
         medias={medias}

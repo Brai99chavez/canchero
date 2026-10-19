@@ -29,6 +29,9 @@ interface Props {
   ajustes: Record<string, Ajuste>;
   /** Qué mirar: lo elige la barra de abajo, que tiene una pestaña por vista. */
   vista: Pestania;
+  /** Entra al partido: con quiénes juegan si está activo, o a mirarlo. */
+  onAbrir: (partido: Partido) => void;
+  /** Directo a cargar el marcador, sin pasar por la lista de jugadores. */
   onCargarResultado: (partido: Partido) => void;
   onBorrarPartidos: (ids: string[]) => void;
 }
@@ -98,6 +101,7 @@ export default function HistoryScreen({
   partidos,
   ajustes,
   vista,
+  onAbrir,
   onCargarResultado,
   onBorrarPartidos,
 }: Props) {
@@ -355,9 +359,7 @@ export default function HistoryScreen({
             const marcado = elegidos?.has(item.id) ?? false;
             return (
               <Pressable
-                onPress={() =>
-                  elegidos ? alternar(item.id) : onCargarResultado(item)
-                }
+                onPress={() => (elegidos ? alternar(item.id) : onAbrir(item))}
                 // Mantener apretado entra al modo con ese ya marcado, que es
                 // el atajo que espera cualquiera que borró algo en el celular.
                 onLongPress={() => setElegidos(new Set([item.id]))}
