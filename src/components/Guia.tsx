@@ -57,12 +57,16 @@ const PASOS: { id: PasoGuia; titulo: string; texto: string }[] = [
   {
     id: 'ir-a-partido',
     titulo: 'Ahora el partido',
-    texto: 'Pasá a PARTIDO para elegir el formato y quiénes vienen hoy.',
+    texto:
+      'Pasá a PARTIDO. Ahí le preguntás al grupo quién viene, elegís el ' +
+      'formato y armás los equipos.',
   },
   {
     id: 'convocar',
     titulo: 'Tildá a los que juegan',
-    texto: 'Tocá a cada uno que viene. Los que no, quedan afuera del sorteo.',
+    texto:
+      'Tocá a cada uno que viene. O tocá PREGUNTAR AL GRUPO: cada uno se ' +
+      'anota desde WhatsApp y después los tildás a todos con un toque.',
   },
   {
     id: 'armar-equipos',
@@ -189,6 +193,8 @@ export function ZonaGuia({
   const raiz = useRef<View>(null);
   const [zona, setZona] = useState<Recuadro | null>(null);
   const [alto, setAlto] = useState(0);
+  /** Cuánto mide el cartel, para que entre entero en la pantalla. */
+  const [altoGlobo, setAltoGlobo] = useState(0);
   const anim = useRef(new Animated.Value(0)).current;
 
   const mio = activo ? registro.get(activo)?.zonaId === zonaId : false;
@@ -242,6 +248,21 @@ export function ZonaGuia({
   const margen = 8;
   // Con el objetivo abajo, el cartel va arriba: si no, cae fuera de la caja.
   const arriba = zona && alto > 0 ? zona.y > alto * 0.5 : false;
+  /*
+   * Y nunca cortado. Con un objetivo alto —la lista de convocados ocupa casi
+   * toda la pantalla— no entra ni arriba ni abajo, y quedaba con la mitad
+   * afuera, SKIP TUTORIAL incluido: la única salida del tutorial, invisible.
+   * Ahí se queda pegado al borde de abajo, encima del objetivo.
+   */
+  const topDeseado = zona
+    ? arriba
+      ? zona.y - margen - 14 - altoGlobo
+      : zona.y + zona.height + margen + 14
+    : 0;
+  const topGlobo =
+    alto > 0 && altoGlobo > 0
+      ? Math.max(spacing.lg, Math.min(topDeseado, alto - altoGlobo - spacing.lg))
+      : topDeseado;
 
   return (
     <ZonaContexto.Provider value={{ zonaId, raiz }}>
@@ -295,9 +316,7 @@ export function ZonaGuia({
             <Animated.View
               style={[
                 styles.globo,
-                arriba
-                  ? { bottom: alto - zona.y + margen + 14 }
-                  : { top: zona.y + zona.height + margen + 14 },
+                { top: topGlobo },
                 {
                   opacity: anim,
                   transform: [
@@ -310,6 +329,7 @@ export function ZonaGuia({
                   ],
                 },
               ]}
+              onLayout={(e) => setAltoGlobo(e.nativeEvent.layout.height)}
             >
               <Text style={styles.paso}>
                 PASO {indice + 1} DE {PASOS.length}

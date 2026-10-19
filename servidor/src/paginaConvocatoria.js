@@ -101,6 +101,14 @@ text-align:left;font-size:16px;font-weight:600;display:flex;justify-content:spac
 .cambiar{background:none;color:var(--verde);font-weight:800;font-size:13px;text-transform:uppercase;
 letter-spacing:.5px;padding:12px 0 0}
 .aviso{margin:12px 0 0;font-weight:700}
+.confirmado{text-align:center}
+.tilde{width:64px;height:64px;border-radius:50%;margin:4px auto 12px;display:flex;align-items:center;
+justify-content:center;font-size:34px;font-weight:900}
+.tilde.va{background:linear-gradient(90deg,#5BF5A5,#2FD9E8);color:var(--sobre)}
+.tilde.nova{background:var(--rojo);color:#2A0B0B}
+.listo{font-family:Anton,Impact,sans-serif;font-size:28px;line-height:1.15;margin:0 0 6px}
+.volver{width:100%;margin-top:6px}
+.acciones{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .lista{margin:0 0 12px;line-height:1.5}.lista b{font-weight:800}
 .pie{color:var(--gris);font-size:12px;text-align:center;margin-top:28px}
 `;
@@ -122,6 +130,9 @@ const SCRIPT = `
   var yo = null;
   var aviso = '';
   var enviando = false;
+  // Con una respuesta ya dada se muestra la confirmación. Esto es para
+  // cuando tocó "Cambiar mi respuesta" y quiere ver los botones de nuevo.
+  var cambiando = false;
   try { yo = localStorage.getItem(CLAVE); } catch (e) {}
   if (yo && !nombreDe(yo)) yo = null;
 
@@ -140,6 +151,7 @@ const SCRIPT = `
   function soy(id) {
     yo = id;
     aviso = '';
+    cambiando = false;
     try { id ? localStorage.setItem(CLAVE, id) : localStorage.removeItem(CLAVE); } catch (e) {}
     pintar();
     window.scrollTo(0, 0);
@@ -158,7 +170,8 @@ const SCRIPT = `
       .then(function (x) {
         if (!x.ok) throw new Error(x.j && x.j.error);
         respuestas = x.j.respuestas;
-        aviso = va ? '¡Listo! Quedaste anotado.' : 'Listo, quedó avisado que no venís.';
+        cambiando = false;
+        window.scrollTo(0, 0);
       })
       .catch(function (e) {
         aviso = (e && e.message) || 'No se pudo guardar. Probá de nuevo.';
@@ -183,6 +196,10 @@ const SCRIPT = `
       caja.appendChild(grilla);
       return;
     }
+    if (respuestas[yo] !== undefined && !cambiando) {
+      pintarConfirmacion(caja);
+      return;
+    }
     var p = nodo('p', 'yo', 'Sos ');
     p.appendChild(nodo('b', null, nombreDe(yo)));
     caja.appendChild(p);
@@ -200,10 +217,56 @@ const SCRIPT = `
     botones.appendChild(no);
     caja.appendChild(botones);
     if (aviso) caja.appendChild(nodo('p', 'aviso', aviso));
+    var acciones = nodo('div', 'acciones');
+    if (cambiando) {
+      var dejar = nodo('button', 'cambiar', 'Dejarlo como estaba');
+      dejar.type = 'button';
+      dejar.addEventListener('click', function () { cambiando = false; pintar(); });
+      acciones.appendChild(dejar);
+    }
     var otro = nodo('button', 'cambiar', 'No soy ' + nombreDe(yo));
     otro.type = 'button';
     otro.addEventListener('click', function () { soy(null); });
-    caja.appendChild(otro);
+    acciones.appendChild(otro);
+    caja.appendChild(acciones);
+  }
+  /*
+   * Lo que ve después de contestar, y también si vuelve a abrir el link: que
+   * quedó anotado, para qué día, y cómo volver. Antes la respuesta se
+   * guardaba con un renglón chico abajo de los botones y parecía que no había
+   * pasado nada.
+   */
+  function pintarConfirmacion(caja) {
+    var va = respuestas[yo] === true;
+    var bloque = nodo('div', 'confirmado');
+    bloque.appendChild(nodo('div', 'tilde ' + (va ? 'va' : 'nova'), va ? '✓' : '✕'));
+    bloque.appendChild(nodo('p', 'listo', (va ? '¡Listo, ' : 'Listo, ') + nombreDe(yo) + (va ? '!' : '.')));
+    bloque.appendChild(nodo('p', 'estado', va
+      ? 'Quedaste anotado para el ' + datos.dia + '.'
+      : 'Avisamos que no venís el ' + datos.dia + '.'));
+    var volver = nodo('button', 'si volver', 'Volver a WhatsApp');
+    volver.type = 'button';
+    var comoVolver = nodo('p', 'estado', 'Tocá atrás en tu celular para volver a WhatsApp.');
+    comoVolver.style.display = 'none';
+    volver.addEventListener('click', function () {
+      // Cerrar la pestaña es lo más directo, pero el navegador no siempre
+      // deja: si sigue abierta, se dice cómo volver, que es lo que anda siempre.
+      try { window.close(); } catch (e) {}
+      setTimeout(function () { comoVolver.style.display = 'block'; }, 300);
+    });
+    bloque.appendChild(volver);
+    bloque.appendChild(comoVolver);
+    caja.appendChild(bloque);
+    var acciones = nodo('div', 'acciones');
+    var cambiar = nodo('button', 'cambiar', 'Cambiar mi respuesta');
+    cambiar.type = 'button';
+    cambiar.addEventListener('click', function () { cambiando = true; pintar(); });
+    var otro = nodo('button', 'cambiar', 'No soy ' + nombreDe(yo));
+    otro.type = 'button';
+    otro.addEventListener('click', function () { soy(null); });
+    acciones.appendChild(cambiar);
+    acciones.appendChild(otro);
+    caja.appendChild(acciones);
   }
   function pintarResumen(caja) {
     caja.innerHTML = '';
@@ -232,7 +295,7 @@ const SCRIPT = `
 export function paginaConvocatoria({ codigo, plantel, fecha, jugadores, respuestas }, nonce) {
   const dia = comoSeLeeElDia(fecha);
   const titulo = `¿Venís el ${dia}?`;
-  const datos = { codigo, jugadores, respuestas };
+  const datos = { codigo, jugadores, respuestas, dia };
 
   return `<!doctype html>
 <html lang="es">
