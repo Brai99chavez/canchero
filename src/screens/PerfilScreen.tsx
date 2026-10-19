@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import { idDeLaVersion } from '../actualizar';
+import { mandarErrorDePrueba } from '../errores';
 import { SILUETA } from '../assets';
 import { Seccion } from '../components/Banner';
 import CampoTexto from '../components/CampoTexto';
@@ -146,6 +147,16 @@ export default function PerfilScreen({
       vigente = false;
     };
   }, []);
+  async function probarElReporte() {
+    const salio = await mandarErrorDePrueba();
+    avisar(
+      salio ? 'Error de prueba enviado' : 'El reporte de errores está apagado',
+      salio
+        ? 'Es sólo una prueba, no pasó nada. Si en el panel de Sentry aparece, el reporte anda.'
+        : 'En esta versión no se mandan errores: es la de desarrollo, o no se pudo mandar ahora.'
+    );
+  }
+
   /** La baja se pide en dos pasos: primero se abre, después se confirma. */
   const [borrando, setBorrando] = useState(false);
   const [claveBaja, setClaveBaja] = useState('');
@@ -865,7 +876,14 @@ export default function PerfilScreen({
           entrar como en Perfil, que son los dos lugares donde alguien la va a
           ir a buscar cuando le pidas "fijate qué versión tenés".
         */}
-        <Text style={styles.version}>{version}</Text>
+        {/*
+          Dejándola apretada se manda un error de prueba. Escondido a
+          propósito: no es para nadie más que para quien mantiene la app, y
+          es la única forma de saber si el reporte de errores llega.
+        */}
+        <Text style={styles.version} onLongPress={probarElReporte}>
+          {version}
+        </Text>
       </ScrollView>
 
       {dialogo}

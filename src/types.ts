@@ -92,6 +92,21 @@ export interface Partido {
   golesA: number | null;
   golesB: number | null;
   actuaciones: Actuacion[];
+  /** Lo que salió la cancha, si alguien lo cargó. */
+  cancha?: Cancha;
+}
+
+/**
+ * Lo que salió alquilar la cancha y quiénes ya pusieron su parte.
+ *
+ * Va en el partido y no en el plantel: cada fecha sale distinto, y lo que se
+ * quiere saber es quién debe la de este sábado, no un saldo que nadie lleva.
+ */
+export interface Cancha {
+  /** En pesos, entero. */
+  total: number;
+  /** Los ids de los que ya pagaron. */
+  pagaron: string[];
 }
 
 /** Cómo quedó configurado el último partido de este plantel. */
@@ -99,6 +114,14 @@ export interface Convocatoria {
   formato: Format;
   seleccionados: string[];
   usarTodos: boolean;
+  /**
+   * Lo último que se leyó del link de "¿quién viene?". Sirve para aplicar
+   * sólo lo que cambió desde entonces, y no pisar lo que se corrigió a mano.
+   */
+  asistencia?: {
+    codigo: string;
+    respuestas: Record<string, boolean>;
+  };
 }
 
 /**

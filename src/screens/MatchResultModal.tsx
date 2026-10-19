@@ -26,9 +26,12 @@ import { Button, PositionPill } from '../components/ui';
 import { EstampaOculta, useCompartirEquipos } from '../compartirEquipos';
 import EditarEquiposModal from './EditarEquiposModal';
 import { colors, spacing } from '../theme';
-import { reparto, tieneResultado } from '../stats';
+import { goleadoresDe, reparto, tieneResultado } from '../stats';
+import { ResultadoParaCompartir } from '../components/ShareCard';
+import PagoDeCancha from '../components/PagoDeCancha';
 import {
   Actuacion,
+  Cancha,
   overall,
   Partido,
   Player,
@@ -68,6 +71,8 @@ interface Props {
    * qué esperar a que haya un resultado.
    */
   onSwap: (unoId: string, otroId: string) => void;
+  /** Lo que salió la cancha y quién pagó. Se guarda en el momento. */
+  onCancha: (cancha: Cancha | undefined) => void;
   onClose: () => void;
   onGuardar: (cambios: {
     fecha: string;
@@ -160,6 +165,20 @@ function Contador({
  */
 type Modo = 'jugadores' | 'lectura' | 'edicion';
 
+/** El resultado guardado, para la imagen. Sin resultado no hay nada que mandar. */
+function resultadoDe(
+  partido: Partido | null
+): ResultadoParaCompartir | undefined {
+  if (!partido || partido.golesA === null || partido.golesB === null) {
+    return undefined;
+  }
+  return {
+    golesA: partido.golesA,
+    golesB: partido.golesB,
+    goleadores: goleadoresDe(partido),
+  };
+}
+
 /** Un aporte ya cargado. Ocupa lo mismo que el campo, así no salta al editar. */
 function Dato({ valor }: { valor: number }) {
   return (
@@ -179,6 +198,7 @@ export default function MatchResultModal({
   plantel,
   medias,
   onSwap,
+  onCancha,
   onClose,
   onGuardar,
 }: Props) {
@@ -311,8 +331,16 @@ export default function MatchResultModal({
    * Va acá arriba, con los demás hooks y antes del corte de abajo: los hooks
    * se llaman siempre y en el mismo orden, o React se pierde. Puesto después
    * del `if`, los dibujos sin partido no lo ejecutarían y los que sí, sí.
+   *
+   * Con el partido jugado se comparte el resultado: es lo que se manda al
+   * grupo después, y los equipos solos ya los tienen desde antes de jugar.
+   * Sale de lo guardado y no de lo que se está escribiendo, que todavía no es
+   * el resultado de nada.
    */
-  const { estampa, compartir } = useCompartirEquipos(split);
+  const { estampa, compartir } = useCompartirEquipos(split, {
+    fecha: partido?.fecha,
+    resultado: resultadoDe(partido),
+  });
 
   if (!partido) return null;
 
@@ -400,6 +428,9 @@ export default function MatchResultModal({
       golesB: golesFinalB,
       actuaciones,
     });
+    // Queda a la vista lo que se guardó, listo para compartir.
+    setModo('lectura');
+    setDesdeJugadores(false);
   }
 
   function handleGuardar() {
@@ -634,6 +665,12 @@ export default function MatchResultModal({
                       : null}
                   </>
                 ) : null}
+
+                <PagoDeCancha
+                  key={partido.id}
+                  partido={partido}
+                  onCambiar={onCancha}
+                />
               </>
             ) : (
               <>
@@ -746,8 +783,9 @@ export default function MatchResultModal({
                   </Text>
                 ) : (
                   <Text style={styles.ayuda}>
-                    Este partido ya está jugado. Tocá EDITAR RESULTADO abajo si hay
-                    algo que corregir.
+                    Este partido ya está jugado. Con COMPARTIR mandás el
+                    resultado al grupo, y con EDITAR RESULTADO corregís lo que
+                    haga falta.
                   </Text>
                 )}
 
@@ -805,11 +843,27 @@ export default function MatchResultModal({
                     )}
                   </>
                 ) : null}
+
+                {/* La plata se arregla muchas veces después de jugar. */}
+                {editando ? null : (
+                  <PagoDeCancha
+                    key={partido.id}
+                    partido={partido}
+                    onCambiar={onCancha}
+                    abierto={false}
+                  />
+                )}
               </>
             )}
           </ScrollView>
 
-          <EstampaOculta referencia={estampa} split={split} plantel={plantel} />
+          <EstampaOculta
+            referencia={estampa}
+            split={split}
+            plantel={plantel}
+            fecha={partido.fecha}
+            resultado={resultadoDe(partido)}
+          />
 
           {/*
             Anclado al pie y no al final de la lista: con el detalle prendido

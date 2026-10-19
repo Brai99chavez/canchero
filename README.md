@@ -19,7 +19,10 @@ Para grupos de amigos que juegan al fútbol 5, 7 u 11: cargás el plantel una ve
 - Fichas de jugadores estilo FIFA, con foto, 5 atributos y posición.
 - Sorteo de equipos parejos según promedio, atributos y posiciones, con la vista de la cancha.
 - Historial de partidos con goles y asistencias, tabla de posiciones y un puntaje que se ajusta con los resultados (tipo Elo).
-- Compartir los equipos como imagen.
+- «¿Quién viene?»: un link para el grupo de WhatsApp donde cada uno toca su nombre y dice si va, sin instalar nada; los que van quedan convocados solos.
+- Compartir los equipos y el resultado como imagen.
+- Dividir lo que salió la cancha y marcar quién ya pagó.
+- Un recordatorio a la mañana siguiente para cargar el resultado.
 - Amigos, chat y envío de planteles entre usuarios, con notificaciones.
 - Cuenta con copia de seguridad y papelera de planteles borrados.
 

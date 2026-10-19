@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
+import { diferencia, Recordatorio } from '../recordatorios';
 import { pedir } from './cliente';
 
 /**
@@ -62,6 +63,20 @@ function novedadDe(datos: unknown): Novedad | null {
   return { tipo, de: typeof d?.de === 'string' ? d.de : undefined };
 }
 
+/**
+ * Android exige un canal declarado o no muestra nada. Declararlo de nuevo no
+ * cambia nada, así que se hace antes de cada cosa que lo necesita: los
+ * recordatorios pueden programarse antes de que se registre el teléfono.
+ */
+async function asegurarCanal(N: Notificaciones): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await N.setNotificationChannelAsync('default', {
+    name: 'CANCHERO',
+    importance: N.AndroidImportance.DEFAULT,
+    lightColor: '#4BF0A5',
+  });
+}
+
 let tokenDeEsteTelefono: string | null = null;
 
 /**
@@ -86,14 +101,7 @@ export async function registrarTelefono(): Promise<void> {
       }),
     });
 
-    if (Platform.OS === 'android') {
-      // Android exige un canal declarado o no muestra nada.
-      await N.setNotificationChannelAsync('default', {
-        name: 'CANCHERO',
-        importance: N.AndroidImportance.DEFAULT,
-        lightColor: '#4BF0A5',
-      });
-    }
+    await asegurarCanal(N);
 
     const { status } = await N.getPermissionsAsync();
     const permiso =
@@ -158,6 +166,115 @@ export function alLlegarNovedad(avisar: (n: Novedad) => void): () => void {
         recibido.remove();
         tocado.remove();
       };
+    } catch {
+      // Sin parte nativa no hay a qué escuchar.
+    }
+  });
+
+  return () => {
+    vivo = false;
+    soltar?.();
+  };
+}
+
+/**
+ * Deja programados en el teléfono los recordatorios de "¿cómo salió?", y
+ * cancela los que ya no van: el partido tiene resultado, se borró o cambió de
+ * día. Qué recordatorios van lo decide `recordatorios.ts`.
+ *
+ * Son avisos del propio teléfono, no del servidor: llegan aunque no haya
+ * señal, y no hace falta que nadie los mande.
+ *
+ * Sin permiso no hace nada y no lo pide: el permiso se pide al registrar el
+ * teléfono, con su propio momento. Pedirlo de nuevo acá sería insistirle a
+ * alguien que ya dijo que no.
+ */
+export async function programarRecordatorios(
+  queTocan: Recordatorio[]
+): Promise<void> {
+  const N = await notificaciones();
+  if (!N) return;
+  try {
+    const { status } = await N.getPermissionsAsync();
+    if (status !== 'granted') return;
+    await asegurarCanal(N);
+
+    const programados = await N.getAllScheduledNotificationsAsync();
+    const { cancelar, programar } = diferencia(
+      programados.map((p) => p.identifier),
+      queTocan
+    );
+    for (const id of cancelar) {
+      await N.cancelScheduledNotificationAsync(id);
+    }
+    for (const r of programar) {
+      await N.scheduleNotificationAsync({
+        identifier: r.id,
+        content: {
+          title: r.titulo,
+          body: r.cuerpo,
+          sound: 'default',
+          data: { tipo: 'resultado', plantelId: r.plantelId, partidoId: r.partidoId },
+        },
+        trigger: {
+          type: N.SchedulableTriggerInputTypes.DATE,
+          date: r.cuando,
+          channelId: 'default',
+        },
+      });
+    }
+  } catch {
+    // Un recordatorio que no se pudo programar no puede romper nada: es una
+    // ayuda, y la próxima vez que cambien los partidos se vuelve a intentar.
+  }
+}
+
+/** El partido al que lleva un recordatorio. */
+export interface PedidoDeResultado {
+  plantelId: string;
+  partidoId: string;
+}
+
+function pedidoDe(datos: unknown): PedidoDeResultado | null {
+  const d = datos as Record<string, unknown> | null;
+  if (d?.tipo !== 'resultado') return null;
+  if (typeof d.plantelId !== 'string' || typeof d.partidoId !== 'string') {
+    return null;
+  }
+  return { plantelId: d.plantelId, partidoId: d.partidoId };
+}
+
+/**
+ * Avisa cuando alguien toca un recordatorio, para abrir ese partido directo
+ * en el resultado.
+ *
+ * Las dos formas hacen falta, y la de la app cerrada es la más común: el
+ * aviso llega a la mañana, con la app sin abrir desde el partido. En ese caso
+ * el toque ya pasó cuando esto se engancha, y lo único que queda es preguntar
+ * cuál fue el último.
+ */
+export function alTocarRecordatorio(
+  abrir: (pedido: PedidoDeResultado) => void
+): () => void {
+  let soltar: (() => void) | null = null;
+  let vivo = true;
+
+  notificaciones().then((N) => {
+    if (!N || !vivo) return;
+    try {
+      const ultimo = N.getLastNotificationResponse();
+      const pedido = pedidoDe(ultimo?.notification.request.content.data);
+      if (pedido) {
+        // Se olvida enseguida: si no, cada vez que se vuelve a montar la
+        // pantalla abriría de nuevo el mismo partido.
+        N.clearLastNotificationResponse();
+        abrir(pedido);
+      }
+      const tocado = N.addNotificationResponseReceivedListener((r) => {
+        const p = pedidoDe(r.notification.request.content.data);
+        if (p) abrir(p);
+      });
+      soltar = () => tocado.remove();
     } catch {
       // Sin parte nativa no hay a qué escuchar.
     }

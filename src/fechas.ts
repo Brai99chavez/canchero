@@ -29,7 +29,17 @@ export function comoSeLee(fecha: Date): string {
   if (dias === 0) return 'Hoy';
   if (dias === -1) return 'Ayer';
   if (dias === 1) return 'Mañana';
+  return diaYMes(fecha);
+}
 
+/**
+ * "20 de septiembre", siempre con el día escrito.
+ *
+ * Para lo que se lee otro día, como la imagen que se manda al grupo: ahí
+ * "Hoy" deja de ser verdad al día siguiente. A mano y no con
+ * `toLocaleDateString`, que cada motor escribe a su manera ("20-septiembre").
+ */
+export function diaYMes(fecha: Date): string {
   const texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`;
   // El año sólo cuando no es el que corre: el resto del tiempo es ruido.
   return fecha.getFullYear() === new Date().getFullYear()

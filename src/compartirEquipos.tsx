@@ -2,8 +2,8 @@ import * as Sharing from 'expo-sharing';
 import React, { RefObject, useCallback, useRef } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
-import ShareCard from './components/ShareCard';
-import { reparto } from './stats';
+import ShareCard, { ResultadoParaCompartir } from './components/ShareCard';
+import { reparto, textoDeGoleadores } from './stats';
 import { Player, TeamSplit } from './types';
 
 /**
@@ -21,12 +21,29 @@ import { Player, TeamSplit } from './types';
  * puede hacer o el teléfono no tiene con qué compartir un archivo.
  */
 
+/** Lo que acompaña a los equipos: el día y, si ya se jugó, cómo salió. */
+export interface ExtraParaCompartir {
+  fecha?: string;
+  resultado?: ResultadoParaCompartir;
+}
+
 /** El texto plano, que es el plan B si la imagen no se puede generar. */
-export function textoDeEquipos(split: TeamSplit): string {
+export function textoDeEquipos(
+  split: TeamSplit,
+  { resultado }: ExtraParaCompartir = {}
+): string {
   // Sin puntajes, igual que la imagen: esto va al grupo.
   const line = (p: Player) => `• ${p.nombre} (${p.posicion})`;
+  const cabecera = resultado
+    ? [
+        `Equipo A ${resultado.golesA} – ${resultado.golesB} Equipo B`,
+        ...(resultado.goleadores.length > 0
+          ? [`Goles: ${textoDeGoleadores(resultado.goleadores)}`]
+          : []),
+      ]
+    : [`${reparto(split.teamA.length, split.teamB.length)} — equipos armados`];
   const parts = [
-    `${reparto(split.teamA.length, split.teamB.length)} — equipos armados`,
+    ...cabecera,
     '',
     'EQUIPO A',
     ...split.teamA.map(line),
@@ -49,15 +66,21 @@ export function textoDeEquipos(split: TeamSplit): string {
  * estar montada —fuera de la pantalla, pero montada— antes de que alguien
  * toque compartir.
  */
-export function useCompartirEquipos(split: TeamSplit | null) {
+export function useCompartirEquipos(
+  split: TeamSplit | null,
+  extra: ExtraParaCompartir = {}
+) {
   const estampa = useRef<View>(null);
+  const { fecha, resultado } = extra;
 
   const compartir = useCallback(async () => {
     if (!split) return;
 
     const mandarTexto = async () => {
       try {
-        await Share.share({ message: textoDeEquipos(split) });
+        await Share.share({
+          message: textoDeEquipos(split, { fecha, resultado }),
+        });
       } catch {
         // El usuario canceló el diálogo de compartir.
       }
@@ -75,13 +98,13 @@ export function useCompartirEquipos(split: TeamSplit | null) {
       }
       await Sharing.shareAsync(uri, {
         mimeType: 'image/png',
-        dialogTitle: 'Compartir equipos',
+        dialogTitle: resultado ? 'Compartir resultado' : 'Compartir equipos',
       });
     } catch {
       // Si la captura falla (o el usuario cancela), queda el texto.
       await mandarTexto();
     }
-  }, [split]);
+  }, [split, fecha, resultado]);
 
   return { estampa, compartir };
 }
@@ -91,17 +114,24 @@ export function EstampaOculta({
   referencia,
   split,
   plantel,
+  fecha,
+  resultado,
 }: {
   referencia: RefObject<View | null>;
   split: TeamSplit | null;
   plantel: string;
-}) {
+} & ExtraParaCompartir) {
   if (!split) return null;
 
   return (
     <View style={styles.fuera} pointerEvents="none">
       <View ref={referencia} collapsable={false}>
-        <ShareCard split={split} plantel={plantel} />
+        <ShareCard
+          split={split}
+          plantel={plantel}
+          fecha={fecha}
+          resultado={resultado}
+        />
       </View>
     </View>
   );

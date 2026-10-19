@@ -212,3 +212,31 @@ alter table planteles add column if not exists restaurado_en timestamptz;
 -- fila tiene la misma forma que una lápida sin serlo. Con eso, el plantel le
 -- quedaba invisible y sin poder recuperarse al que no hizo nada malo.
 alter table planteles add column if not exists definitivo boolean not null default false;
+
+-- Las convocatorias por link: "¿quién viene el sábado?".
+--
+-- El que organiza manda un link al grupo de WhatsApp y cada uno toca su nombre
+-- y "voy" o "no voy", sin instalar nada ni tener cuenta. La app del que
+-- organiza lee las respuestas y arma la convocatoria sola.
+--
+-- El código es lo único que protege la página, por eso es largo y al azar:
+-- quien lo tiene es porque estaba en el grupo. Los nombres no se guardan acá,
+-- se leen del plantel cada vez: un jugador que se agrega después aparece en el
+-- link que ya se mandó.
+--
+-- `respuestas` es { "<id del jugador>": { "va": true, "cuando": "..." } }.
+-- Una sola abierta por plantel: abrir otra cierra la anterior.
+create table if not exists convocatorias (
+  codigo      text        primary key,
+  dueno       text        not null,
+  plantel_id  text        not null,
+  fecha       text        not null,
+  respuestas  jsonb       not null default '{}'::jsonb,
+  creada      timestamptz not null default now(),
+  actualizada timestamptz not null default now(),
+  cerrada     boolean     not null default false,
+  constraint fecha_de_convocatoria check (fecha ~ '^\d{4}-\d{2}-\d{2}$'),
+  foreign key (dueno, plantel_id) references planteles (dueno, id) on delete cascade
+);
+create index if not exists convocatorias_abiertas
+  on convocatorias (dueno, plantel_id) where not cerrada;

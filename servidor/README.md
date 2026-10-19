@@ -77,6 +77,18 @@ Cloudflare Workers, que arranca instantáneo. El código es el mismo.
 | `GET /planteles` | Los planteles guardados. |
 | `PUT /planteles` | Sube todos de una. Es un upsert: nunca borra. |
 | `DELETE /planteles/:id` | Marca el plantel como borrado. |
+| `POST /convocatorias` | Abre el link de «¿quién viene?» de un plantel para un día (o devuelve el que ya está abierto para ese día). |
+| `GET /convocatorias?plantel=` | El link abierto de ese plantel, con quién contestó qué. |
+| `DELETE /convocatorias/:codigo` | Cierra el link. |
+| `GET /v/:codigo` | **Sin sesión.** La página que se abre desde WhatsApp: tocás tu nombre y decís si vas. |
+| `POST /v/:codigo` | **Sin sesión.** Lo que contesta esa página. |
+
+**El link de «¿quién viene?» no pide cuenta**, a propósito: si para anotarse
+hubiera que bajar la app, la mitad del grupo contestaría por WhatsApp. Lo que
+lo protege es el código, de 72 bits al azar. La página muestra sólo los nombres
+del plantel —ni fotos ni puntajes—, todo escapado, y sólo corre su propio
+script (`nonce` en la política de contenido). Se prueba con
+`npm run prueba:convocatorias`.
 
 ## Decisiones que no son obvias
 

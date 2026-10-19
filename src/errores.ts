@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
+import { idDeLaVersion } from './actualizar';
 
 /**
  * El reporte de errores.
@@ -53,6 +54,14 @@ export function prenderElReporte(): void {
          */
         release: `canchero@${Constants.expoConfig?.version ?? '0.0.0'}`,
       });
+      /*
+       * Y cuál de las actualizaciones por aire. El `release` es el mismo para
+       * todas —el número de la app no cambia— así que sin esto un error de la
+       * versión de hoy y uno de la de hace un mes se ven iguales.
+       */
+      idDeLaVersion()
+        .then((id) => S.setTag('actualizacion', id ?? 'la del APK'))
+        .catch(() => {});
     })
     .catch(() => {
       // Que no se pueda reportar errores no puede ser, justamente, un error.
@@ -71,4 +80,28 @@ export function quienEs(id: string | null): void {
 /** Un error que se atajó pero conviene mirar. */
 export function avisarDelError(error: unknown): void {
   modulo?.captureException(error);
+}
+
+/**
+ * Un error de mentira, para saber si el reporte llega.
+ *
+ * Hace falta porque cero errores en el panel puede querer decir dos cosas
+ * opuestas: que la app anda, o que el reporte no está llegando. Sin una prueba
+ * no hay forma de distinguirlas, y la segunda es justo la que no avisa.
+ *
+ * Devuelve si quedó en camino. `false` es que el reporte está apagado —Expo
+ * Go, desarrollo, sin DSN— o que no se pudo ni guardar para mandar.
+ */
+export async function mandarErrorDePrueba(): Promise<boolean> {
+  if (!modulo) return false;
+  modulo.captureException(
+    new Error('Prueba del reporte de errores: no pasó nada, es a propósito')
+  );
+  try {
+    // En el teléfono esto lo deja guardado y el SDK lo manda apenas puede,
+    // aunque no haya señal en este momento.
+    return await modulo.flush();
+  } catch {
+    return false;
+  }
 }

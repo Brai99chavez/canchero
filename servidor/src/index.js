@@ -14,6 +14,19 @@ import {
 } from './amigos.js';
 import { guardarDispositivo, olvidarDispositivo } from './avisos.js';
 import {
+  abrirConvocatoria,
+  cerrarConvocatoria,
+  convocatoriaAbierta,
+  convocatoriaPublica,
+  responder,
+} from './convocatorias.js';
+import {
+  encabezados,
+  nonceNuevo,
+  paginaConvocatoria,
+  paginaVencida,
+} from './paginaConvocatoria.js';
+import {
   borrarParaSiempre,
   DIAS_DE_PAPELERA,
   EN_LA_PAPELERA,
@@ -175,6 +188,14 @@ app.use('/envios/*', async (c, siguiente) => {
 });
 
 app.use('/cuenta/*', async (c, siguiente) => {
+  const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
+  c.set('usuario', sesion.user);
+  await siguiente();
+});
+
+// Cubre también `/convocatorias` a secas, igual que `/planteles/*`.
+app.use('/convocatorias/*', async (c, siguiente) => {
   const sesion = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!sesion?.user) return c.json({ error: 'Sesión no válida.' }, 401);
   c.set('usuario', sesion.user);
@@ -833,6 +854,80 @@ app.delete('/planteles/:id', async (c) => {
   }
 
   return c.json({ ok: true, definitivo });
+});
+
+/**
+ * El link que se manda al grupo. Con BASE_URL, que es la dirección pública:
+ * la del pedido, detrás del proxy de Render, puede venir como http interno.
+ */
+function linkDe(c, codigo) {
+  const base = (process.env.BASE_URL ?? new URL(c.req.url).origin).replace(/\/+$/, '');
+  return `${base}/v/${codigo}`;
+}
+
+/**
+ * Abre la convocatoria de un plantel para un día: "¿quién viene el sábado?".
+ * Si ya había una para ese día devuelve la misma, con lo que ya contestaron.
+ */
+app.post('/convocatorias', async (c) => {
+  const usuario = c.get('usuario');
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    const convocatoria = await abrirConvocatoria(
+      usuario.id,
+      cuerpo?.plantelId,
+      cuerpo?.fecha
+    );
+    return c.json({ convocatoria: { ...convocatoria, url: linkDe(c, convocatoria.codigo) } });
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
+});
+
+/** La que está abierta para un plantel, con las respuestas. */
+app.get('/convocatorias', async (c) => {
+  const usuario = c.get('usuario');
+  const plantelId = c.req.query('plantel');
+  if (!plantelId) return c.json({ error: 'Falta el plantel.' }, 400);
+  const convocatoria = await convocatoriaAbierta(usuario.id, plantelId);
+  return c.json({
+    convocatoria: convocatoria
+      ? { ...convocatoria, url: linkDe(c, convocatoria.codigo) }
+      : null,
+  });
+});
+
+/** Cierra el link: el que lo abra después ve que ya no está activo. */
+app.delete('/convocatorias/:codigo', async (c) => {
+  const usuario = c.get('usuario');
+  await cerrarConvocatoria(usuario.id, c.req.param('codigo'));
+  return c.json({ ok: true });
+});
+
+/**
+ * La página del link, sin sesión: la abre cualquiera del grupo desde
+ * WhatsApp. Lo que la protege es que el código no se puede adivinar.
+ */
+app.get('/v/:codigo', async (c) => {
+  const codigo = c.req.param('codigo');
+  const nonce = nonceNuevo();
+  const datos = await convocatoriaPublica(codigo);
+  if (!datos) {
+    return c.body(paginaVencida(), 404, encabezados(nonce));
+  }
+  return c.body(paginaConvocatoria({ codigo, ...datos }, nonce), 200, encabezados(nonce));
+});
+
+/** "Voy" o "no voy", desde esa página. */
+app.post('/v/:codigo', async (c) => {
+  const cuerpo = await c.req.json().catch(() => null);
+  try {
+    return c.json(
+      await responder(c.req.param('codigo'), cuerpo?.jugadorId, cuerpo?.va)
+    );
+  } catch (error) {
+    return c.json({ error: error.message }, error.status ?? 500);
+  }
 });
 
 app.onError((error, c) => {

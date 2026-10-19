@@ -174,3 +174,31 @@ export function bancoPrevio(partidos: Partido[]): Record<string, number> {
   }
   return cuenta;
 }
+
+/** Uno que metió goles en un partido, con el nombre que tenía ese día. */
+export interface Goleador {
+  nombre: string;
+  goles: number;
+}
+
+/**
+ * Los que metieron goles, del que más hizo al que menos. A igual cantidad,
+ * por nombre, así la lista sale siempre igual y no según el orden en que se
+ * cargaron.
+ */
+export function goleadoresDe(p: Partido): Goleador[] {
+  return p.actuaciones
+    .filter((a) => a.goles > 0)
+    .map((a) => ({ nombre: p.nombres[a.jugadorId] ?? 'Jugador', goles: a.goles }))
+    .sort((a, b) => b.goles - a.goles || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+/**
+ * "Juan (2), Pedro, Luis": el número sólo cuando es más de uno. Así se escribe
+ * en el grupo, y "Pedro (1)" al lado de "Juan (2)" es ruido.
+ */
+export function textoDeGoleadores(lista: Goleador[]): string {
+  return lista
+    .map((g) => (g.goles > 1 ? `${g.nombre} (${g.goles})` : g.nombre))
+    .join(', ');
+}

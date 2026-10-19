@@ -1,6 +1,15 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AppState,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ajuste, mediaDe } from '../elo';
+import PanelAsistencia from '../components/PanelAsistencia';
+import { Asistencia } from '../useAsistencia';
 import { Objetivo } from '../components/Guia';
 import CampoTexto from '../components/CampoTexto';
 import Opcion from '../components/Opcion';
@@ -27,6 +36,8 @@ interface Props {
   onSelectAll: (ids: string[]) => void;
   onClear: () => void;
   onBuild: () => void;
+  /** El link de "¿quién viene?" de este plantel. */
+  asistencia: Asistencia;
 }
 
 /** Una salida del cartel amarillo. Chico, pero claramente tocable. */
@@ -66,8 +77,25 @@ export default function MatchScreen({
   onSelectAll,
   onClear,
   onBuild,
+  asistencia,
 }: Props) {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  /*
+   * Las respuestas del link se leen al entrar acá y cada vez que se vuelve a
+   * la app: lo típico es mandar el link, salir a WhatsApp a ver qué dicen, y
+   * volver. Nada de un reloj preguntando cada tantos segundos: despertaría al
+   * servidor todo el día para contestar que no hay nada nuevo.
+   */
+  const { actualizar } = asistencia;
+  useEffect(() => {
+    actualizar();
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') actualizar();
+    });
+    return () => suscripcion.remove();
+  }, [actualizar]);
+  const respuestas = asistencia.link?.respuestas;
   const needed = format * 2;
   const count = selectedIds.length;
 
@@ -185,6 +213,10 @@ export default function MatchScreen({
           activa={usarTodos}
           onPress={() => elegir('todos')}
         />
+      </View>
+
+      <View style={styles.asistencia}>
+        <PanelAsistencia asistencia={asistencia} jugadores={players} />
       </View>
 
       <View style={styles.counterRow}>
@@ -306,6 +338,13 @@ export default function MatchScreen({
               <Text style={styles.name} numberOfLines={1}>
                 {item.nombre}
               </Text>
+              {/* Lo que contestó en el link, para entender por qué quedó
+                  marcado o no sin tener que abrir nada. */}
+              {respuestas?.[item.id] === true ? (
+                <Text style={styles.va}>VA</Text>
+              ) : respuestas?.[item.id] === false ? (
+                <Text style={styles.noVa}>NO VA</Text>
+              ) : null}
               <PositionPill position={item.posicion} />
               <RatingBadge value={mediaDe(item, ajustes)} size={32} />
             </Presionable>
@@ -391,6 +430,19 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   formatRowPrimera: { marginTop: spacing.xs },
+  asistencia: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  va: {
+    color: colors.primary,
+    fontSize: 10,
+    fontFamily: 'Barlow_900Black',
+    letterSpacing: 0.5,
+  },
+  noVa: {
+    color: colors.danger,
+    fontSize: 10,
+    fontFamily: 'Barlow_900Black',
+    letterSpacing: 0.5,
+  },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { limpiarCancha } from './cancha';
 import {
   Actuacion,
   Convocatoria,
@@ -124,6 +125,7 @@ function sanitizePartido(raw: any): Partido | null {
           .map(sanitizeActuacion)
           .filter((a: Actuacion | null): a is Actuacion => a !== null)
       : [],
+    cancha: limpiarCancha(raw.cancha),
   };
 }
 
@@ -132,7 +134,19 @@ function sanitizeConvocatoria(raw: any): Convocatoria {
     formato: FORMATS.includes(raw?.formato) ? raw.formato : 5,
     seleccionados: ids(raw?.seleccionados),
     usarTodos: raw?.usarTodos === true,
+    asistencia: sanitizeAsistencia(raw?.asistencia),
   };
+}
+
+function sanitizeAsistencia(raw: any): Convocatoria['asistencia'] {
+  if (typeof raw?.codigo !== 'string') return undefined;
+  const respuestas: Record<string, boolean> = {};
+  if (raw.respuestas && typeof raw.respuestas === 'object') {
+    for (const [id, va] of Object.entries(raw.respuestas)) {
+      if (typeof va === 'boolean') respuestas[id] = va;
+    }
+  }
+  return { codigo: raw.codigo, respuestas };
 }
 
 function sanitizeSorteo(raw: any): Sorteo | null {

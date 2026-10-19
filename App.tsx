@@ -64,8 +64,13 @@ import { alConfirmar, alRecuperar, Recuperacion } from './src/nube/enlaces';
 import { Amigo, listarAmigos } from './src/nube/amigos';
 import {
   alLlegarNovedad,
+  alTocarRecordatorio,
+  PedidoDeResultado,
+  programarRecordatorios,
   registrarTelefono,
 } from './src/nube/avisos';
+import { recordatoriosPara } from './src/recordatorios';
+import { useAsistencia } from './src/useAsistencia';
 import {
   aceptarEnvio,
   Envio,
@@ -86,7 +91,12 @@ import {
   puedeAgregarJugador,
   puedeCrearPlantel,
 } from './src/plan';
-import { bancoPrevio, duplasPrevias, resumenDe } from './src/stats';
+import {
+  bancoPrevio,
+  duplasPrevias,
+  resumenDe,
+  tieneResultado,
+} from './src/stats';
 import {
   borrarTodo,
   EstadoGuia,
@@ -100,6 +110,7 @@ import {
 import { colors, spacing } from './src/theme';
 import {
   Actuacion,
+  Cancha,
   DEFAULT_STATS,
   Format,
   Partido,
@@ -634,6 +645,35 @@ function Root() {
     [activoId]
   );
 
+  /**
+   * Lo mismo que `editarPlantel`, pero para uno en particular y no el abierto.
+   *
+   * Hace falta para lo que llega de la red: la respuesta puede llegar cuando
+   * ya se cambió de plantel, y tiene que ir al que la pidió. Si el cambio
+   * devuelve el mismo plantel es que no había nada que cambiar, y no se le
+   * mueve la fecha: si no, se subiría de gusto.
+   */
+  const editarPlantelPorId = useCallback(
+    (id: string, cambio: (plantel: Squad) => Squad) => {
+      setPlanteles((prev) =>
+        prev.map((p) => {
+          if (p.id !== id) return p;
+          const nuevo = cambio(p);
+          return nuevo === p
+            ? p
+            : { ...nuevo, actualizado: new Date().toISOString() };
+        })
+      );
+    },
+    []
+  );
+
+  /** El link de "¿quién viene?" del plantel abierto. */
+  const asistencia = useAsistencia(
+    activo && activos.has(activo.id) ? activo.id : null,
+    editarPlantelPorId
+  );
+
   const editarActivo = useCallback(
     (cambio: (jugadores: Player[]) => Player[]) => {
       editarPlantel((p) => ({ ...p, jugadores: cambio(p.jugadores) }));
@@ -921,6 +961,17 @@ function Root() {
     [resultadoId, editarPlantel]
   );
 
+  /** La cancha del partido abierto: lo que salió y quién pagó. */
+  const handleCancha = useCallback(
+    (cancha: Cancha | undefined) => {
+      if (!resultadoId) return;
+      editarPartidos((prev) =>
+        prev.map((x) => (x.id === resultadoId ? { ...x, cancha } : x))
+      );
+    },
+    [resultadoId, editarPartidos]
+  );
+
   const handleGuardarResultado = useCallback(
     (cambios: {
       fecha: string;
@@ -939,7 +990,12 @@ function Root() {
         // El partido terminó: el sorteo en pantalla ya no tiene sentido.
         sorteo: p.sorteo?.partidoId === resultadoId ? null : p.sorteo,
       }));
-      setResultadoId(null);
+      /*
+       * La pantalla del partido queda abierta, ahora mostrando el resultado:
+       * es el momento en que se lo manda al grupo, y cerrarla obligaba a ir a
+       * buscarlo al historial para compartirlo. Detrás ya queda el historial,
+       * que es donde se vuelve con «Volver».
+       */
       setTab('historial');
     },
     [resultadoId, editarPlantel]
@@ -1006,11 +1062,26 @@ function Root() {
     setVista('plantel');
   }, []);
 
-  /** La config se aplica entera al tocar Guardar, no campo por campo. */
+  /**
+   * La config se aplica entera al tocar Guardar, no campo por campo.
+   *
+   * Con la fecha de cambio, como todo lo que toca un plantel: sin ella el
+   * nombre nuevo quedaba sólo en este teléfono, porque el guardado automático
+   * mira esa fecha para saber qué subir. No pasa por `editarPlantel` porque se
+   * puede configurar un plantel que no es el abierto.
+   */
   const handleGuardarConfig = useCallback(
     (id: string, cambios: CambiosPlantel) => {
       setPlanteles((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, nombre: cambios.nombre } : p))
+        prev.map((p) =>
+          p.id === id && p.nombre !== cambios.nombre
+            ? {
+                ...p,
+                nombre: cambios.nombre,
+                actualizado: new Date().toISOString(),
+              }
+            : p
+        )
       );
       setConfigId(null);
     },
@@ -1271,6 +1342,49 @@ function Root() {
     intentosFallidos,
     sincronizarAhora,
   ]);
+
+  /*
+   * Los recordatorios de "¿cómo salió?": se vuelven a acomodar cada vez que
+   * cambian los partidos —uno nuevo, uno con resultado, uno borrado—, con un
+   * respiro de por medio por lo mismo que el guardado: mover un deslizador son
+   * veinte cambios seguidos y no hace falta reprogramar veinte veces.
+   */
+  useEffect(() => {
+    if (!ready) return;
+    const reloj = setTimeout(
+      () => programarRecordatorios(recordatoriosPara(planteles, new Date(), activos)),
+      2000
+    );
+    return () => clearTimeout(reloj);
+  }, [ready, planteles, activos]);
+
+  /**
+   * El partido que pidió abrir un recordatorio tocado. Queda esperando hasta
+   * que los planteles estén cargados: con la app cerrada, el toque llega antes
+   * de que se lea nada del disco.
+   */
+  const [pedidoDeResultado, setPedidoDeResultado] =
+    useState<PedidoDeResultado | null>(null);
+
+  useEffect(() => alTocarRecordatorio(setPedidoDeResultado), []);
+
+  useEffect(() => {
+    if (!ready || !pedidoDeResultado) return;
+    const { plantelId, partidoId } = pedidoDeResultado;
+    const plantel = planteles.find((p) => p.id === plantelId);
+    // Todavía no está: puede estar llegando de la nube. Se sigue esperando.
+    if (!plantel) return;
+    setPedidoDeResultado(null);
+    // Ya no se puede abrir —se borró, ya tiene resultado o quedó fuera del
+    // plan—: se abre la app y nada más, sin llevar a un lugar roto.
+    const partido = plantel.partidos.find((x) => x.id === partidoId);
+    if (!activos.has(plantelId) || !partido || tieneResultado(partido)) return;
+    setActivoId(plantelId);
+    setVista('plantel');
+    setTab('activos');
+    setAbrirEn('resultado');
+    setResultadoId(partidoId);
+  }, [ready, pedidoDeResultado, planteles, activos]);
 
   /*
    * Y al entrar, una vuelta para traer lo que se haya hecho en otro teléfono.
@@ -1575,6 +1689,7 @@ function Root() {
             onSelectAll={setSelectedIds}
             onClear={() => setSelectedIds([])}
             onBuild={handleBuild}
+            asistencia={asistencia}
           />
         )}
       </Aparecer>
@@ -1674,6 +1789,7 @@ function Root() {
         plantel={activo?.nombre ?? 'Plantel'}
         medias={medias}
         onSwap={handleCambiarEquipos}
+        onCancha={handleCancha}
         detalle={activo?.detalle === true}
         onDetalle={(valor) =>
           editarPlantel((p) => ({ ...p, detalle: valor }))
