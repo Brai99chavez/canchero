@@ -38,7 +38,7 @@ interface Limites {
 }
 
 const LIMITES: Record<Plan, Limites> = {
-  gratis: { planteles: 2, jugadores: 24 },
+  gratis: { planteles: 2, jugadores: 35 },
   pro: { planteles: Infinity, jugadores: Infinity },
 };
 

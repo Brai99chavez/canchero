@@ -189,18 +189,35 @@ export function hace(desde: number, ahora: number): string {
   return `hace ${Math.floor(minutos / 60)} h`;
 }
 
-/** El mensaje que se manda al grupo con el link. */
+/**
+ * El mensaje que se manda al grupo con el link.
+ *
+ * El link en su propio renglón, que no es capricho: pegado al final de una
+ * frase hay que apuntarle al medio de un párrafo para tocarlo, y WhatsApp lo
+ * previsualiza mejor cuando queda solo.
+ */
 export function textoDeInvitacion(fecha: string, url: string): string {
-  return (
-    `¿Quién viene al fútbol del ${comoSeLeeElDia(fecha)}? ` +
-    `Tocá tu nombre y anotate, es un segundo: ${url}`
-  );
+  return [
+    `¿Quién viene al fútbol del ${comoSeLeeElDia(fecha)}?`,
+    'Tocá tu nombre y anotate, es un segundo:',
+    url,
+  ].join('\n');
 }
 
-/** El recordatorio para los que no contestaron, con sus nombres. */
+/**
+ * El recordatorio para los que no contestaron, con sus nombres.
+ *
+ * Numerados y uno por renglón, igual que el mensaje de la plata: con los
+ * nombres adentro de la frase hay que leerla entera para saber si uno está, y
+ * el que no se encuentra no se da por aludido.
+ */
 export function textoParaLosQueFaltan(fecha: string, nombres: string[], url: string): string {
-  return (
-    `Faltan contestar ${enLista(nombres)} para el fútbol del ${comoSeLeeElDia(fecha)}. ` +
-    `Anótense acá, es un segundo: ${url}`
-  );
+  return [
+    `Faltan contestar para el fútbol del ${comoSeLeeElDia(fecha)}:`,
+    '',
+    ...nombres.map((nombre, i) => `${i + 1}- ${nombre}`),
+    '',
+    'Anótense acá, es un segundo:',
+    url,
+  ].join('\n');
 }

@@ -1,4 +1,4 @@
-import { comoSeLeeElDia, enLista, fechaDelDia } from './asistencia';
+import { comoSeLeeElDia, fechaDelDia } from './asistencia';
 import { Cancha, Partido } from './types';
 
 /**
@@ -61,26 +61,50 @@ export function estadoDeLaCancha(partido: Partido): EstadoDeLaCancha | null {
 }
 
 /**
- * El mensaje para pedir la plata en el grupo: cuánto pone cada uno, quiénes
- * faltan y a qué alias. Null si ya pagaron todos o no hay cancha cargada.
+ * El billete del que ya puso. Uno solo y siempre el mismo: la lista se lee
+ * mirando qué renglones NO lo tienen, y eso funciona porque todos los que sí
+ * están marcados igual.
+ */
+const YA_PUSO = '💵';
+
+/**
+ * El mensaje para pedir la plata en el grupo. Null si ya pagaron todos o no
+ * hay cancha cargada.
  *
- * Con los nombres de los que faltan y no con un "faltan algunos": nadie se
- * da por aludido si no lo nombran, y es la única forma de que el que ya pagó
- * no transfiera dos veces.
+ * Arriba la plata —cuánto y a qué alias— y abajo la lista entera numerada,
+ * con el billete al lado del que ya puso. Es como se maneja un grupo de
+ * picado en WhatsApp, y no es casualidad que sea así: antes esto era un
+ * párrafo corrido, "faltan pagar Lautaro, Gonzalo y Joaquín", y un párrafo en
+ * el teléfono se lee como un bloque. Nadie se busca adentro de un renglón. Un
+ * nombre por línea se escanea de un vistazo y el que no tiene billete salta
+ * solo.
+ *
+ * Van todos y no nada más los que deben: el que ya pagó también quiere ver
+ * que está anotado, así el mensaje sirve de comprobante y no sólo de
+ * recordatorio. Y es la única forma de que nadie transfiera dos veces.
  */
 export function textoParaCobrar(partido: Partido, alias?: string): string | null {
   const estado = estadoDeLaCancha(partido);
   if (!estado || estado.faltan.length === 0) return null;
+
   const dia = new Date(partido.fecha);
   const cuando = Number.isNaN(dia.getTime())
-    ? ''
-    : ` del ${comoSeLeeElDia(fechaDelDia(dia))}`;
-  const nombres = estado.faltan.map((id) => partido.nombres[id] ?? 'Jugador');
+    ? 'La cancha'
+    : `La cancha del ${comoSeLeeElDia(fechaDelDia(dia))}`;
+
+  const lista = quienesPonen(partido).map((id, i) => {
+    const nombre = partido.nombres[id] ?? 'Jugador';
+    const fila = `${i + 1}- ${nombre}`;
+    return estado.pagaron.includes(id) ? `${fila} ${YA_PUSO}` : fila;
+  });
+
   return [
-    `La cancha${cuando}: ${enPesos(estado.parte)} cada uno.`,
-    `Falta${nombres.length === 1 ? '' : 'n'} pagar ${enLista(nombres)}.`,
+    cuando,
+    `${enPesos(estado.parte)} cada uno`,
     ...(alias ? [`Alias: ${alias}`] : []),
-  ].join(' ');
+    '',
+    ...lista,
+  ].join('\n');
 }
 
 /** Marca o desmarca que alguien pagó. */
